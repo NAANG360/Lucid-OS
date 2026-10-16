@@ -1,0 +1,26 @@
+# Define the chroot daemon
+service lucid_desktop /system/bin/lucid_desktop.sh
+    class main
+    user root
+    group root
+    seclabel u:r:su:s0
+    disabled
+    oneshot
+
+# Start the environment when casting is detected
+on property:sys.lucid.casting=1
+    start lucid_desktop
+    setprop persist.lucid.root 1
+
+# Kill it when casting stops
+on property:sys.lucid.casting=0
+    stop lucid_desktop
+    setprop persist.lucid.root 0
+
+# Stealth Root Gatekeeper Listener
+on property:persist.lucid.root=*
+    exec u:r:su:s0 root root -- /system/bin/lucid_root_toggle.sh
+
+# LucidOS first-boot setup
+on property:sys.boot_completed=1
+    exec u:r:su:s0 root root -- /system/bin/lucid_firstboot.sh

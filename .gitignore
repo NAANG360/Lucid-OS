@@ -1,0 +1,9 @@
+.git/
+*.tmp
+*.temp
+*.log
+.DS_Store
+Thumbs.db
+
+# Sensitive Android authentication material
+system-tree/adb_keys
