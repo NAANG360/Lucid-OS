@@ -26,6 +26,12 @@ jobs:
         with:
           packages: 'build-tools;35.0.0'
 
+      - name: Generate Figma-matched Material tonal palette
+        working-directory: theme
+        run: |
+          npm install --no-audit --no-fund
+          npm run generate-palette
+
       - name: Compile and validate framework overlay
         shell: bash
         run: |
