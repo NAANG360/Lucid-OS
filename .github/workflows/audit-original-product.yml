@@ -1,0 +1,110 @@
+name: Audit Original Product Partition
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/audit-original-product.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install audit tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq brotli e2fsprogs
+          python3 -m pip install --quiet brotli
+      - name: Download original payload and current ROM
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p report payload images
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > /tmp/releases.json
+          python3 - <<'PY'
+          import json
+          rs=json.load(open('/tmp/releases.json'))
+          def release(tag):
+              return next((r for r in rs if r.get('tag_name')==tag),None)
+          src=release('original-product-analysis')
+          cur=release('tobelucid-source-v1')
+          if not src or not cur:
+              raise SystemExit('Required source or ROM release is missing from the Releases API.')
+          def asset(r,n):
+              a=next((a for a in r.get('assets',[]) if a.get('name')==n),None)
+              if not a: raise SystemExit(f'Missing asset {n} in {r.get("tag_name")}')
+              return a['id']
+          json.dump({
+              'original_new':asset(src,'product.new.dat.br'),
+              'original_list':asset(src,'product.transfer.list'),
+              'rom_zip':asset(cur,'LucidOS-unsigned.zip')
+          },open('/tmp/ids.json','w'))
+          for r in (src,cur):
+              print(f"release={r['tag_name']} draft={r['draft']}")
+              for a in r.get('assets',[]): print(f"asset={a['name']} size={a['size']} id={a['id']}")
+          PY
+          python3 - <<'PY' > /tmp/downloads.sh
+          import json
+          ids=json.load(open('/tmp/ids.json'))
+          for key,name in [('original_new','payload/original-product.new.dat.br'),('original_list','payload/original-product.transfer.list'),('rom_zip','payload/LucidOS-unsigned.zip')]:
+              print(f'curl --fail --location --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/{ids[key]}" --output "{name}"')
+          PY
+          bash /tmp/downloads.sh
+          sha256sum payload/* | tee report/download-sha256.txt
+          ls -lh payload | tee report/download-sizes.txt
+      - name: Inspect both transfer lists and reconstruct product payloads
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import zipfile
+          z=zipfile.ZipFile('payload/LucidOS-unsigned.zip')
+          with open('payload/current-product.transfer.list','wb') as f: f.write(z.read('product.transfer.list'))
+          with open('payload/current-product.new.dat.br','wb') as f: f.write(z.read('product.new.dat.br'))
+          with open('report/current-rom-product-zip-entry.txt','w') as f:
+              for n in z.namelist():
+                  if 'product' in n.lower() or 'dynamic_partitions' in n.lower() or 'updater-script' in n.lower():
+                      info=z.getinfo(n); f.write(f'{info.file_size}\t{n}\n')
+          PY
+          for part in original current; do
+            echo "===== $part transfer list =====" | tee -a report/transfer-list-analysis.txt
+            cat "payload/$part-product.transfer.list" | tee -a report/transfer-list-analysis.txt
+            python3 tools/reconstruct_transfer_image.py               "payload/$part-product.transfer.list"               "payload/$part-product.new.dat.br"               "images/$part-product.img" | tee "report/$part-reconstruction.txt" || echo "RECONSTRUCTION_FAILED=$?" | tee -a "report/$part-reconstruction.txt"
+            ls -lh "images/$part-product.img" 2>&1 | tee -a "report/$part-reconstruction.txt" || true
+            file "images/$part-product.img" 2>&1 | tee -a "report/$part-reconstruction.txt" || true
+            e2fsck -fn "images/$part-product.img" > "report/$part-e2fsck.txt" 2>&1 || true
+            dumpe2fs -h "images/$part-product.img" > "report/$part-superblock.txt" 2>&1 || true
+          done
+      - name: Read-only mount inventory if ext4 images are mountable
+        run: |
+          set -euo pipefail
+          mkdir -p mnt
+          for part in original current; do
+            mkdir -p "mnt/$part"
+            if sudo mount -t ext4 -o loop,ro,noload "images/$part-product.img" "mnt/$part" 2>"report/$part-mount-error.txt"; then
+              {
+                echo "Mounted $part product image read-only."
+                sudo find "mnt/$part" -maxdepth 3 -printf '%y %p %s\n' | sort | head -n 1500
+                echo "files=$(sudo find "mnt/$part" -type f | wc -l)"
+                echo "apks=$(sudo find "mnt/$part" -type f -name '*.apk' | wc -l)"
+                echo "symlinks=$(sudo find "mnt/$part" -type l | wc -l)"
+              } > "report/$part-filesystem-inventory.txt"
+              sudo umount "mnt/$part"
+            else
+              echo "Read-only mount failed; see mount error and e2fsck reports." > "report/$part-filesystem-inventory.txt"
+            fi
+          done
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-product-partition-audit
+          path: report/
+          if-no-files-found: warn
+          retention-days: 14
