@@ -3,6 +3,7 @@
     package="com.lucid.os.wallpapers">
     <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="35" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
     <application
         android:allowBackup="false"
         android:label="Lucid Wallpapers"
