@@ -26,6 +26,16 @@ jobs:
           python -m unittest discover -s emulator/snapdragon660/tests -v
           python emulator/snapdragon660/tools/build_platform_description.py --check
           python emulator/snapdragon660/tools/run_board_contract.py --output emulator/snapdragon660/board-contract-smoke.json
+      - name: Inventory public SDM660 hardware description
+        run: |
+          mkdir -p emulator/snapdragon660/upstream
+          curl --fail --location --retry 3 \
+            https://raw.githubusercontent.com/xiaomi-sdm660/android_kernel_xiaomi_sdm660/5ce3bc43631dca83f6081757c8982c2d5f6e017c/arch/arm/boot/dts/qcom/sdm660.dtsi \
+            --output emulator/snapdragon660/upstream/sdm660.dtsi
+          python emulator/snapdragon660/tools/inventory_dts_hardware.py \
+            --input xiaomi-sdm660/android_kernel_xiaomi_sdm660@5ce3bc43631dca83f6081757c8982c2d5f6e017c=emulator/snapdragon660/upstream/sdm660.dtsi \
+            --output emulator/snapdragon660/sdm660-hardware-inventory.json
+          python -c "import json; p=json.load(open('emulator/snapdragon660/sdm660-hardware-inventory.json')); assert p['counts']['nodes_with_reg'] > 10; assert p['boot_critical_candidates']['interrupt_controller']; assert p['boot_critical_candidates']['uart']; print(json.dumps(p['counts'], indent=2))"
       - name: Install QEMU
         run: |
           sudo apt-get update
@@ -44,3 +54,5 @@ jobs:
             emulator/snapdragon660/device-tree/sdm660-lavender.dts
             qemu-capabilities.json
             emulator/snapdragon660/board-contract-smoke.json
+            emulator/snapdragon660/sdm660-hardware-inventory.json
+            emulator/snapdragon660/upstream/sdm660.dtsi
