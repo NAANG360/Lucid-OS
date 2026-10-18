@@ -88,6 +88,45 @@ jobs:
           sha256sum out/LucidOS-Framework-Theme-Overlay.apk > report/overlay-sha256.txt
           echo "Compile/sign validation succeeded. Runtime overlay policy remains unverified." >> report/build-report.txt
 
+      - name: Test framework overlay mapping with AOSP idmap2
+        shell: bash
+        run: |
+          set -u
+          mkdir -p "$RUNNER_TEMP/aosp-tools" report
+          if ! curl --fail --location --retry 2 --max-time 120 \
+            "https://android.googlesource.com/kernel/prebuilts/build-tools/+archive/0a1270d749f286c168ac6bb120997471f029130a/linux-x86.tar.gz" \
+            --output "$RUNNER_TEMP/aosp-tools.tar.gz"; then
+            echo "AOSP host tools download failed; static RRO runtime mapping remains unverified." > report/idmap2-create.txt
+            exit 0
+          fi
+          if ! tar -xzf "$RUNNER_TEMP/aosp-tools.tar.gz" -C "$RUNNER_TEMP/aosp-tools"; then
+            echo "AOSP host tools archive could not be extracted; runtime mapping remains unverified." > report/idmap2-create.txt
+            exit 0
+          fi
+          IDMAP2="$(find "$RUNNER_TEMP/aosp-tools" -type f -name idmap2 -print -quit)"
+          if [[ -z "$IDMAP2" ]]; then
+            echo "No host idmap2 binary found in the AOSP prebuilt bundle; runtime mapping remains unverified." > report/idmap2-create.txt
+            exit 0
+          fi
+          chmod +x "$IDMAP2"
+          TOOLS_ROOT="$(dirname "$(dirname "$IDMAP2")")"
+          export LD_LIBRARY_PATH="$TOOLS_ROOT/lib64:$TOOLS_ROOT/lib:${LD_LIBRARY_PATH:-}"
+          "$IDMAP2" --help > report/idmap2-help.txt 2>&1 || true
+          set +e
+          "$IDMAP2" create \
+            --target-apk-path system-tree/system/framework/framework-res.apk \
+            --overlay-apk-path out/LucidOS-Framework-Theme-Overlay.apk \
+            --idmap-path "$RUNNER_TEMP/lucid-framework.idmap" \
+            --policy public > report/idmap2-create.txt 2>&1
+          STATUS=$?
+          set -e
+          echo "$STATUS" > report/idmap2-create-status.txt
+          if [[ "$STATUS" -eq 0 && -s "$RUNNER_TEMP/lucid-framework.idmap" ]]; then
+            echo "idmap2 created a mapping for the custom framework target." >> report/idmap2-create.txt
+          else
+            echo "idmap2 could not create a mapping; do not rely on the static RRO for system theming." >> report/idmap2-create.txt
+          fi
+
       - name: Build Lucid Wallpapers app
         shell: bash
         run: |
