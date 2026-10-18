@@ -18,12 +18,14 @@ UARTDM_TX_SINGLE_CHAR = 1 << 4
 UARTDM_TX_BAM_ENABLE = 1 << 2
 UARTDM_CR_RESET_TX = 2 << 4
 UARTDM_CR_TX_ENABLE = 1 << 2
+UARTDM_CR_TX_DISABLE = 1 << 3
 UARTDM_SR_TX_READY = 1 << 2
 
 @dataclass
 class QualcommUARTDMModel:
     """Small UARTDM transmit-register contract for early boot output."""
     tx: List[int] = field(default_factory=list)
+    tx_enabled: bool = False
     registers: Dict[int, int] = field(default_factory=lambda: {UARTDM_SR: UARTDM_SR_TX_READY})
 
     def read(self, offset: int) -> int:
@@ -34,13 +36,19 @@ class QualcommUARTDMModel:
     def write(self, offset: int, value: int) -> None:
         value &= 0xFFFFFFFF
         if offset == UARTDM_TF:
-            # Firmware writes TF only when SR reports TX_READY.
-            if self.read(UARTDM_SR) & UARTDM_SR_TX_READY:
+            # The chardev receives bytes only after the guest enables TX.
+            if self.tx_enabled and self.read(UARTDM_SR) & UARTDM_SR_TX_READY:
                 self.tx.append(value & 0xFF)
             return
-        if offset == UARTDM_CR and value == UARTDM_CR_RESET_TX:
-            self.tx.clear()
+        if offset == UARTDM_CR:
             self.registers[UARTDM_CR] = value
+            if value == UARTDM_CR_RESET_TX:
+                self.tx.clear()
+                self.tx_enabled = False
+            elif value == UARTDM_CR_TX_ENABLE:
+                self.tx_enabled = True
+            elif value == UARTDM_CR_TX_DISABLE:
+                self.tx_enabled = False
             return
         if offset == UARTDM_DMEN:
             # The early boot writer uses single-character FIFO mode and
@@ -77,6 +85,9 @@ class SDM660BoardModel:
         self.reset_state[name] = asserted
 
     def guest_console_write(self, data: bytes) -> None:
+        self.uart.write(UARTDM_CR, UARTDM_CR_RESET_TX)
+        self.uart.write(UARTDM_DMEN, 0)
+        self.uart.write(UARTDM_CR, UARTDM_CR_TX_ENABLE)
         for byte in data:
             self.uart.write(UARTDM_TF, byte)
 
