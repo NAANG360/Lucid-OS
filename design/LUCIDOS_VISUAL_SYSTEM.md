@@ -27,7 +27,7 @@ These are the strongest directly relevant screen candidates identified from the 
 
 1. **Keep it unmistakably Lucid.** Do not ship cosmosOS wordmarks, DynaPunch branding, iPhone frames, mock notification content, or demo values (for example, fake weather, battery percentages, meeting reminders, or demo chat messages).
 2. **Translate, don't trace.** Android uses its own status bar, gesture area, Settings navigation, Quick Settings behavior, and display cutouts. Rebuild the design around Android components and the Redmi Note 7's 19.5:9-class display, not an iPhone 14 frame.
-3. **One token system.** Establish shared color, typography, corner-radius, spacing, icon, and elevation tokens before styling individual surfaces. The palette must be taken from actual Figma style/variable values when Figma access is available; do not guess exact brand hex values from a frame name.
+3. **One token system.** The Control Center reference visibly uses a lavender/periwinkle canvas, pale glass-like rounded cards, saturated electric-blue active controls, and dark labels. The initial Android resource palette maps those to blue primary, lavender secondary, cyan tertiary, and cool lavender-gray neutrals. Exact Figma variable/style IDs were not exposed in the retrieved frame data, so these are visual-match tokens rather than claimed copies of named Figma variables.
 4. **Respect system behavior.** Tiles must invoke real Android actions; sliders must control the actual brightness/volume services; Settings rows must navigate to real destinations. Static mockups are not a functional implementation.
 5. **Use overlays before replacing platform apps.** Prefer runtime resource overlays (RRO) for eligible framework/SystemUI resources. Modify Settings/SystemUI source only when the ROM has the matching source tree. Never replace privileged APKs with an unrelated prototype.
 6. **Keep bootability ahead of cosmetics.** Build and validate theme artifacts against the exact framework/resource set in the release archive. Do not flash an unvalidated overlay or alter partition layout as part of a theme change.
@@ -36,10 +36,18 @@ These are the strongest directly relevant screen candidates identified from the 
 
 The committed `system-tree/system/build.prop` declares Android SDK 35 / release 15 and LineageOS 22.2, while its build fingerprint references a Xiaomi Android 10 release. This is a mixed-generation property set, not reliable proof of the actual boot target. The repository also does not currently contain a Settings.apk or SystemUI.apk at the expected extracted paths. The release archive must be inspected to identify the real framework, Settings, SystemUI, boot image, installer and partition metadata before building an installable overlay.
 
+## Selected visual direction
+
+- **Primary wallpaper:** `wallpaper 4` — dusk valley, crescent moon, cyan-to-violet landscape. It is the same art used by the Homescreen frame, so the wallpaper and glassy widget treatment are coherent.
+- **Alternate wallpaper:** `wallpaper 1` — blue alpine mountain with warm pink/orange highlights.
+- **System accent:** saturated blue for active states, with lavender as the secondary tone and cyan reserved for tertiary highlights.
+- **Surface treatment:** pale lavender-gray surfaces, rounded cards, and restrained translucent/glass effects where Android components support them. Avoid placing translucent glass effects behind small text if contrast suffers.
+- **Screens not copied literally:** the Settings mockup is too sparse to replace Android's real preference hierarchy; the iPhone frame, sample notification, fake weather, meeting reminder and other demo values are excluded.
+
 ## Completion criteria
 
 - [ ] Inspect all available LucidOS Figma screen families and extract actual color/style tokens.
-- [ ] Select final wallpaper(s) from the source assets, not screenshots of device mockups.
+- [x] Select a primary wallpaper from the source image assets (wallpaper 4) and an alpine alternate (wallpaper 1), not screenshots of device mockups.
 - [ ] Confirm the release archive's actual Android framework version and target packages.
 - [ ] Build a small overlay against those exact resources and fail the build on unknown target resources.
 - [ ] Produce a cloud build artifact and automated validation report.
