@@ -1,0 +1,215 @@
+/*
+ * Qualcomm UARTDM transmit-path model for the SDM660 lavender board.
+ *
+ * This is a QEMU SysBus device implementation scaffold, deliberately limited
+ * to the polling transmit path used by early boot. It is not a complete UARTDM
+ * implementation: RX, interrupts, DMA/BAM, clocks, and modem handshakes are
+ * not modeled. Do not claim Android bootability from this device alone.
+ *
+ * Register offsets are based on public Qualcomm early-boot UARTDM code.
+ */
+#include "qemu/osdep.h"
+#include "hw/sysbus.h"
+#include "chardev/char-fe.h"
+#include "qemu/log.h"
+#include "qemu/module.h"
+#include "qapi/error.h"
+#include "exec/memory.h"
+
+#define TYPE_SDM660_UARTDM "sdm660-uartdm"
+OBJECT_DECLARE_SIMPLE_TYPE(SDM660UARTDMState, SDM660_UARTDM)
+
+#define UARTDM_MMIO_SIZE       0x2000
+#define UARTDM_DMEN            0x03c
+#define UARTDM_SR              0x0a4
+#define UARTDM_CR              0x0a8
+#define UARTDM_TF              0x100
+#define UARTDM_TX_READY        (1u << 2)
+#define UARTDM_TX_BAM_ENABLE   (1u << 2)
+#define UARTDM_TX_SINGLE_CHAR  (1u << 4)
+#define UARTDM_CR_RESET_TX     (2u << 4)
+#define UARTDM_CR_TX_ENABLE    (1u << 2)
+
+struct SDM660UARTDMState {
+    SysBusDevice parent_obj;
+    MemoryRegion iomem;
+    CharBackend chr;
+    uint32_t dmen;
+    uint32_t cr;
+    uint32_t mr1;
+    uint32_t mr2;
+    uint32_t imr;
+    uint32_t csr;
+    uint32_t rf;
+    uint32_t tf;
+    uint64_t tx_bytes;
+};
+
+static uint64_t sdm660_uartdm_read(void *opaque, hwaddr offset,
+                                   unsigned size)
+{
+    SDM660UARTDMState *s = SDM660_UARTDM(opaque);
+
+    if (size != 4) {
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "sdm660-uartdm: unsupported %u-byte read at 0x%"
+                      HWADDR_PRIx "\n", size, offset);
+        return 0;
+    }
+
+    switch (offset) {
+    case UARTDM_DMEN:
+        return s->dmen;
+    case UARTDM_SR:
+        /* Polling transmit is always ready in this non-timed first model. */
+        return UARTDM_TX_READY;
+    case UARTDM_CR:
+        return s->cr;
+    case 0x000: return s->mr1;
+    case 0x004: return s->mr2;
+    case 0x010: return s->csr;
+    case 0x014: return s->imr;
+    case 0x040: return s->rf;
+    default:
+        return 0;
+    }
+}
+
+static void sdm660_uartdm_write(void *opaque, hwaddr offset,
+                                uint64_t value, unsigned size)
+{
+    SDM660UARTDMState *s = SDM660_UARTDM(opaque);
+    uint32_t v = value;
+
+    if (size != 4) {
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "sdm660-uartdm: unsupported %u-byte write at 0x%"
+                      HWADDR_PRIx "\n", size, offset);
+        return;
+    }
+
+    switch (offset) {
+    case UARTDM_TF: {
+        uint8_t byte = v & 0xff;
+        if (qemu_chr_fe_backend_connected(&s->chr)) {
+            int ret = qemu_chr_fe_write_all(&s->chr, &byte, 1);
+            if (ret < 0) {
+                qemu_log_mask(LOG_GUEST_ERROR,
+                              "sdm660-uartdm: chardev transmit failed: %d\n",
+                              ret);
+            }
+        }
+        s->tf = v;
+        s->tx_bytes++;
+        break;
+    }
+    case UARTDM_DMEN:
+        /* Match the documented early-boot polling setup, not full hardware. */
+        s->dmen = (v & ~UARTDM_TX_BAM_ENABLE) | UARTDM_TX_SINGLE_CHAR;
+        break;
+    case UARTDM_CR:
+        s->cr = v;
+        if (v == UARTDM_CR_RESET_TX) {
+            s->tf = 0;
+        } else if (v == UARTDM_CR_TX_ENABLE) {
+            /* Enable state is retained for guest observability. */
+        }
+        break;
+    case 0x000: s->mr1 = v; break;
+    case 0x004: s->mr2 = v; break;
+    case 0x010: s->csr = v; break;
+    case 0x014: s->imr = v; break;
+    case 0x040: s->rf = v; break;
+    default:
+        /* Ignore unknown writes; log only to avoid drowning early boot. */
+        break;
+    }
+}
+
+static const MemoryRegionOps sdm660_uartdm_ops = {
+    .read = sdm660_uartdm_read,
+    .write = sdm660_uartdm_write,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .valid = {
+        .min_access_size = 4,
+        .max_access_size = 4,
+        .unaligned = false,
+    },
+    .impl = {
+        .min_access_size = 4,
+        .max_access_size = 4,
+        .unaligned = false,
+    },
+};
+
+static void sdm660_uartdm_reset(DeviceState *dev)
+{
+    SDM660UARTDMState *s = SDM660_UARTDM(dev);
+
+    s->dmen = 0;
+    s->cr = 0;
+    s->mr1 = 0;
+    s->mr2 = 0;
+    s->imr = 0;
+    s->csr = 0;
+    s->rf = 0;
+    s->tf = 0;
+    s->tx_bytes = 0;
+}
+
+static void sdm660_uartdm_realize(DeviceState *dev, Error **errp)
+{
+    SDM660UARTDMState *s = SDM660_UARTDM(dev);
+
+    if (!qemu_chr_fe_backend_connected(&s->chr)) {
+        error_setg(errp, "sdm660-uartdm requires a QEMU chardev backend");
+    }
+}
+
+static void sdm660_uartdm_init(Object *obj)
+{
+    SDM660UARTDMState *s = SDM660_UARTDM(obj);
+
+    memory_region_init_io(&s->iomem, obj, &sdm660_uartdm_ops, s,
+                          TYPE_SDM660_UARTDM, UARTDM_MMIO_SIZE);
+    sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
+    qemu_chr_fe_init(&s->chr, obj, NULL);
+}
+
+static void sdm660_uartdm_finalize(Object *obj)
+{
+    SDM660UARTDMState *s = SDM660_UARTDM(obj);
+
+    qemu_chr_fe_deinit(&s->chr, false);
+}
+
+static Property sdm660_uartdm_properties[] = {
+    DEFINE_PROP_CHR("chardev", SDM660UARTDMState, chr),
+    DEFINE_PROP_END_OF_LIST(),
+};
+
+static void sdm660_uartdm_class_init(ObjectClass *klass, const void *data)
+{
+    DeviceClass *dc = DEVICE_CLASS(klass);
+
+    dc->realize = sdm660_uartdm_realize;
+    dc->vmsd = NULL;
+    dc->reset = sdm660_uartdm_reset;
+    device_class_set_props(dc, sdm660_uartdm_properties);
+}
+
+static const TypeInfo sdm660_uartdm_info = {
+    .name = TYPE_SDM660_UARTDM,
+    .parent = TYPE_SYS_BUS_DEVICE,
+    .instance_size = sizeof(SDM660UARTDMState),
+    .instance_init = sdm660_uartdm_init,
+    .instance_finalize = sdm660_uartdm_finalize,
+    .class_init = sdm660_uartdm_class_init,
+};
+
+static void sdm660_uartdm_register_types(void)
+{
+    type_register_static(&sdm660_uartdm_info);
+}
+
+type_init(sdm660_uartdm_register_types)
