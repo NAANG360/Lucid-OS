@@ -132,7 +132,7 @@ public final class MainActivity extends Activity {
         button.setOnClickListener(v -> applyWallpaper(asset));
         card.addView(button, buttonParams);
 
-        card.setTag(cardParams);
+        card.setLayoutParams(cardParams);
         return card;
     }
 
