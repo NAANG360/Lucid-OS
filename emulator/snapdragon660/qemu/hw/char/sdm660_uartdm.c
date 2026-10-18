@@ -227,6 +227,7 @@ static void sdm660_uartdm_class_init(ObjectClass *klass, void *data)
     DeviceClass *dc = DEVICE_CLASS(klass);
 
     dc->realize = sdm660_uartdm_realize;
+    dc->user_creatable = true;
     device_class_set_legacy_reset(dc, sdm660_uartdm_reset);
     dc->vmsd = NULL;
     device_class_set_props(dc, sdm660_uartdm_properties);
