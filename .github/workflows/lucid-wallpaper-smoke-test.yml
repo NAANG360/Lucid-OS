@@ -88,7 +88,15 @@ jobs:
             adb shell mkdir -p /system/priv-app/LucidWallpapers /system/etc/permissions
             adb push out/LucidWallpapers.apk /system/priv-app/LucidWallpapers/LucidWallpapers.apk
             adb shell chmod 0644 /system/priv-app/LucidWallpapers/LucidWallpapers.apk
-            adb shell 'printf "%s\\n" "<?xml version=\\"1.0\\" encoding=\\"utf-8\\"?>" "<permissions>" "  <privapp-permissions package=\\"com.lucid.os.wallpapers\\">" "    <permission name=\\"android.permission.WRITE_SECURE_SETTINGS\\"/>" "  </privapp-permissions>" "</permissions>" > /system/etc/permissions/privapp-permissions-com.lucid.os.wallpapers.xml'
+            cat > "$RUNNER_TEMP/privapp-permissions.xml" <<'XML'
+            <?xml version="1.0" encoding="utf-8"?>
+            <permissions>
+              <privapp-permissions package="com.lucid.os.wallpapers">
+                <permission name="android.permission.WRITE_SECURE_SETTINGS"/>
+              </privapp-permissions>
+            </permissions>
+            XML
+            adb push "$RUNNER_TEMP/privapp-permissions.xml" /system/etc/permissions/privapp-permissions-com.lucid.os.wallpapers.xml
             adb shell chmod 0644 /system/etc/permissions/privapp-permissions-com.lucid.os.wallpapers.xml
             adb reboot
             adb wait-for-device
