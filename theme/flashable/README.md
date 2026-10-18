@@ -4,7 +4,7 @@ This is a recovery-flashable add-on containing:
 
 - The recovery pack deliberately omits the experimental framework resource overlay: its runtime mapping could not be validated against this custom-signed framework. The overlay APK remains available as a separate CI artifact for future testing.
 - The Lucid Wallpapers picker, with Lucid Blue, Violet Dusk, and Cyan Horizon palette controls that request Android's native dynamic-color system.
-- The app is installed as a privileged app and is allowlisted for `WRITE_SECURE_SETTINGS`; it does not auto-change wallpapers on boot.
+- The app is installed as a privileged app and is allowlisted for `WRITE_SECURE_SETTINGS`. It applies Lucid Blue once on first boot, then preserves the user's palette choices; it never auto-changes the wallpaper.
 - A lightweight LucidOS boot animation generated from the selected Figma wallpaper.
 
 ## Safety gate
