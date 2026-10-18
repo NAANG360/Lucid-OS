@@ -53,3 +53,18 @@ The `SDM660 Emulator Foundation` workflow runs static checks and validates the Q
 ## Licensing
 
 Scripts and original documentation in this directory are MIT licensed. Third-party firmware, proprietary blobs, kernel sources and ROMs retain their own licenses and are not redistributed here.
+
+
+## Public firmware/dump research
+
+See [the SDM660 public evidence ledger](research/SDM660_PUBLIC_EVIDENCE.md) and machine-readable [evidence JSON](research/sdm660-evidence.json). Current research distinguishes a public service-dump listing from a verified full raw eMMC image: the advertised 126.6 MB UFI ZIP is **not evidence of a complete 58.24 GiB user-area dump**.
+
+Inventory local firmware packages without executing binaries or extracting archive members:
+
+```sh
+python3 emulator/tools/inspect_firmware_bundle.py firmware.zip --output inventory.json
+```
+
+For extracted files, the tool records SHA-256 and recognizes common Android boot, vbmeta, OTA payload, sparse-image, ELF, and GPT signatures. ZIP/TAR members are only inventoried by header and declared size; extract a member in a disposable environment before treating its hash or classification as authoritative. It never executes a firehose loader or flashes a device.
+
+The CI generic ARM64 guest boot has now passed: Debian's ARM64 installer kernel/initrd reached a Linux/installer marker under QEMU `virt`. This proves the reference QEMU environment can boot a generic ARM64 Linux guest; it does not prove Android boots or that SDM660 peripherals are emulated.
