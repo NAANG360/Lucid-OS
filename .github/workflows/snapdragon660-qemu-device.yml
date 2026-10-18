@@ -42,7 +42,8 @@ jobs:
           if added not in s:
               raise SystemExit("UARTDM allowlist insertion failed")
           p.write_text(s)
-          PY      - name: Verify UARTDM offsets against pinned lavender kernel source
+          PY
+      - name: Verify UARTDM offsets against pinned lavender kernel source
         run: |
           curl -fsSL \
             https://raw.githubusercontent.com/xiaomi-sdm660/android_kernel_xiaomi_sdm660/5ce3bc43631dca83f6081757c8982c2d5f6e017c/drivers/tty/serial/msm_serial_hs_hwreg.h \
