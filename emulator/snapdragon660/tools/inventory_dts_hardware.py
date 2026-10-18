@@ -12,7 +12,7 @@ import json
 import re
 from pathlib import Path
 
-NODE_RE = re.compile(r"(?:(?P<label>[A-Za-z_][\w-]*)\s*:\s*)?(?P<name>[A-Za-z_][\w,.-]*@[\w,.+-]+|[A-Za-z_][\w,.-]*)\s*\{")
+NODE_RE = re.compile(r"(?:(?P<label>[A-Za-z_][\w-]*)\s*:\s*)?(?P<name>&[A-Za-z_][\w-]*|[A-Za-z_][\w,.-]*@[\w,.+-]+|[A-Za-z_][\w,.-]*)\s*\{")
 PROP_RE = re.compile(r"(?m)^\s*(?P<key>[A-Za-z_#][\w,#-]*)\s*=\s*(?P<value>.*?);")
 STR_RE = re.compile(r'"([^"]*)"')
 CELL_RE = re.compile(r"<([^>]*)>")
