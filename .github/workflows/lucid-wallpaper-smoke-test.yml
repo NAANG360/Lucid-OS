@@ -6,6 +6,9 @@ concurrency:
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Lucid Theme Overlay"]
+    types: [completed]
 
 permissions:
   actions: read
@@ -13,7 +16,7 @@ permissions:
 
 jobs:
   smoke-test:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
