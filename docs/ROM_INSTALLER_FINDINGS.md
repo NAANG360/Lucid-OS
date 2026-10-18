@@ -43,7 +43,7 @@ These checks make a malformed boot header, a missing `cust` fstab entry, and ord
 
 The dynamic-partition operation list removes existing groups and says it is applying a full OTA, then creates a `product` logical partition of 2,504,368,128 bytes. But the product transfer list only writes 123,902 blocks (507,502,592 bytes), contains no `zero` or `erase` commands, while the reconstructed product ext4 superblock declares 601,750 blocks (2,464,768,000 bytes).
 
-That means the archive does not explicitly populate the whole product filesystem. This may be valid only when the untouched blocks already exist in the exact source product partition. The installer first discards the physical `system`/super storage and then rebuilds dynamic-partition metadata, so it is unsafe to assume those untouched product blocks survive. This is a **high-priority packaging concern**, not yet a proven root cause; an `e2fsck` check of the reconstructed product image and the intended source/base image are needed before choosing a repair.
+That means the archive does not explicitly populate the whole product filesystem. The cloud reconstruction confirms this is not a complete product filesystem: `e2fsck -fn` reports invalid extent nodes and a corrupted root directory, and the product mount exposes no files. The installer first discards the physical `system`/super storage and then rebuilds dynamic-partition metadata, so those untouched blocks cannot be relied on to survive. This is a **confirmed packaging defect and a leading explanation for the failed boot**. The exact repair requires the complete product source image/tree; the partial `.new.dat.br` payload cannot recreate the missing blocks by itself.
 
 ## What this says about the cust theory
 
