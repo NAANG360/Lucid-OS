@@ -10,14 +10,50 @@
     "gpu": "Adreno 512",
     "dsp": "Hexagon 680",
     "isp": "Spectra 160",
-    "storage_controller": "eMMC 5.1"
+    "storage_controller": "eMMC 5.1",
+    "cpu_topology": {
+      "source": "xiaomi-sdm660/android_kernel_xiaomi_sdm660@5ce3bc43631dca83f6081757c8982c2d5f6e017c:arch/arm/boot/dts/qcom/sdm660.dtsi",
+      "architecture": "ARMv8-A",
+      "clusters": [
+        {
+          "name": "little",
+          "compatible_cpu_description": "Cortex-A53-class Kryo 260 Silver cores; QEMU CPU model remains an approximation",
+          "cpu_mpidr_affinity": [
+            "0x000",
+            "0x001",
+            "0x002",
+            "0x003"
+          ],
+          "count": 4
+        },
+        {
+          "name": "big",
+          "compatible_cpu_description": "Cortex-A73-class Kryo 260 Gold cores; QEMU CPU model remains an approximation",
+          "cpu_mpidr_affinity": [
+            "0x100",
+            "0x101",
+            "0x102",
+            "0x103"
+          ],
+          "count": 4
+        }
+      ],
+      "notes": [
+        "MPIDR affinity values are transcribed from the public SoC DTSI CPU reg cells.",
+        "This does not imply that QEMU currently instantiates these CPUs.",
+        "Frequency/voltage scaling, Kryo-specific microarchitecture, cache hierarchy and Qualcomm power management are not emulated."
+      ]
+    }
   },
   "device": {
     "manufacturer": "Xiaomi",
     "model": "Redmi Note 7",
     "codename": "lavender",
     "ram_bytes_target": 4294967296,
-    "display": {"width": 1080, "height": 2340}
+    "display": {
+      "width": 1080,
+      "height": 2340
+    }
   },
   "implementation": {
     "status": "hardware-model-prototype",
