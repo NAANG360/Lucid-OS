@@ -22,7 +22,7 @@ This is based on the unsigned release ZIP's actual file list and updater script,
 | system_ext | 624,320,512 bytes |
 | Group maximum | 6,773,800,960 bytes |
 
-The requested logical partition sizes total 5,074,? bytes (the exact sum is checked in the follow-up diagnostic). These entries describe the installer's intended layout; they do not by themselves prove that the device's current super metadata matches it.
+The requested logical partition sizes total 5,074,354,176 bytes, leaving 1,699,446,784 bytes below the group maximum. These entries describe the installer's intended layout; they do not by themselves prove that the device's current super metadata matches it.
 
 ## What this says about the cust theory
 
