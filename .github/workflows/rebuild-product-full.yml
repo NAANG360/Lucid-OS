@@ -187,8 +187,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          RELEASE_ID="$(python3 -c 'import json;print(json.load(open("\'"$RUNNER_TEMP/release-assets.json"\'"))["release_id"])' 2>/dev/null || echo 416305078)"
-          OLD_ID="$(python3 -c 'import json;print(json.load(open("\'"$RUNNER_TEMP/release-assets.json"\'")).get("fixed_asset_id") or "")' 2>/dev/null || true)"
+          RELEASE_ID="$(python3 - "$RUNNER_TEMP/release-assets.json" <<'PY'
+          import json, sys
+          print(json.load(open(sys.argv[1]))["release_id"])
+          PY
+          )"
+          OLD_ID="$(python3 - "$RUNNER_TEMP/release-assets.json" <<'PY'
+          import json, sys
+          print(json.load(open(sys.argv[1])).get("fixed_asset_id") or "")
+          PY
+          )"
           if [[ -n "$OLD_ID" ]]; then
             gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$OLD_ID"
           fi
