@@ -3,7 +3,8 @@
 This is a recovery-flashable add-on containing:
 
 - A framework resource overlay for Android's public Material tonal palettes.
-- The Lucid Wallpapers picker, which sets the selected wallpaper and applies the dusk wallpaper once after the first boot.
+- The Lucid Wallpapers picker, with Lucid Blue, Violet Dusk, and Cyan Horizon palette controls that request Android's native dynamic-color system.
+- The app is installed as a privileged app and is allowlisted for `WRITE_SECURE_SETTINGS`; it does not auto-change wallpapers on boot.
 - A lightweight LucidOS boot animation generated from the selected Figma wallpaper.
 
 ## Safety gate
