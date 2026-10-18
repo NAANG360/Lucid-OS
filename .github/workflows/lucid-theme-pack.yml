@@ -39,7 +39,6 @@ jobs:
           test -n "$RUN_ID"
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name lucid-theme-overlay-prototype --dir "$RUNNER_TEMP/theme-artifacts"
-          test -s "$RUNNER_TEMP/theme-artifacts/out/LucidOS-Framework-Theme-Overlay.apk"
           test -s "$RUNNER_TEMP/theme-artifacts/out/LucidWallpapers.apk"
           test -s "$RUNNER_TEMP/theme-artifacts/out/LucidOS-bootanimation.zip"
           echo "Theme artifact source run: $RUN_ID" > report-source-run.txt
@@ -67,9 +66,7 @@ jobs:
         run: |
           set -euo pipefail
           PACK="$RUNNER_TEMP/pack"
-          mkdir -p "$PACK/product/overlay" "$PACK/product/priv-app/LucidWallpapers" "$PACK/product/media" "$PACK/product/etc/permissions"
-          cp "$RUNNER_TEMP/theme-artifacts/out/LucidOS-Framework-Theme-Overlay.apk" \
-            "$PACK/product/overlay/LucidOSFrameworkThemeOverlay.apk"
+          mkdir -p "$PACK/product/priv-app/LucidWallpapers" "$PACK/product/media" "$PACK/product/etc/permissions"
           cp "$RUNNER_TEMP/theme-artifacts/out/LucidWallpapers.apk" \
             "$PACK/product/priv-app/LucidWallpapers/LucidWallpapers.apk"
           cp "$RUNNER_TEMP/theme-artifacts/out/LucidOS-bootanimation.zip" \
