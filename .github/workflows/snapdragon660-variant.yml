@@ -43,3 +43,4 @@ jobs:
             emulator/snapdragon660/platform-description.json
             emulator/snapdragon660/device-tree/sdm660-lavender.dts
             qemu-capabilities.json
+            emulator/snapdragon660/board-contract-smoke.json
