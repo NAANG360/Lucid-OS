@@ -18,14 +18,13 @@ permissions:
 jobs:
   build-overlay:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Install Android build tools
-        uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v3
         with:
           packages: 'build-tools;35.0.0'
 
@@ -38,9 +37,10 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-35"
 
-      - name: Generate Figma-matched Material tonal palette
+      - name: Generate LucidOS tonal palette
         working-directory: theme
         run: |
+          set -euo pipefail
           npm install --no-audit --no-fund
           npm run generate-palette
 
@@ -60,7 +60,7 @@ jobs:
             sha256sum system-tree/system/framework/framework-res.apk
             echo
             echo "=== Expected dynamic palette resources in target ==="
-            "$AAPT2" dump resources system-tree/system/framework/framework-res.apk | grep -E 'color/system_(accent[123]|neutral[12])_(0|10|50|100|200|300|400|500|600|700|800|900|1000)' | head -n 80
+            "$AAPT2" dump resources system-tree/system/framework/framework-res.apk | grep -E 'color/system_(accent[123]|neutral[12])_(0|10|50|100|200|300|400|500|600|700|800|900|1000)' | head -n 80 || true
           } > report/build-report.txt
 
           if "$AAPT2" dump overlayable system-tree/system/framework/framework-res.apk > report/target-overlayable.txt 2>&1; then
@@ -69,26 +69,11 @@ jobs:
             echo "This aapt2 build-tools version does not expose dump overlayable; runtime policy remains to be checked." > report/target-overlayable.txt
           fi
           "$AAPT2" compile --dir theme/rro/res -o out/compiled-resources.zip
-          "$AAPT2" link \
-            --manifest theme/rro/AndroidManifest.xml \
-            -I system-tree/system/framework/framework-res.apk \
-            --auto-add-overlay \
-            -o out/lucid-framework-overlay-unsigned.apk \
-            out/compiled-resources.zip
+          "$AAPT2" link --manifest theme/rro/AndroidManifest.xml -I system-tree/system/framework/framework-res.apk --auto-add-overlay -o out/lucid-framework-overlay-unsigned.apk out/compiled-resources.zip
 
-          keytool -genkeypair -noprompt \
-            -keystore "$RUNNER_TEMP/lucid-overlay.jks" \
-            -storepass 'lucid-overlay-build' -keypass 'lucid-overlay-build' \
-            -alias lucid-overlay -keyalg RSA -keysize 2048 -validity 3650 \
-            -dname 'CN=LucidOS Development Overlay'
+          keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/lucid-overlay.jks" -storepass 'lucid-overlay-build' -keypass 'lucid-overlay-build' -alias lucid-overlay -keyalg RSA -keysize 2048 -validity 3650 -dname 'CN=LucidOS Development Overlay'
           "$BUILD_TOOLS/zipalign" -f 4 out/lucid-framework-overlay-unsigned.apk out/lucid-framework-overlay-aligned.apk
-          "$BUILD_TOOLS/apksigner" sign \
-            --ks "$RUNNER_TEMP/lucid-overlay.jks" \
-            --ks-key-alias lucid-overlay \
-            --ks-pass pass:lucid-overlay-build \
-            --key-pass pass:lucid-overlay-build \
-            --out out/LucidOS-Framework-Theme-Overlay.apk \
-            out/lucid-framework-overlay-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/lucid-overlay.jks" --ks-key-alias lucid-overlay --ks-pass pass:lucid-overlay-build --key-pass pass:lucid-overlay-build --out out/LucidOS-Framework-Theme-Overlay.apk out/lucid-framework-overlay-aligned.apk
           "$BUILD_TOOLS/apksigner" verify --verbose out/LucidOS-Framework-Theme-Overlay.apk
           "$BUILD_TOOLS/aapt" dump badging out/LucidOS-Framework-Theme-Overlay.apk > report/apk-badging.txt
           "$AAPT2" dump resources out/LucidOS-Framework-Theme-Overlay.apk > report/overlay-resources.txt
@@ -105,29 +90,43 @@ jobs:
           cp theme/assets/lucid-wallpaper-dusk.jpg theme/wallpaper-app/assets/
           cp theme/assets/lucid-wallpaper-alpine.jpg theme/wallpaper-app/assets/
           "$BUILD_TOOLS/aapt2" compile --dir theme/wallpaper-app/res -o out/wallpaper/compiled-resources.zip
-          "$BUILD_TOOLS/aapt2" link \
-            --manifest theme/wallpaper-app/AndroidManifest.xml \
-            -I "$ANDROID_JAR" \
-            -A theme/wallpaper-app/assets \
-            -o out/LucidWallpapers-unsigned.apk \
-            out/wallpaper/compiled-resources.zip
-          javac -source 8 -target 8 -bootclasspath "$ANDROID_JAR" \
-            -d "$RUNNER_TEMP/classes" \
-            $(find theme/wallpaper-app/src -name '*.java' -print)
-          "$BUILD_TOOLS/d8" --lib "$ANDROID_JAR" --output "$RUNNER_TEMP/dex" \
-            $(find "$RUNNER_TEMP/classes" -name '*.class' -print)
+          "$BUILD_TOOLS/aapt2" link --manifest theme/wallpaper-app/AndroidManifest.xml -I "$ANDROID_JAR" -A theme/wallpaper-app/assets -o out/LucidWallpapers-unsigned.apk out/wallpaper/compiled-resources.zip
+          javac -source 8 -target 8 -bootclasspath "$ANDROID_JAR" -d "$RUNNER_TEMP/classes" $(find theme/wallpaper-app/src -name '*.java' -print)
+          "$BUILD_TOOLS/d8" --lib "$ANDROID_JAR" --output "$RUNNER_TEMP/dex" $(find "$RUNNER_TEMP/classes" -name '*.class' -print)
           (cd "$RUNNER_TEMP/dex" && zip -q "$GITHUB_WORKSPACE/out/LucidWallpapers-unsigned.apk" classes.dex)
           "$BUILD_TOOLS/zipalign" -f 4 out/LucidWallpapers-unsigned.apk out/LucidWallpapers-aligned.apk
-          "$BUILD_TOOLS/apksigner" sign \
-            --ks "$RUNNER_TEMP/lucid-overlay.jks" \
-            --ks-key-alias lucid-overlay \
-            --ks-pass pass:lucid-overlay-build \
-            --key-pass pass:lucid-overlay-build \
-            --out out/LucidWallpapers.apk \
-            out/LucidWallpapers-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/lucid-overlay.jks" --ks-key-alias lucid-overlay --ks-pass pass:lucid-overlay-build --key-pass pass:lucid-overlay-build --out out/LucidWallpapers.apk out/LucidWallpapers-aligned.apk
           "$BUILD_TOOLS/apksigner" verify --verbose out/LucidWallpapers.apk
           "$BUILD_TOOLS/aapt" dump badging out/LucidWallpapers.apk > report/wallpaper-app-badging.txt
           sha256sum out/LucidWallpapers.apk > report/wallpaper-app-sha256.txt
+
+      - name: Boot Android emulator and smoke-test Lucid Wallpapers
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: Pixel_2
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            mkdir -p report/emulator
+            adb wait-for-device
+            adb shell getprop ro.build.version.release | tee report/emulator/android-version.txt
+            adb install -r out/LucidWallpapers.apk
+            adb shell am start -W -n com.lucid.os.wallpapers/.MainActivity | tee report/emulator/activity-launch.txt
+            sleep 4
+            adb shell dumpsys activity activities > report/emulator/activities.txt
+            grep -q 'com.lucid.os.wallpapers/.MainActivity' report/emulator/activities.txt
+            adb shell screencap -p /sdcard/lucid-wallpapers.png
+            adb pull /sdcard/lucid-wallpapers.png report/emulator/lucid-wallpapers.png
+            adb logcat -d -t 4000 > report/emulator/logcat.txt
+            if grep -E 'FATAL EXCEPTION|Process: com\.lucid\.os\.wallpapers' report/emulator/logcat.txt; then
+              echo "Wallpaper app crashed in emulator." >&2
+              exit 1
+            fi
+            echo "PASS: APK installed, MainActivity resumed, screenshot captured, no app fatal exception found." | tee report/emulator/result.txt
 
       - name: Generate LucidOS boot animation
         shell: bash
@@ -135,16 +134,15 @@ jobs:
           set -euo pipefail
           python3 -m venv "$RUNNER_TEMP/pillow-venv"
           "$RUNNER_TEMP/pillow-venv/bin/pip" install --quiet Pillow
-          "$RUNNER_TEMP/pillow-venv/bin/python" tools/generate_bootanimation.py \
-            theme/assets/lucid-wallpaper-dusk.jpg out/LucidOS-bootanimation.zip
+          "$RUNNER_TEMP/pillow-venv/bin/python" tools/generate_bootanimation.py theme/assets/lucid-wallpaper-dusk.jpg out/LucidOS-bootanimation.zip
           unzip -t out/LucidOS-bootanimation.zip | tail -n 2
           ls -lh out/LucidOS-bootanimation.zip
           sha256sum out/LucidOS-bootanimation.zip > report/bootanimation-sha256.txt
 
-      - name: Upload overlay and validation report
+      - name: Upload overlay, emulator evidence, and validation report
         uses: actions/upload-artifact@v4
         with:
-          name: lucid-theme-overlay-prototype
+          name: lucid-theme-overlay-emulator-smoke-test
           path: |
             out/LucidOS-Framework-Theme-Overlay.apk
             out/LucidWallpapers.apk
