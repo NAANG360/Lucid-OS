@@ -34,3 +34,16 @@ jobs:
         run: |
           ./configure --target-list=aarch64-softmmu --disable-werror --disable-docs
           ninja -C build qemu-system-aarch64
+
+      - name: Runtime smoke test device registration and realization
+        working-directory: qemu-src
+        run: |
+          set -eux
+          ./build/qemu-system-aarch64 \
+            -machine virt -accel tcg -nodefaults -display none \
+            -monitor none -serial none -S \
+            -chardev file,id=uart,path=/tmp/sdm660-uartdm-smoke.log \
+            -device sdm660-uartdm,chardev=uart \
+            -daemonize -pidfile /tmp/sdm660-qemu.pid
+          kill -0 "$(cat /tmp/sdm660-qemu.pid)"
+          kill "$(cat /tmp/sdm660-qemu.pid)"
