@@ -7,43 +7,45 @@ claim to model undocumented Qualcomm silicon behavior.
 from dataclasses import dataclass, field
 from typing import Dict, List
 
-# Public Qualcomm device trees describe these blocks by compatible string, but
-# addresses/bitfields must come from matching public kernel drivers or docs.
-# Therefore this model uses symbolic offsets, never fabricated physical MMIO.
-UART_DR = 0x00
-UART_FR = 0x18
-UART_FR_TXFF = 1 << 5
-UART_FR_TXFE = 1 << 7
-UART_CR = 0x30
-UART_LCRH = 0x2C
-UART_IBRD = 0x24
-UART_FBRD = 0x28
-UART_IMSC = 0x38
-UART_ICR = 0x44
+# Register offsets and bit definitions cross-checked against public early-boot
+# code for Qualcomm UARTDM. They describe the UARTDM transmit path only; this
+# model is still not wired into QEMU's MMIO bus.
+UARTDM_DMEN = 0x03C
+UARTDM_SR = 0x0A4
+UARTDM_CR = 0x0A8
+UARTDM_TF = 0x100
+UARTDM_TX_SINGLE_CHAR = 1 << 4
+UARTDM_TX_BAM_ENABLE = 1 << 2
+UARTDM_CR_RESET_TX = 2 << 4
+UARTDM_CR_TX_ENABLE = 1 << 2
+UARTDM_SR_TX_READY = 1 << 2
 
 @dataclass
-class PL011Model:
-    """PL011-compatible console behavior for early boot diagnostics."""
+class QualcommUARTDMModel:
+    """Small UARTDM transmit-register contract for early boot output."""
     tx: List[int] = field(default_factory=list)
-    registers: Dict[int, int] = field(default_factory=dict)
+    registers: Dict[int, int] = field(default_factory=lambda: {UARTDM_SR: UARTDM_SR_TX_READY})
 
     def read(self, offset: int) -> int:
-        if offset == UART_FR:
-            return UART_FR_TXFE
-        if offset == UART_DR:
-            return 0
+        if offset == UARTDM_SR:
+            return UARTDM_SR_TX_READY
         return self.registers.get(offset, 0)
 
     def write(self, offset: int, value: int) -> None:
         value &= 0xFFFFFFFF
-        if offset == UART_DR:
-            self.tx.append(value & 0xFF)
+        if offset == UARTDM_TF:
+            # Firmware writes TF only when SR reports TX_READY.
+            if self.read(UARTDM_SR) & UARTDM_SR_TX_READY:
+                self.tx.append(value & 0xFF)
             return
-        if offset == UART_ICR:
-            # Interrupt clear is write-one-to-clear; no interrupt source is
-            # asserted by this first-stage console-only model.
-            self.registers[UART_ICR] = value
+        if offset == UARTDM_CR and value == UARTDM_CR_RESET_TX:
+            self.tx.clear()
+            self.registers[UARTDM_CR] = value
             return
+        if offset == UARTDM_DMEN:
+            # The early boot writer uses single-character FIFO mode and
+            # disables BAM-based transmit for a simple polling console.
+            value = (value & ~UARTDM_TX_BAM_ENABLE) | UARTDM_TX_SINGLE_CHAR
         self.registers[offset] = value
 
     def output(self) -> bytes:
@@ -53,14 +55,14 @@ class PL011Model:
 class SDM660BoardModel:
     """Minimal observable board contract, not a silicon-complete emulator."""
     ram_size: int = 4 * 1024**3
-    uart: PL011Model = field(default_factory=PL011Model)
+    uart: QualcommUARTDMModel = field(default_factory=QualcommUARTDMModel)
     reset_reason: int = 0
     clock_state: Dict[str, bool] = field(default_factory=dict)
     reset_state: Dict[str, bool] = field(default_factory=dict)
 
     def reset(self, reason: int = 0) -> None:
         self.reset_reason = reason
-        self.uart = PL011Model()
+        self.uart = QualcommUARTDMModel()
         self.clock_state.clear()
         self.reset_state.clear()
 
@@ -76,11 +78,11 @@ class SDM660BoardModel:
 
     def guest_console_write(self, data: bytes) -> None:
         for byte in data:
-            self.uart.write(UART_DR, byte)
+            self.uart.write(UARTDM_TF, byte)
 
     def snapshot(self) -> dict:
         return {
-            "model": "sdm660-lavender-peripheral-contract-v0",
+            "model": "sdm660-lavender-peripheral-contract-v1",
             "silicon_accurate": False,
             "bootable_android": False,
             "ram_size": self.ram_size,
