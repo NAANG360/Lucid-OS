@@ -43,4 +43,6 @@ The pinned MTP overlay also enables UFS nodes, whereas public Redmi Note 7 retai
 
 ## Known blocker
 
-The current `emulator/snapdragon660/model/peripherals.py` is a Python behavioral contract used for unit tests. It is not connected to QEMU's guest MMIO bus and its PL011-like console is **not** the Qualcomm UARTDM described above. The current QEMU capability workflow inventories stock machine/CPU choices; it does not prove native SDM660 emulation. Those gaps remain explicit.
+The Python model at `emulator/snapdragon660/model/peripherals.py` is a deterministic UARTDM TX contract for unit tests, not a CPU emulator and not connected to QEMU's guest MMIO bus. A separate native QEMU SysBus UARTDM prototype now has polling TX/RX paths, a bounded receive FIFO, and a chardev. It still has no IRQ, DMA/BAM, baud timing, clock/reset, pinmux, GIC, or board integration. The QEMU workflow's compilation and device-realization checks are not evidence of a native SDM660 machine or Android boot.
+
+UARTDM register offsets are cross-checked in CI against the pinned kernel header `drivers/tty/serial/msm_serial_hs_hwreg.h` at the same revision. The modeled offsets include DMEN `0x03c`, SR `0x0a4`, CR `0x0a8`, CSR `0x0a0`, IMR `0x0b0`, TF `0x100`, and RF `0x140`. These offsets describe only the register subset currently modeled; they do not imply full hardware compatibility.
