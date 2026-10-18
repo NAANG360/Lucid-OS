@@ -1,0 +1,5 @@
+{
+  "sourceColor": "#0866FF",
+  "source": "Figma LucidOS Control Center (node 63:2), visually sampled from the active Quick Settings tile",
+  "notes": "Build-time Material Color Utilities palette. Accent1 is blue; accent2 is same-hue lower-chroma; accent3 is hue +60 degrees; neutrals are same-hue low-chroma."
+}
