@@ -14,7 +14,9 @@ This repository currently contains an extracted Android system filesystem and re
 - `docs/ROM_BASE_FINDINGS.md` — evidence-based notes about the current ROM base.
 - `.github/workflows/rom-cloud-audit.yml` — cloud inventory of the unsigned release archive.
 - `.github/workflows/rom-reconstruct-partitions.yml` — reconstructs OTA block images in a cloud runner and inventories the actual Settings/SystemUI/launcher APKs.
-- `.github/workflows/lucid-theme-overlay.yml` — builds the LucidOS Material color resource overlay against the extracted framework resources.
+- `.github/workflows/lucid-theme-overlay.yml` — builds the LucidOS Material color resource overlay, wallpaper app, and boot animation.
+- `.github/workflows/rebuild-product-full.yml` — rebuilds the product partition as a complete filesystem and produces a self-contained full product payload.
+- `docs/PRODUCT_REBUILD_INPUT.md` — explains the one required source-tree upload for repairing the incomplete product payload.
 - `theme/assets/` — selected original Figma wallpaper assets (dusk default candidate and alpine alternate).
 - `theme/scripts/generate-palette.mjs` — generates the 65 Android tonal palette resources from the Figma-inspired blue source color.
 
