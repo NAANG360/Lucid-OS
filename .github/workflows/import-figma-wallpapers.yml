@@ -1,0 +1,51 @@
+name: Import selected LucidOS Figma wallpapers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/import-figma-wallpapers.yml
+
+permissions:
+  contents: write
+
+jobs:
+  import-wallpapers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ github.token }}
+
+      - name: Download selected original Figma image assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p theme/assets
+          curl --fail --location --retry 2 --connect-timeout 15 \
+            'https://www.figma.com/api/mcp/asset/4acaf5eb-ccc1-4420-bac2-317912222229.png' \
+            --output theme/assets/lucid-wallpaper-dusk.png
+          curl --fail --location --retry 2 --connect-timeout 15 \
+            'https://www.figma.com/api/mcp/asset/5524a070-dc51-4293-a412-afb3dcff6272.png' \
+            --output theme/assets/lucid-wallpaper-alpine.png
+          file theme/assets/*.png
+          sha256sum theme/assets/*.png
+          test -s theme/assets/lucid-wallpaper-dusk.png
+          test -s theme/assets/lucid-wallpaper-alpine.png
+
+      - name: Commit selected source assets and remove one-time importer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add theme/assets/lucid-wallpaper-dusk.png theme/assets/lucid-wallpaper-alpine.png
+          git commit -m 'Add selected LucidOS Figma wallpaper assets'
+          git push origin HEAD:main
+          git rm .github/workflows/import-figma-wallpapers.yml
+          git commit -m 'Remove one-time Figma asset importer'
+          git push origin HEAD:main
