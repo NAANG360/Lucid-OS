@@ -1,0 +1,136 @@
+name: LucidOS Partition Reconstruction Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - tools/reconstruct_transfer_image.py
+      - .github/workflows/rom-reconstruct-partitions.yml
+
+permissions:
+  contents: write
+
+jobs:
+  reconstruct-and-inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Android build tools
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'build-tools;35.0.0'
+
+      - name: Download unsigned OTA archive
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rom" report "$RUNNER_TEMP/partitions"
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          ASSET_ID="$(python3 - "$RUNNER_TEMP/releases.json" <<'PY'
+          import json, sys
+          for r in json.load(open(sys.argv[1])):
+              if r.get("tag_name") == "tobelucid-source-v1":
+                  for a in r.get("assets", []):
+                      if a.get("name") == "LucidOS-unsigned.zip":
+                          print(a["id"]); raise SystemExit(0)
+          raise SystemExit("LucidOS-unsigned.zip not found in the draft release")
+          PY
+          )"
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/octet-stream" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" \
+            --output "$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
+          sha256sum "$RUNNER_TEMP/rom/LucidOS-unsigned.zip" | tee report/archive-sha256.txt
+          python3 - "$RUNNER_TEMP/rom/LucidOS-unsigned.zip" "$RUNNER_TEMP/partitions" <<'PY'
+          import os, sys, zipfile
+          archive, outdir = sys.argv[1:]
+          names = []
+          for part in ("system", "vendor", "product", "system_ext", "odm"):
+              names.extend([f"{part}.transfer.list", f"{part}.new.dat.br"])
+          with zipfile.ZipFile(archive) as z:
+              for name in names:
+                  info = z.getinfo(name)
+                  dest = os.path.join(outdir, name)
+                  with z.open(info) as src, open(dest, "wb") as dst:
+                      while True:
+                          chunk = src.read(4 * 1024 * 1024)
+                          if not chunk: break
+                          dst.write(chunk)
+          print("Extracted transfer lists and compressed new.dat streams.")
+          PY
+
+      - name: Reconstruct logical partition images
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet brotli
+          mkdir -p "$RUNNER_TEMP/images"
+          : > report/partition-reconstruction.txt
+          for part in system vendor product system_ext odm; do
+            echo "===== $part =====" | tee -a report/partition-reconstruction.txt
+            "$RUNNER_TEMP/venv/bin/python" tools/reconstruct_transfer_image.py \
+              "$RUNNER_TEMP/partitions/$part.transfer.list" \
+              "$RUNNER_TEMP/partitions/$part.new.dat.br" \
+              "$RUNNER_TEMP/images/$part.img" | tee -a report/partition-reconstruction.txt
+            file "$RUNNER_TEMP/images/$part.img" | tee -a report/partition-reconstruction.txt
+            sha256sum "$RUNNER_TEMP/images/$part.img" | tee -a report/partition-reconstruction.txt
+            rm -f "$RUNNER_TEMP/partitions/$part.new.dat.br"
+          done
+
+      - name: Mount partitions and inspect target packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p "$RUNNER_TEMP/mnt"
+          : > report/package-locations.txt
+          for part in system vendor product system_ext odm; do
+            mnt="$RUNNER_TEMP/mnt/$part"
+            mkdir -p "$mnt"
+            if sudo mount -t ext4 -o loop,ro,noload "$RUNNER_TEMP/images/$part.img" "$mnt" 2>"$RUNNER_TEMP/mount-$part.log"; then
+              echo "Mounted $part as ext4" | tee -a report/package-locations.txt
+            else
+              echo "Could not mount $part as ext4: $(cat "$RUNNER_TEMP/mount-$part.log")" | tee -a report/package-locations.txt
+              continue
+            fi
+          done
+
+          find "$RUNNER_TEMP/mnt" -type f \( \
+            -name 'Settings.apk' -o -name 'SystemUI.apk' -o \
+            -name 'Launcher3.apk' -o -name 'Launcher3QuickStep.apk' -o \
+            -name 'WallpaperPicker2.apk' -o -name 'SettingsProvider.apk' \
+          \) -print | sort -u >> report/package-locations.txt
+
+          while IFS= read -r apk; do
+            [[ -f "$apk" ]] || continue
+            base="$(basename "$apk" .apk)"
+            echo "===== $apk =====" >> "report/$base-resources.txt"
+            ls -lh "$apk" >> "report/$base-resources.txt"
+            sha256sum "$apk" >> "report/$base-resources.txt"
+            "$BUILD_TOOLS/aapt" dump badging "$apk" >> "report/$base-resources.txt" 2>&1 || true
+            "$BUILD_TOOLS/aapt2" dump resources "$apk" > "$RUNNER_TEMP/$base-full-resources.txt" 2>&1 || true
+            grep -Ei 'resource .* (color|drawable|mipmap|style|bool|dimen|string)/.*(accent|primary|secondary|background|surface|tile|icon|settings|theme|wallpaper|overlay|qs_|quick_settings)' \
+              "$RUNNER_TEMP/$base-full-resources.txt" | head -n 350 >> "report/$base-resources.txt" || true
+            grep -Ei 'overlayable|ThemeCustomization|default_wallpaper' "$RUNNER_TEMP/$base-full-resources.txt" | head -n 100 >> "report/$base-resources.txt" || true
+          done < report/package-locations.txt
+
+          for part in system vendor product system_ext odm; do
+            sudo umount "$RUNNER_TEMP/mnt/$part" 2>/dev/null || true
+          done
+
+      - name: Upload reconstructed partition and package audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-partition-reconstruction-audit
+          path: report/
+          if-no-files-found: error
+          retention-days: 7
