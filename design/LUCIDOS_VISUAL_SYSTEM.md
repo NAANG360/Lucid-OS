@@ -34,7 +34,7 @@ These are the strongest directly relevant screen candidates identified from the 
 
 ## Implementation and validation status
 
-- **Built in cloud CI:** Lucid Wallpapers app, Lucid Blue / Violet Dusk / Cyan Horizon palette controls, a Material tonal resource-overlay prototype, and a matching boot animation based on wallpaper 4.
+- **Built in cloud CI:** Lucid Wallpapers app, Lucid Blue / Violet Dusk / Cyan Horizon palette controls, a Material tonal resource-overlay prototype, and a matching boot animation based on wallpaper 4. The static overlay is retained as a test artifact only and is not included in the ROM while runtime mapping remains unverified.
 - **Native system theming path:** the palette controls write Android's `theme_customization_overlay_packages` secure setting, using a Lucid seed color and `TONAL_SPOT` style. The app is intended to ship in `/product/priv-app` with an explicit `WRITE_SECURE_SETTINGS` allowlist; it does not replace the wallpaper automatically at boot.
 - **Not yet proven:** whether the custom framework resource overlay can be mapped by the exact ROM's overlay manager. The available host AAPT2 did not provide a conclusive overlayability report, so the static overlay must remain a prototype until runtime mapping is verified.
 - **Confirmed install blocker:** the unsigned OTA's product transfer list writes only 123,902 blocks, while the product filesystem spans 601,750 blocks. Reconstructing it from an empty super image produces invalid ext4 extents and a corrupt root directory. The current ZIP must not be treated as a bootable full install. See `docs/ROM_INSTALLER_FINDINGS.md` and `docs/PRODUCT_REBUILD_INPUT.md`.
