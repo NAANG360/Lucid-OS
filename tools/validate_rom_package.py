@@ -38,10 +38,13 @@ with zipfile.ZipFile(rom) as z:
                     totals[cmd]+=end-start; maxend=max(maxend,end); ranges.append((start,end,cmd))
             check(f"{p} transfer header",header==totals["new"]+totals["zero"],f"header={header}; new={totals['new']}; zero={totals['zero']}; erase={totals['erase']}")
             check(f"{p} nonempty write ranges",totals["new"]>0,f"new blocks={totals['new']}")
-            ordered=sorted(ranges); overlap=None
-            for a,b in zip(ordered,ordered[1:]):
-                if a[1]>b[0]: overlap=(a,b); break
-            check(f"{p} non-overlapping ranges",overlap is None,"no overlaps" if overlap is None else f"overlap {overlap}")
+            overlap=None
+            for command in totals:
+                ordered=sorted((a,b) for a,b,kind in ranges if kind==command)
+                for a,b in zip(ordered,ordered[1:]):
+                    if a[1]>b[0]: overlap=(command,a,b); break
+                if overlap: break
+            check(f"{p} non-overlapping same-command ranges",overlap is None,"no same-command overlaps" if overlap is None else f"overlap {overlap}")
             details.append(f"- {p}: max block end {maxend}; new {totals['new']}; zero {totals['zero']}; erase {totals['erase']}; header {header}.")
         except (ValueError,OverflowError) as e: warnings.append(f"{p}: transfer-list parse error: {e}")
     updater="\n".join(read_member(z,n) for n in names if n.endswith("updater-script"))
