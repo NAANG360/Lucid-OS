@@ -6,6 +6,10 @@ concurrency:
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/lucid-theme-pack.yml
   workflow_run:
     workflows: ["Lucid Theme Overlay"]
     types: [completed]
@@ -111,3 +115,37 @@ jobs:
             report-theme-pack-sha256.txt
           if-no-files-found: error
           retention-days: 7
+
+      - name: Attach guarded theme pack to draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          python3 - "$RUNNER_TEMP/releases.json" "$RUNNER_TEMP/release-assets.json" <<'PY'
+          import json, sys
+          release=next((r for r in json.load(open(sys.argv[1])) if r.get("tag_name")=="tobelucid-source-v1"),None)
+          if not release:
+              raise SystemExit("Draft release tobelucid-source-v1 not visible to workflow token.")
+          asset=next((a for a in release.get("assets",[]) if a.get("name")=="LucidOS-Theme-Pack-Prototype.zip"),None)
+          json.dump({"release_id":release["id"],"asset_id":asset["id"] if asset else None},open(sys.argv[2],"w"))
+          PY
+          RELEASE_ID="$(python3 - "$RUNNER_TEMP/release-assets.json" <<'PY'
+          import json, sys
+          print(json.load(open(sys.argv[1]))["release_id"])
+          PY
+          )"
+          OLD_ID="$(python3 - "$RUNNER_TEMP/release-assets.json" <<'PY'
+          import json, sys
+          print(json.load(open(sys.argv[1])).get("asset_id") or "")
+          PY
+          )"
+          if [[ -n "$OLD_ID" ]]; then
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$OLD_ID"
+          fi
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @out/LucidOS-Theme-Pack-Prototype.zip \
+            "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=LucidOS-Theme-Pack-Prototype.zip"
