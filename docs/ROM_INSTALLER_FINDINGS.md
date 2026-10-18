@@ -24,6 +24,12 @@ This is based on the unsigned release ZIP's actual file list and updater script,
 
 The requested logical partition sizes total 5,074,354,176 bytes, leaving 1,699,446,784 bytes below the group maximum. These entries describe the installer's intended layout; they do not by themselves prove that the device's current super metadata matches it.
 
+## Boot-image structural check
+
+The archive's `boot.img` is 64 MiB and begins with the expected `ANDROID!` magic. Parsing its legacy v0 header gives a 4,096-byte page size, a 16,537,691-byte kernel, and a 1,815,853-byte ramdisk. Its OS-version word decodes to Android 15.0.0 with a December 2025 patch-level encoding. The `vbmeta.img` begins with `AVB0` and has a structurally plausible 8 KiB container.
+
+This **does not prove the kernel/ramdisk is compatible with lavender or that AVB will accept the images**, but it means the header is not obviously malformed. The header data is consistent with the declared SDK 35 system more than with the Android 10 fingerprint string. Do not treat the header as the root cause without checking the kernel load addresses, ramdisk contents, AVB flags/descriptors, and recovery logs.
+
 ## What this says about the cust theory
 
 The ZIP does not attempt to create or flash `cust`. That alone does **not** prove that cust is irrelevant to boot, because a device/vendor configuration can expect files or properties from a separate cust partition. But there is no direct evidence in the installer that a missing cust image caused the fastboot return.
