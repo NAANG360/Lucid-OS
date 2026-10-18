@@ -32,8 +32,12 @@ jobs:
           curl --fail --location --retry 3 \
             https://raw.githubusercontent.com/xiaomi-sdm660/android_kernel_xiaomi_sdm660/5ce3bc43631dca83f6081757c8982c2d5f6e017c/arch/arm/boot/dts/qcom/sdm660.dtsi \
             --output emulator/snapdragon660/upstream/sdm660.dtsi
+          curl --fail --location --retry 3 \
+            https://raw.githubusercontent.com/okta-10/mystic_kernel_sdm660-4.4/3fbc81d0cd7ee4116a72926b3777ea0379be9dd7/arch/arm/boot/dts/qcom/sdm660-mtp_lavender.dtsi \
+            --output emulator/snapdragon660/upstream/sdm660-mtp_lavender.dtsi
           python emulator/snapdragon660/tools/inventory_dts_hardware.py \
             --input xiaomi-sdm660/android_kernel_xiaomi_sdm660@5ce3bc43631dca83f6081757c8982c2d5f6e017c=emulator/snapdragon660/upstream/sdm660.dtsi \
+            --input okta-10/mystic_kernel_sdm660-4.4@3fbc81d0cd7ee4116a72926b3777ea0379be9dd7=emulator/snapdragon660/upstream/sdm660-mtp_lavender.dtsi \
             --output emulator/snapdragon660/sdm660-hardware-inventory.json
           python -c "import json; p=json.load(open('emulator/snapdragon660/sdm660-hardware-inventory.json')); assert p['counts']['nodes_with_reg'] > 10; assert p['boot_critical_candidates']['interrupt_controller']; assert p['boot_critical_candidates']['uart']; print(json.dumps(p['counts'], indent=2))"
       - name: Install QEMU
@@ -56,3 +60,4 @@ jobs:
             emulator/snapdragon660/board-contract-smoke.json
             emulator/snapdragon660/sdm660-hardware-inventory.json
             emulator/snapdragon660/upstream/sdm660.dtsi
+            emulator/snapdragon660/upstream/sdm660-mtp_lavender.dtsi
