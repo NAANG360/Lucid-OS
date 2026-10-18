@@ -9,11 +9,11 @@
 - File: `arch/arm/boot/dts/qcom/sdm660.dtsi`
 - Canonical source: https://github.com/xiaomi-sdm660/android_kernel_xiaomi_sdm660/blob/5ce3bc43631dca83f6081757c8982c2d5f6e017c/arch/arm/boot/dts/qcom/sdm660.dtsi
 
-The CI workflow downloads that exact revision and runs `tools/inventory_dts_hardware.py`. The resulting JSON preserves raw `reg` and `interrupts` cell tuples and includes the file's SHA-256.
+The CI workflow downloads that exact revision plus a pinned lavender MTP overlay from okta-10/mystic_kernel_sdm660-4.4 revision 3fbc81d0cd7ee4116a72926b3777ea0379be9dd7, then runs the inventory parser. The resulting JSON preserves raw register and interrupt cell tuples, includes each source's SHA-256, and applies the overlay's UART status override.
 
 ## Confirmed DTS declarations
 
-These are literal declarations in the pinned common SoC DTSI, **not proof that a QEMU model exists or that the final lavender device tree uses every node unchanged**.
+These are literal declarations in the pinned common SoC DTSI, **not proof that a QEMU model exists or that the final retail lavender device tree uses every node unchanged**. The overlay source is an MTP configuration and is not a substitute for the exact final DTB/DTBO from the user's matching ROM.
 
 | Block | DTS node / compatible | Literal register tuple(s) | Status / notes |
 |---|---|---|---|
@@ -27,6 +27,10 @@ These are literal declarations in the pinned common SoC DTSI, **not proof that a
 | GPU clock controller | `clock-controller@5065000`, `qcom,gpu-sdm660` | `<0x5065000 0x10000>` | Clock/reset block only; this is not an Adreno 512 GPU model |
 
 Interrupt properties should remain raw tuples until interpreted with the actual interrupt parent and binding. `reg` tuples also require each bus's `#address-cells`, `#size-cells`, and `ranges` context. Do not copy addresses blindly into a QEMU machine from this table.
+
+## Source discrepancy that must not be papered over
+
+The pinned MTP overlay also enables UFS nodes, whereas public Redmi Note 7 retail specifications describe eMMC 5.1. That mismatch is a warning that this MTP overlay may not match the exact retail storage configuration. Treat eMMC/UFS bring-up as unresolved until the final DTB/DTBO and partition table from the actual target ROM are inspected; do not implement storage from the MTP overlay alone.
 
 ## Implementation order
 
