@@ -138,7 +138,7 @@ jobs:
             > report/mke2fs-product.txt 2>&1
           "$E2FSDROID" -f "$TREE" -a /product -T 1766435978 -S "$FILE_CONTEXTS" "$IMAGE" \
             > report/e2fsdroid-product.txt 2>&1
-          e2fsck -fy "$IMAGE" > report/product-e2fsck-repair.txt 2>&1
+          e2fsck -fy "$IMAGE" > report/product-e2fsck-repair.txt 2>&1 || true
           set +e
           e2fsck -fn "$IMAGE" > report/product-e2fsck-final.txt 2>&1
           FSCK_STATUS=$?
