@@ -1,0 +1,34 @@
+/dts-v1/;
+
+/*
+ * SDM660 / Redmi Note 7 lavender board-profile scaffold.
+ *
+ * WARNING: This is a research scaffold, NOT a silicon-accurate device tree.
+ * It deliberately does not invent Qualcomm MMIO addresses or IRQ numbers.
+ * The model is not yet suitable for booting a lavender kernel or Android.
+ * Replace TODO nodes only from traceable public kernel DTS / binding evidence.
+ */
+
+/ {
+    model = "Xiaomi Redmi Note 7 (lavender) - SDM660 research variant";
+    compatible = "xiaomi,lavender-sdm660", "qcom,sdm660";
+    #address-cells = <2>;
+    #size-cells = <2>;
+
+    chosen {
+        bootargs = "console=ttyMSM0,115200n8 earlycon";
+        stdout-path = "serial0:115200n8";
+    };
+
+    memory@0 {
+        device_type = "memory";
+        /* TODO: populate from target bootloader/device-tree evidence. */
+        reg = <0x0 0x80000000 0x0 0x10000000>;
+        status = "disabled";
+    };
+
+    /* TODO: add GIC, timer, Qualcomm TLMM, RPM, GCC, SPMI/PMIC,
+     * storage, display, USB, WLAN, Bluetooth and secure-world nodes
+     * from the correct SDM660 source branch, with verified addresses.
+     */
+};
