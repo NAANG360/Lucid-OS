@@ -49,6 +49,14 @@ class DTSInventoryTests(unittest.TestCase):
         self.assertEqual(uart["clock_names"], ["se-clk", "m-ahb"])
         self.assertEqual(uart["status"], ["okay"])
 
+    def test_board_overlay_updates_base_node_status(self):
+        overlay = '&uart0 { status = "okay"; clock-names = "console-clk"; };'
+        report = build_report([("soc.dtsi", FIXTURE), ("lavender-overlay.dtsi", overlay)])
+        uart = report["boot_critical_candidates"]["uart"][0]
+        self.assertEqual(uart["status"], ["okay"])
+        self.assertEqual(uart["clock_names"], ["console-clk"])
+        self.assertEqual(uart["overrides_from"], ["lavender-overlay.dtsi"])
+
     def test_report_discloses_preprocessing_limit(self):
         report = build_report([("fixture.dts", FIXTURE)])
         self.assertTrue(any("not a fully preprocessed" in s for s in report["limitations"]))
