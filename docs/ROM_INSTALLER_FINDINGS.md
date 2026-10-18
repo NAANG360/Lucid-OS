@@ -45,6 +45,22 @@ The dynamic-partition operation list removes existing groups and says it is appl
 
 That means the archive does not explicitly populate the whole product filesystem. The cloud reconstruction confirms this is not a complete product filesystem: `e2fsck -fn` reports invalid extent nodes and a corrupted root directory, and the product mount exposes no files. The installer first discards the physical `system`/super storage and then rebuilds dynamic-partition metadata, so those untouched blocks cannot be relied on to survive. This is a **confirmed packaging defect and a leading explanation for the failed boot**. The exact repair requires the complete product source image/tree; the partial `.new.dat.br` payload cannot recreate the missing blocks by itself.
 
+## Cloud reconstruction results (2026-10-18)
+
+The transfer-list reconstruction and read-only filesystem checks completed in GitHub Actions. This is a real filesystem check of the archive's payload, not a boot simulation.
+
+| Partition | Reconstructed ext4 result | Interpretation |
+| --- | --- | --- |
+| system | All five e2fsck passes completed without reported errors | Filesystem structure appears consistent |
+| vendor | All five e2fsck passes completed without reported errors | Filesystem structure appears consistent |
+| system_ext | All five e2fsck passes completed without reported errors | Filesystem structure appears consistent |
+| odm | All five e2fsck passes completed without reported errors | Filesystem structure appears consistent |
+| product | e2fsck aborted after invalid extent nodes and a corrupted root directory; mounted tree was empty | **Broken/incomplete product payload confirmed** |
+
+The archive does contain `Settings.apk` and `SystemUI.apk`, both located under `system_ext/priv-app`, plus `SettingsProvider.apk` under `system/priv-app`. The resource dump identifies Android 15-era Material 3 and Quick Settings resources, including `qs_tile_ripple_color`, `brightness_slider_overlay_color`, and several `m3_sys_color_*` colors. The captured SystemUI overlayable-policy dump is empty, so do not assume those resources are legally overlayable just because they exist in the APK. Any SystemUI RRO must be validated against the actual target policy.
+
+The product issue is now the first packaging blocker to resolve before another ROM flash. The overlay and wallpaper work must not be allowed to obscure this bootability problem.
+
 ## What this says about the cust theory
 
 The ZIP does not attempt to create or flash `cust`. That alone does **not** prove that cust is irrelevant to boot, because a device/vendor configuration can expect files or properties from a separate cust partition. But there is no direct evidence in the installer that a missing cust image caused the fastboot return.
