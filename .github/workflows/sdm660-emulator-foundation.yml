@@ -1,0 +1,53 @@
+name: SDM660 Emulator Foundation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'emulator/**'
+      - '.github/workflows/sdm660-emulator-foundation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  static-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Run emulator foundation tests
+        run: python3 -m unittest discover -s emulator/tests -v
+      - name: Validate JSON profile
+        run: python3 -m json.tool emulator/config/lavender-profile.json >/dev/null
+      - name: Validate launcher syntax
+        run: bash -n emulator/run-generic-arm64.sh
+  qemu-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install QEMU system emulator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-arm
+      - name: Inspect available ARM64 machine
+        run: |
+          qemu-system-aarch64 --version
+          qemu-system-aarch64 -machine help | grep -E '(^|[[:space:]])virt([[:space:]]|$)'
+      - name: Validate launcher against QEMU
+        run: |
+          QEMU_SYSTEM_AARCH64=qemu-system-aarch64 python3 emulator/tools/check_qemu.py
+      - name: Upload QEMU capability report
+        run: |
+          mkdir -p report
+          QEMU_SYSTEM_AARCH64=qemu-system-aarch64 python3 emulator/tools/check_qemu.py > report/qemu-capabilities.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdm660-emulator-foundation-report
+          path: report/qemu-capabilities.json
+          retention-days: 30
