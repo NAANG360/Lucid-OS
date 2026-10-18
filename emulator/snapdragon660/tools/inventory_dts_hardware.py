@@ -84,6 +84,10 @@ def inventory(text: str, source: str):
     for item in node_blocks(text):
         p = item["properties"]
         compatible = STR_RE.findall(p.get("compatible", ""))
+        if item["node"].startswith("&"):
+            # Keep overlay fragments so build_report can apply them in source order.
+            nodes.append({"label": None, "node": item["node"], "properties": p, "source": source, "overlay": True})
+            continue
         if not ({"reg", "interrupts", "compatible"} & p.keys()):
             continue
         nodes.append({
@@ -103,7 +107,22 @@ def build_report(inputs: list[tuple[str, str]]):
     source_meta = []
     for source, text in inputs:
         source_meta.append({"path": source, "sha256": hashlib.sha256(text.encode()).hexdigest(), "bytes": len(text.encode())})
-        all_nodes.extend(inventory(text, source))
+        for item in inventory(text, source):
+            if item.get("overlay"):
+                target = item["node"][1:]
+                base = next((n for n in all_nodes if n.get("label") == target), None)
+                if base is None:
+                    continue
+                p = item["properties"]
+                if "status" in p:
+                    base["status"] = STR_RE.findall(p["status"]) or [p["status"]]
+                if "clock-names" in p:
+                    base["clock_names"] = STR_RE.findall(p["clock-names"])
+                if "reset-names" in p:
+                    base["reset_names"] = STR_RE.findall(p["reset-names"])
+                base.setdefault("overrides_from", []).append(source)
+            else:
+                all_nodes.append(item)
     def find(label):
         return [n for n in all_nodes if n["label"] == label or n["node"].split("@")[0] == label]
     return {
