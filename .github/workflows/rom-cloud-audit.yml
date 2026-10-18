@@ -116,6 +116,61 @@ jobs:
                           f.write("[read failed: %s]\n" % e)
           print("Indexed %d ZIP entries" % len(infos))
           PY
+          python3 - "$ZIP" audit <<'PY'
+          import hashlib, os, struct, sys, zipfile
+          zp, outdir = sys.argv[1], sys.argv[2]
+          selected = {
+              "boot.img", "dtbo.img", "vbmeta.img", "super_dummy.img",
+              "unsparse_super_empty.img", "system.transfer.list", "vendor.transfer.list",
+              "product.transfer.list", "odm.transfer.list", "system_ext.transfer.list",
+              "system.patch.dat", "vendor.patch.dat", "product.patch.dat",
+              "odm.patch.dat", "system_ext.patch.dat", "META-INF/com/android/metadata",
+              "META-INF/com/android/metadata.pb", "META-INF/com/google/android/updater-script",
+              "dynamic_partitions_op_list"
+          }
+          def boot_report(data):
+              out=[]
+              if data[:8] != b"ANDROID!":
+                  return ["Not an Android boot image magic; first 64 bytes: "+data[:64].hex()]
+              out.append("magic: ANDROID!")
+              if len(data) >= 44:
+                  kernel, ramdisk, second, tags, page, version = struct.unpack_from("<6I", data, 8)
+                  out += [f"kernel_size: {kernel}", f"ramdisk_size: {ramdisk}", f"second_size: {second}", f"tags_addr: 0x{tags:08x}", f"page_size: {page}", f"header_version: {version}"]
+                  if version == 0 and len(data) >= 48:
+                      out.append(f"os_version_word: 0x{struct.unpack_from('<I', data, 40)[0]:08x}")
+                  if version in (3,4) and len(data) >= 44:
+                      out.append(f"header_size: {struct.unpack_from('<I', data, 20)[0]}")
+              return out
+          with zipfile.ZipFile(zp) as z, open(os.path.join(outdir,"binary-image-report.txt"),"w") as f:
+              names={i.filename:i for i in z.infolist()}
+              f.write("=== Archive entry sizes ===\n")
+              for n,i in names.items():
+                  f.write(f"{i.file_size:12d} uncompressed  {i.compress_size:12d} compressed  {n}\n")
+              f.write("\n=== Selected binary hashes and headers ===\n")
+              for n in sorted(selected):
+                  if n not in names: continue
+                  info=names[n]
+                  f.write(f"\n--- {n} ({info.file_size} bytes) ---\n")
+                  data=z.read(n)
+                  f.write("sha256: "+hashlib.sha256(data).hexdigest()+"\n")
+                  f.write("first_64_bytes: "+data[:64].hex()+"\n")
+                  if n=="boot.img": f.write("\n".join(boot_report(data))+"\n")
+                  if n=="vbmeta.img":
+                      f.write("avb0_magic: "+str(data[:4]==b"AVB0")+"\n")
+                      if data[:4]==b"AVB0" and len(data)>=256:
+                          f.write("required_libavb_version: %d.%d\n"%struct.unpack_from(">II",data,4))
+                          f.write("auth_block_size: %d\n"%struct.unpack_from(">Q",data,12)[0])
+                          f.write("aux_block_size: %d\n"%struct.unpack_from(">Q",data,20)[0])
+                  if n.endswith(".transfer.list"):
+                      lines=data.decode("utf-8","replace").splitlines()
+                      f.write("transfer_list_header: "+repr(lines[:8])+"\n")
+                  if n=="dynamic_partitions_op_list" or n.endswith("updater-script") or n.endswith("/metadata"):
+                      f.write(data.decode("utf-8","replace")[:20000]+"\n")
+              f.write("\n=== Cust partition references ===\n")
+              hits=[n for n in names if "cust" in n.lower()]
+              f.write("\n".join(hits) if hits else "No archive entry has 'cust' in its path.")
+              f.write("\n")
+          PY
           {
             echo "=== ZIP integrity test ==="
             unzip -t "$ZIP" | tail -n 5
