@@ -150,16 +150,20 @@ jobs:
             copy="$RUNNER_TEMP/apks/$base.apk"
             sudo cp "$apk" "$copy"
             sudo chmod 644 "$copy"
-            echo "===== $apk =====" >> "report/$base-resources.txt"
-            ls -lh "$copy" >> "report/$base-resources.txt"
-            sha256sum "$copy" >> "report/$base-resources.txt"
+            {
+              echo "===== $apk ====="
+              ls -lh "$copy"
+              sha256sum "$copy"
+            } >> "report/$base-resources.txt"
             "$BUILD_TOOLS/aapt" dump badging "$copy" >> "report/$base-resources.txt" 2>&1 || true
             "$BUILD_TOOLS/apksigner" verify --print-certs "$copy" > "report/$base-certificate.txt" 2>&1 || true
             "$BUILD_TOOLS/aapt2" dump resources "$copy" > "$RUNNER_TEMP/$base-full-resources.txt" 2>&1 || true
             "$BUILD_TOOLS/aapt2" dump overlayable "$copy" > "report/$base-overlayable.txt" 2>&1 || true
-            grep -Ei 'resource .* (color|drawable|mipmap|style|bool|dimen|string)/.*(accent|primary|secondary|background|surface|tile|icon|settings|theme|wallpaper|overlay|qs_|quick_settings)' \
-              "$RUNNER_TEMP/$base-full-resources.txt" | head -n 350 >> "report/$base-resources.txt" || true
-            grep -Ei 'overlayable|ThemeCustomization|default_wallpaper' "$RUNNER_TEMP/$base-full-resources.txt" | head -n 100 >> "report/$base-resources.txt" || true
+            {
+              grep -Ei 'resource .* (color|drawable|mipmap|style|bool|dimen|string)/.*(accent|primary|secondary|background|surface|tile|icon|settings|theme|wallpaper|overlay|qs_|quick_settings)' \
+                "$RUNNER_TEMP/$base-full-resources.txt" | head -n 350 || true
+              grep -Ei 'overlayable|ThemeCustomization|default_wallpaper' "$RUNNER_TEMP/$base-full-resources.txt" | head -n 100 || true
+            } >> "report/$base-resources.txt"
           done < report/package-locations.txt
 
           for part in system vendor product system_ext odm; do
