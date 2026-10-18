@@ -7,6 +7,9 @@ on:
     paths:
       - theme/rro/**
       - theme/assets/**
+      - theme/wallpaper-app/**
+      - theme/scripts/**
+      - tools/generate_bootanimation.py
       - .github/workflows/lucid-theme-overlay.yml
 
 permissions:
