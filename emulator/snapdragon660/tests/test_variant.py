@@ -9,6 +9,16 @@ class SnapdragonVariantTests(unittest.TestCase):
         self.assertEqual(p["device"]["codename"], "lavender")
         self.assertEqual(p["implementation"]["qemu_machine_type"], "sdm660-lavender")
         self.assertFalse(p["implementation"]["real_sdm660_machine_model"])
+    def test_cpu_topology_is_eight_unique_asymmetric_cores(self):
+        p=json.loads((ROOT/"profile.json").read_text())
+        clusters=p["soc"]["cpu_topology"]["clusters"]
+        self.assertEqual(sum(c["count"] for c in clusters), 8)
+        self.assertEqual([c["count"] for c in clusters], [4, 4])
+        affinity=[mpidr for cluster in clusters for mpidr in cluster["cpu_mpidr_affinity"]]
+        self.assertEqual(len(affinity), 8)
+        self.assertEqual(len(set(affinity)), 8)
+        self.assertTrue(all(value.startswith("0x") for value in affinity))
+
     def test_no_debian_guest_boot_is_part_of_this_variant(self):
         wf=(ROOT.parents[1]/".github/workflows/snapdragon660-variant.yml").read_text()
         self.assertNotIn("Debian", wf)
