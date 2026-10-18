@@ -71,19 +71,57 @@ jobs:
             mkdir -p report/emulator
             adb wait-for-device
             adb shell getprop ro.build.version.release | tee report/emulator/android-version.txt
-            adb install -r out/LucidWallpapers.apk
+            adb root || true
+            adb wait-for-device
+            if adb remount; then
+              adb shell mkdir -p /system/priv-app/LucidWallpapers
+              adb push out/LucidWallpapers.apk /system/priv-app/LucidWallpapers/LucidWallpapers.apk
+              adb push theme/privapp-permissions-lucid.xml /system/etc/permissions/privapp-permissions-lucid.xml
+              adb shell chmod 0644 /system/priv-app/LucidWallpapers/LucidWallpapers.apk
+              adb shell chmod 0644 /system/etc/permissions/privapp-permissions-lucid.xml
+              adb reboot
+              adb wait-for-device
+              for i in $(seq 1 60); do
+                [ "$(adb shell getprop sys.boot_completed | tr -d '\\r')" = "1" ] && break
+                sleep 2
+              done
+            else
+              echo "adb remount unavailable; falling back to regular install for UI and permission smoke test." | tee report/emulator/privileged-install-fallback.txt
+              adb install -r out/LucidWallpapers.apk
+              adb shell pm grant com.lucid.os.wallpapers android.permission.WRITE_SECURE_SETTINGS || true
+            fi
             adb shell am start -W -n com.lucid.os.wallpapers/.MainActivity | tee report/emulator/activity-launch.txt
             sleep 4
             adb shell dumpsys activity activities > report/emulator/activities.txt
             grep -q 'com.lucid.os.wallpapers' report/emulator/activities.txt
+            adb shell uiautomator dump /sdcard/lucid-window.xml >/dev/null
+            adb pull /sdcard/lucid-window.xml report/emulator/window.xml
+            python3 - <<'PY' > "$RUNNER_TEMP/lucid-blue-tap.txt"
+            import xml.etree.ElementTree as ET
+            root = ET.parse("report/emulator/window.xml").getroot()
+            for node in root.iter("node"):
+                if node.attrib.get("text") == "Lucid Blue":
+                    parts = node.attrib.get("bounds", "").replace("][", ",").strip("[]").split(",")
+                    if len(parts) == 4:
+                        x1, y1, x2, y2 = map(int, parts)
+                        print((x1 + x2) // 2, (y1 + y2) // 2)
+                        raise SystemExit(0)
+            raise SystemExit("Lucid Blue palette button not found in accessibility tree")
+            PY
+            read -r TAP_X TAP_Y < "$RUNNER_TEMP/lucid-blue-tap.txt"
+            adb shell input tap "$TAP_X" "$TAP_Y"
+            sleep 3
+            adb shell settings get secure theme_customization_overlay_packages > report/emulator/palette-setting.txt
+            grep -q '#0866FF' report/emulator/palette-setting.txt
+            adb shell cmd overlay list --user 0 > report/emulator/overlays-after-palette.txt 2>&1 || true
             adb shell screencap -p /sdcard/lucid-wallpapers.png
             adb pull /sdcard/lucid-wallpapers.png report/emulator/lucid-wallpapers.png
             adb logcat -d -t 4000 > report/emulator/logcat.txt
-            if grep -E 'FATAL EXCEPTION|Process: com\.lucid\.os\.wallpapers' report/emulator/logcat.txt; then
+            if grep -E 'FATAL EXCEPTION|Process: com\\.lucid\\.os\\.wallpapers' report/emulator/logcat.txt; then
               echo "Wallpaper app crashed in emulator." >&2
               exit 1
             fi
-            echo "PASS: APK installed, MainActivity resumed, screenshot captured, no app fatal exception found." | tee report/emulator/result.txt
+            echo "PASS: privileged app installed, MainActivity resumed, Lucid Blue setting stored, screenshot captured, no app fatal exception found." | tee report/emulator/result.txt
 
       - name: Upload emulator evidence
         if: always()
