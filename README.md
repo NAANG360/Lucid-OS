@@ -12,6 +12,7 @@ This repository currently contains an extracted Android system filesystem and re
 - `system_original_metadata.tsv` — original filesystem metadata, if available.
 - `design/LUCIDOS_VISUAL_SYSTEM.md` — Figma-to-Android visual implementation map.
 - `docs/ROM_BASE_FINDINGS.md` — evidence-based notes about the current ROM base.
+- `docs/ROM_INSTALLER_FINDINGS.md` — block-transfer, boot-image, AVB, and product-filesystem findings.
 - `.github/workflows/rom-cloud-audit.yml` — cloud inventory of the unsigned release archive.
 - `.github/workflows/rom-reconstruct-partitions.yml` — reconstructs OTA block images in a cloud runner and inventories the actual Settings/SystemUI/launcher APKs.
 - `.github/workflows/lucid-theme-overlay.yml` — builds the LucidOS Material color resource overlay, wallpaper app, and boot animation.
@@ -30,4 +31,6 @@ The committed build properties declare SDK 35 / Android 15 and LineageOS 22.2 wh
 
 ## Build and safety status
 
-No artifact should be described as bootable until its installer, partition metadata, image contents, and relevant boot configuration have been checked. Prefer reversible overlays and cloud validation before modifying boot-critical images.
+**Current confirmed blocker:** the product OTA payload writes only 123,902 blocks, but the product filesystem spans 601,750 blocks. Reconstructing it from a clean super image produces an ext4 filesystem with invalid extents and a corrupt root directory. The current unsigned OTA is therefore not a self-contained full install and should not be reflashed as-is. See `docs/ROM_INSTALLER_FINDINGS.md` and `docs/PRODUCT_REBUILD_INPUT.md`.
+
+The framework palette overlay and wallpaper app compile in cloud CI. Runtime framework overlay policy is not yet proven against the custom-signed ROM, and the full product rebuild still requires the complete `product_mod` tree. No artifact should be described as bootable until the rebuilt product filesystem, installer, partition metadata, image contents, and relevant boot configuration have been checked. Prefer reversible overlays and cloud validation before modifying boot-critical images.
