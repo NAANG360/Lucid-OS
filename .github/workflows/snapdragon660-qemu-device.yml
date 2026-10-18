@@ -37,12 +37,23 @@ jobs:
           python3 emulator/snapdragon660/tools/validate_uartdm_register_map.py \
             --kernel-header /tmp/msm_serial_hs_hwreg.h \
             --qemu-source emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c
+      - name: Restore QEMU build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: qemu-src/build
+          key: qemu-v10.0.0-aarch64-softmmu-build-v1
       - name: Configure and compile AArch64 system emulator
         working-directory: qemu-src
         run: |
           ./configure --target-list=aarch64-softmmu --disable-werror --disable-docs
           ninja -C build qemu-system-aarch64
 
+      - name: Save compiled QEMU build cache
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: qemu-src/build
+          key: qemu-v10.0.0-aarch64-softmmu-build-v1
       - name: Runtime smoke test device registration and realization
         working-directory: qemu-src
         run: |
