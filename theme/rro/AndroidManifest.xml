@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.lucid.os.overlay.framework">
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="35" />
     <overlay
         android:targetPackage="android"
         android:targetName="ThemeCustomization"
