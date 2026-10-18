@@ -173,14 +173,6 @@ static void sdm660_uartdm_init(Object *obj)
     memory_region_init_io(&s->iomem, obj, &sdm660_uartdm_ops, s,
                           TYPE_SDM660_UARTDM, UARTDM_MMIO_SIZE);
     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
-    qemu_chr_fe_init(&s->chr, obj, NULL);
-}
-
-static void sdm660_uartdm_finalize(Object *obj)
-{
-    SDM660UARTDMState *s = SDM660_UARTDM(obj);
-
-    qemu_chr_fe_deinit(&s->chr, false);
 }
 
 static Property sdm660_uartdm_properties[] = {
@@ -203,7 +195,6 @@ static const TypeInfo sdm660_uartdm_info = {
     .parent = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(SDM660UARTDMState),
     .instance_init = sdm660_uartdm_init,
-    .instance_finalize = sdm660_uartdm_finalize,
     .class_init = sdm660_uartdm_class_init,
 };
 
