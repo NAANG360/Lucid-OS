@@ -52,15 +52,25 @@ jobs:
           echo "$TREE" > "$RUNNER_TEMP/product-tree-path.txt"
           FILE_COUNT="$(find "$TREE" -type f | wc -l)"
           TREE_BYTES="$(du -sb "$TREE" | awk '{print $1}')"
+          APK_COUNT="$(find "$TREE" -type f -name '*.apk' | wc -l)"
+          SYMLINK_COUNT="$(find "$TREE" -type l | wc -l)"
           {
             echo "source_tree=$TREE"
             echo "file_count=$FILE_COUNT"
             echo "tree_bytes=$TREE_BYTES"
+            echo "apk_count=$APK_COUNT"
+            echo "symlink_count=$SYMLINK_COUNT"
             echo "=== top-level ==="
             ls -lah "$TREE"
           } > report/source-tree-inventory.txt
-          if (( FILE_COUNT < 100 || TREE_BYTES < 300000000 )); then
-            echo "Refusing to build from a suspiciously small product tree ($FILE_COUNT files, $TREE_BYTES bytes)." >&2
+          for required_dir in app priv-app etc media; do
+            if [[ ! -d "$TREE/$required_dir" ]]; then
+              echo "Missing expected product directory: $required_dir" >&2
+              exit 1
+            fi
+          done
+          if (( FILE_COUNT < 100 || TREE_BYTES < 300000000 || APK_COUNT < 20 )); then
+            echo "Refusing to build from a suspiciously small product tree ($FILE_COUNT files, $TREE_BYTES bytes, $APK_COUNT APKs)." >&2
             exit 1
           fi
           RUN_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/lucid-theme-overlay.yml/runs?status=success&per_page=10" --jq '.workflow_runs[0].id')"
