@@ -4,11 +4,12 @@ This directory starts the native-QEMU path; it is not a bootable machine yet.
 
 ## Current device
 
-`hw/char/sdm660_uartdm.c` is a SysBus MMIO device with a polling TX path,
-register storage for a small subset of UARTDM, and a QEMU chardev output. It
-uses the public early-boot UARTDM offsets for DMEN, SR, CR and TF. It deliberately
-does **not** pretend to implement RX, IRQs, DMA/BAM, pin mux, clock/reset
-controllers, the GIC, PSCI, storage, or Qualcomm secure firmware.
+`hw/char/sdm660_uartdm.c` is a SysBus MMIO device with polling TX and RX paths,
+a bounded 256-byte receive FIFO, a QEMU chardev, and a small subset of UARTDM
+register behavior. Offsets are checked against the pinned lavender kernel's
+`msm_serial_hs_hwreg.h` by CI. This remains a bring-up stub: it does **not**
+implement interrupts, DMA/BAM, baud timing, pin mux, clock/reset controllers,
+the GIC, PSCI, storage, or Qualcomm secure firmware.
 
 ## Integrating into a QEMU source checkout
 
@@ -45,8 +46,8 @@ not blindly copy the MTP status or assume every SoC node is enabled.
 
 ## Known limitations before compile/runtime validation
 
-- This first C implementation has not yet been compiled against a pinned QEMU
-  source revision. QEMU APIs can change, so compilation is a required next gate.
+- The CI workflow compiles against QEMU v10.0.0 and realizes the device on a
+  reference machine; this does not validate a Snapdragon board or guest boot.
 - SR reports TX-ready immediately; no baud timing or FIFO depth is simulated.
 - TX output is only a debug console path, not a complete UARTDM implementation.
 - Device reset does not yet model hardware reset side effects beyond register state.
