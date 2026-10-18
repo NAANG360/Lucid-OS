@@ -119,6 +119,18 @@ jobs:
           "$BUILD_TOOLS/aapt" dump badging out/LucidWallpapers.apk > report/wallpaper-app-badging.txt
           sha256sum out/LucidWallpapers.apk > report/wallpaper-app-sha256.txt
 
+      - name: Generate LucidOS boot animation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/pillow-venv"
+          "$RUNNER_TEMP/pillow-venv/bin/pip" install --quiet Pillow
+          "$RUNNER_TEMP/pillow-venv/bin/python" tools/generate_bootanimation.py \
+            theme/assets/lucid-wallpaper-dusk.jpg out/LucidOS-bootanimation.zip
+          unzip -t out/LucidOS-bootanimation.zip | tail -n 2
+          ls -lh out/LucidOS-bootanimation.zip
+          sha256sum out/LucidOS-bootanimation.zip > report/bootanimation-sha256.txt
+
       - name: Upload overlay and validation report
         uses: actions/upload-artifact@v4
         with:
@@ -126,6 +138,7 @@ jobs:
           path: |
             out/LucidOS-Framework-Theme-Overlay.apk
             out/LucidWallpapers.apk
+            out/LucidOS-bootanimation.zip
             report/
           if-no-files-found: error
           retention-days: 7
