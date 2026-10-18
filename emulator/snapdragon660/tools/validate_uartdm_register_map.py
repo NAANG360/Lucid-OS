@@ -19,7 +19,10 @@ HEX_DEFINE = re.compile(r"^\s*#define\s+(\w+)\s+(0x[0-9a-fA-F]+|[0-9]+)\b", re.M
 
 
 def defines(path: Path) -> dict[str, int]:
-    return {name: int(value, 0) for name, value in HEX_DEFINE.findall(path.read_text())}
+    content = path.read_text()
+    values = {name: int(value, 0) for name, value in HEX_DEFINE.findall(content)}
+    values.update({name: int(value, 0) for name, value in ENUM_ASSIGN.findall(content)})
+    return values
 
 
 def main() -> int:
