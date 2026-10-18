@@ -1,0 +1,105 @@
+name: ROM Cloud Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [rom-cloud-audit]
+    paths:
+      - .github/workflows/rom-cloud-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-rom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Prepare tools and check runner capacity
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip zipinfo file
+          mkdir -p audit
+          {
+            echo "UTC: $(date -u)"
+            echo
+            echo "=== Disk before download ==="
+            df -h
+            echo
+            echo "=== Release metadata ==="
+            gh release view tobelucid-source-v1 --repo "$GITHUB_REPOSITORY" --json name,tagName,isDraft,assets
+          } > audit/runner-and-release.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Download ROM archive
+        run: |
+          mkdir -p "$RUNNER_TEMP/rom"
+          gh release download tobelucid-source-v1 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "LucidOS-unsigned.zip" \
+            --dir "$RUNNER_TEMP/rom"
+          ZIP="$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
+          test -s "$ZIP"
+          {
+            echo "=== Archive file ==="
+            ls -lh "$ZIP"
+            sha256sum "$ZIP"
+            echo
+            echo "=== Disk after download ==="
+            df -h
+          } >> audit/runner-and-release.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Inventory archive and inspect boot-critical configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
+          unzip -Z -1 "$ZIP" > audit/archive-file-list.txt
+          zipinfo -l "$ZIP" > audit/archive-detailed-list.txt
+          {
+            echo "=== Entry count ==="
+            wc -l < audit/archive-file-list.txt
+            echo
+            echo "=== Boot / partition / installer / filesystem candidates ==="
+            grep -Ei '(^|/)(META-INF/.*(updater-script|update-binary)|.*(fstab|recovery\.fstab|dynamic_partitions|super_empty|payload\.bin|boot\.img|vendor_boot\.img|init_boot\.img|dtbo\.img|vbmeta.*\.img|recovery\.img|cust.*\.img|vendor.*\.img|system.*\.img|product.*\.img|system_ext.*\.img|odm.*\.img|.*\.rc|.*\.prop|.*\.sh)$' audit/archive-file-list.txt | head -n 1000 || true
+            echo
+            echo "=== Text configuration / installer files (first 200 entries) ==="
+            grep -Ei '(^|/)(updater-script|update-binary|.*fstab.*|.*dynamic.*partition.*|.*metadata.*|.*(install|flash|assert|partition).*\.sh|.*\.prop|.*\.rc|.*\.xml)$' audit/archive-file-list.txt | head -n 200 || true
+          } > audit/critical-file-index.txt
+
+          mkdir -p "$RUNNER_TEMP/selected"
+          : > audit/selected-text-files.txt
+          while IFS= read -r entry; do
+            [[ "$entry" =~ (^|/)(updater-script|.*fstab.*|.*dynamic.*partition.*|.*(install|flash|assert|partition).*\.sh|.*\.prop|.*\.rc|.*\.xml)$ ]] || continue
+            [[ "$entry" == */ ]] && continue
+            # Avoid dumping large binaries or huge generated files.
+            size=$(unzip -l "$ZIP" "$entry" | awk 'END {print $1}')
+            [[ "$size" =~ ^[0-9]+$ ]] || continue
+            (( size <= 200000 )) || continue
+            safe=$(printf '%s' "$entry" | tr '/ ' '__')
+            {
+              echo
+              echo "===== $entry (uncompressed bytes: $size) ====="
+              unzip -p "$ZIP" "$entry" | head -c 200000 || true
+              echo
+            } >> audit/selected-text-files.txt
+          done < audit/archive-file-list.txt
+
+          {
+            echo "=== ZIP integrity test ==="
+            unzip -t "$ZIP" | tail -n 5
+            echo
+            echo "=== Runner disk after inspection ==="
+            df -h
+          } > audit/archive-integrity-and-disk.txt
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-rom-audit
+          path: audit/
+          if-no-files-found: error
+          retention-days: 7
