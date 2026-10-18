@@ -82,7 +82,7 @@ jobs:
               adb reboot
               adb wait-for-device
               for i in $(seq 1 60); do
-                [ "$(adb shell getprop sys.boot_completed | tr -d '\\r')" = "1" ] && break
+                [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1" ] && break
                 sleep 2
               done
             else
@@ -117,7 +117,7 @@ jobs:
             adb shell screencap -p /sdcard/lucid-wallpapers.png
             adb pull /sdcard/lucid-wallpapers.png report/emulator/lucid-wallpapers.png
             adb logcat -d -t 4000 > report/emulator/logcat.txt
-            if grep -E 'FATAL EXCEPTION|Process: com\\.lucid\\.os\\.wallpapers' report/emulator/logcat.txt; then
+            if grep -E 'FATAL EXCEPTION|Process: com\.lucid\.os\.wallpapers' report/emulator/logcat.txt; then
               echo "Wallpaper app crashed in emulator." >&2
               exit 1
             fi
