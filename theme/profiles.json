@@ -1,0 +1,20 @@
+{
+  "defaultProfile": "lucid-blue",
+  "profiles": {
+    "lucid-blue": {
+      "label": "Lucid Blue",
+      "sourceColor": "#0866FF",
+      "description": "Electric blue primary, lavender neutrals, restrained cyan highlights."
+    },
+    "violet-dusk": {
+      "label": "Violet Dusk",
+      "sourceColor": "#7657FF",
+      "description": "Violet primary with cool periwinkle surfaces."
+    },
+    "cyan-horizon": {
+      "label": "Cyan Horizon",
+      "sourceColor": "#00AFC8",
+      "description": "Cyan primary with blue-violet secondary tones."
+    }
+  }
+}
