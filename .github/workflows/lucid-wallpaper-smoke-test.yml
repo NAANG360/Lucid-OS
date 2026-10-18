@@ -5,6 +5,11 @@ concurrency:
   cancel-in-progress: true
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/lucid-wallpaper-smoke-test.yml'
+      - 'theme/**'
   workflow_dispatch:
   workflow_run:
     workflows: ["Lucid Theme Overlay"]
@@ -16,7 +21,7 @@ permissions:
 
 jobs:
   smoke-test:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
