@@ -97,6 +97,17 @@ jobs:
             rm -f "$RUNNER_TEMP/partitions/$part.new.dat.br"
           done
 
+      - name: Check reconstructed ext4 filesystems
+        shell: bash
+        run: |
+          set -euo pipefail
+          for part in system vendor product system_ext odm; do
+            echo "===== $part superblock =====" > "report/$part-superblock.txt"
+            dumpe2fs -h "$RUNNER_TEMP/images/$part.img" >> "report/$part-superblock.txt" 2>&1 || true
+            echo "===== $part e2fsck -fn =====" > "report/$part-e2fsck.txt"
+            e2fsck -fn "$RUNNER_TEMP/images/$part.img" >> "report/$part-e2fsck.txt" 2>&1 || true
+          done
+
       - name: Mount partitions and inspect target packages
         shell: bash
         run: |
@@ -115,11 +126,22 @@ jobs:
             fi
           done
 
+          sudo find "$RUNNER_TEMP/mnt" -type f -name '*.apk' -print | sort -u > report/all-apks.txt
+          grep -Ei '/(launcher|home|wallpaper|trebuchet|lawnchair|quickstep|pixel)' report/all-apks.txt > report/launcher-wallpaper-apks.txt || true
           sudo find "$RUNNER_TEMP/mnt" -type f \( \
             -name 'Settings.apk' -o -name 'SystemUI.apk' -o \
             -name 'Launcher3.apk' -o -name 'Launcher3QuickStep.apk' -o \
             -name 'WallpaperPicker2.apk' -o -name 'SettingsProvider.apk' \
           \) -print | sort -u >> report/package-locations.txt
+          for part in product system_ext; do
+            {
+              echo "===== $part top-level ====="
+              sudo ls -lah "$RUNNER_TEMP/mnt/$part" 2>&1 || true
+              echo
+              echo "===== $part overlay/media/launcher paths ====="
+              sudo find "$RUNNER_TEMP/mnt/$part" -maxdepth 4 \( -iname '*overlay*' -o -iname '*launcher*' -o -iname '*wallpaper*' -o -path '*/media' \) -print 2>&1 | head -n 300 || true
+            } > "report/$part-layout.txt"
+          done
 
           mkdir -p "$RUNNER_TEMP/apks"
           while IFS= read -r apk; do
