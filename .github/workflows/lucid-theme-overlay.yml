@@ -24,7 +24,7 @@ jobs:
       - name: Install Android build tools
         uses: android-actions/setup-android@v3
         with:
-          packages: 'build-tools;35.0.0'
+          packages: 'build-tools;35.0.0,platforms;android-35'
 
       - name: Generate Figma-matched Material tonal palette
         working-directory: theme
@@ -83,12 +83,47 @@ jobs:
           sha256sum out/LucidOS-Framework-Theme-Overlay.apk > report/overlay-sha256.txt
           echo "Compile/sign validation succeeded. Runtime overlay policy remains unverified." >> report/build-report.txt
 
+      - name: Build Lucid Wallpapers app
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          mkdir -p out/wallpaper "$RUNNER_TEMP/classes" "$RUNNER_TEMP/dex" theme/wallpaper-app/assets
+          cp theme/assets/lucid-wallpaper-dusk.jpg theme/wallpaper-app/assets/
+          cp theme/assets/lucid-wallpaper-alpine.jpg theme/wallpaper-app/assets/
+          "$BUILD_TOOLS/aapt2" compile --dir theme/wallpaper-app/res -o out/wallpaper/compiled-resources.zip
+          "$BUILD_TOOLS/aapt2" link \
+            --manifest theme/wallpaper-app/AndroidManifest.xml \
+            -I "$ANDROID_JAR" \
+            -A theme/wallpaper-app/assets \
+            -o out/LucidWallpapers-unsigned.apk \
+            out/wallpaper/compiled-resources.zip
+          javac -source 8 -target 8 -bootclasspath "$ANDROID_JAR" \
+            -d "$RUNNER_TEMP/classes" \
+            $(find theme/wallpaper-app/src -name '*.java' -print)
+          "$BUILD_TOOLS/d8" --lib "$ANDROID_JAR" --output "$RUNNER_TEMP/dex" \
+            $(find "$RUNNER_TEMP/classes" -name '*.class' -print)
+          (cd "$RUNNER_TEMP/dex" && zip -q "$GITHUB_WORKSPACE/out/LucidWallpapers-unsigned.apk" classes.dex)
+          "$BUILD_TOOLS/zipalign" -f 4 out/LucidWallpapers-unsigned.apk out/LucidWallpapers-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$RUNNER_TEMP/lucid-overlay.jks" \
+            --ks-key-alias lucid-overlay \
+            --ks-pass pass:lucid-overlay-build \
+            --key-pass pass:lucid-overlay-build \
+            --out out/LucidWallpapers.apk \
+            out/LucidWallpapers-aligned.apk
+          "$BUILD_TOOLS/apksigner" verify --verbose out/LucidWallpapers.apk
+          "$BUILD_TOOLS/aapt" dump badging out/LucidWallpapers.apk > report/wallpaper-app-badging.txt
+          sha256sum out/LucidWallpapers.apk > report/wallpaper-app-sha256.txt
+
       - name: Upload overlay and validation report
         uses: actions/upload-artifact@v4
         with:
           name: lucid-theme-overlay-prototype
           path: |
             out/LucidOS-Framework-Theme-Overlay.apk
+            out/LucidWallpapers.apk
             report/
           if-no-files-found: error
           retention-days: 7
