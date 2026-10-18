@@ -80,8 +80,22 @@ jobs:
             mkdir -p report/emulator
             adb wait-for-device
             adb shell getprop ro.build.version.release | tee report/emulator/android-version.txt
-            adb install -r out/LucidWallpapers.apk
-            adb shell pm grant com.lucid.os.wallpapers android.permission.WRITE_SECURE_SETTINGS
+            # WRITE_SECURE_SETTINGS is signature|privileged; normal adb install cannot grant it.
+            # Install as a privileged system app and allowlist the permission on this disposable emulator.
+            adb root
+            adb wait-for-device
+            adb remount
+            adb shell mkdir -p /system/priv-app/LucidWallpapers /system/etc/permissions
+            adb push out/LucidWallpapers.apk /system/priv-app/LucidWallpapers/LucidWallpapers.apk
+            adb shell chmod 0644 /system/priv-app/LucidWallpapers/LucidWallpapers.apk
+            adb shell 'printf "%s\\n" "<?xml version=\\"1.0\\" encoding=\\"utf-8\\"?>" "<permissions>" "  <privapp-permissions package=\\"com.lucid.os.wallpapers\\">" "    <permission name=\\"android.permission.WRITE_SECURE_SETTINGS\\"/>" "  </privapp-permissions>" "</permissions>" > /system/etc/permissions/privapp-permissions-com.lucid.os.wallpapers.xml'
+            adb shell chmod 0644 /system/etc/permissions/privapp-permissions-com.lucid.os.wallpapers.xml
+            adb reboot
+            adb wait-for-device
+            adb shell 'until [ "$(getprop sys.boot_completed)" = "1" ]; do sleep 2; done'
+            adb shell pm path com.lucid.os.wallpapers | tee report/emulator/privileged-package-path.txt
+            adb shell dumpsys package com.lucid.os.wallpapers > report/emulator/package-dump.txt
+            grep -q 'android.permission.WRITE_SECURE_SETTINGS: granted=true' report/emulator/package-dump.txt
             adb shell am start -W -n com.lucid.os.wallpapers/.MainActivity | tee report/emulator/activity-launch.txt
             sleep 4
             adb shell dumpsys activity activities > report/emulator/activities.txt
@@ -113,7 +127,7 @@ jobs:
               echo "Wallpaper app crashed in emulator." >&2
               exit 1
             fi
-            echo "PASS: privileged app installed, MainActivity resumed, Lucid Blue setting stored, screenshot captured, no app fatal exception found." | tee report/emulator/result.txt
+            echo "PASS: privileged system app installed with WRITE_SECURE_SETTINGS allowlisted, MainActivity resumed, Lucid Blue setting stored, screenshot captured, no app fatal exception found." | tee report/emulator/result.txt
 
       - name: Upload emulator evidence
         if: always()
