@@ -1,80 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- LucidOS palette translated from the Figma Control Center:
-         electric-blue active controls, periwinkle/lavender surfaces,
-         and restrained cyan highlights. -->
-    <!-- Accent 1: electric blue — active QS tiles, sliders and primary actions. -->
+    <!-- Generated from theme/config.json using Material Color Utilities. -->
+    <!-- Source color: #0866FF; source screenshot: Figma LucidOS Control Center node 63:2. -->
+    <!-- system_accent1 -->
     <color name="system_accent1_0">#FFFFFF</color>
-    <color name="system_accent1_10">#F2F6FF</color>
-    <color name="system_accent1_50">#E8F0FF</color>
-    <color name="system_accent1_100">#D5E3FF</color>
-    <color name="system_accent1_200">#B5CDFF</color>
-    <color name="system_accent1_300">#8DB0FF</color>
-    <color name="system_accent1_400">#6693FF</color>
-    <color name="system_accent1_500">#3978FF</color>
-    <color name="system_accent1_600">#1265F5</color>
-    <color name="system_accent1_700">#0052D6</color>
-    <color name="system_accent1_800">#003FA8</color>
-    <color name="system_accent1_900">#002B78</color>
-    <color name="system_accent1_1000">#001844</color>
-
-    <!-- Accent 2: soft Lucid lavender — secondary selected states. -->
+    <color name="system_accent1_10">#FEFBFF</color>
+    <color name="system_accent1_50">#EEF0FF</color>
+    <color name="system_accent1_100">#DBE1FF</color>
+    <color name="system_accent1_200">#B3C5FF</color>
+    <color name="system_accent1_300">#8CA8FC</color>
+    <color name="system_accent1_400">#718EE0</color>
+    <color name="system_accent1_500">#5471C1</color>
+    <color name="system_accent1_600">#3D5BA9</color>
+    <color name="system_accent1_700">#21428F</color>
+    <color name="system_accent1_800">#002A76</color>
+    <color name="system_accent1_900">#00184A</color>
+    <color name="system_accent1_1000">#000000</color>
+    <!-- system_accent2: same hue, lower chroma. -->
     <color name="system_accent2_0">#FFFFFF</color>
-    <color name="system_accent2_10">#F8F6FF</color>
-    <color name="system_accent2_50">#F0EDFF</color>
-    <color name="system_accent2_100">#E3DEFF</color>
-    <color name="system_accent2_200">#CDC5FF</color>
-    <color name="system_accent2_300">#B4A8FF</color>
-    <color name="system_accent2_400">#9B8EF5</color>
-    <color name="system_accent2_500">#8275DF</color>
-    <color name="system_accent2_600">#6C5EC4</color>
-    <color name="system_accent2_700">#564AA3</color>
-    <color name="system_accent2_800">#40377F</color>
-    <color name="system_accent2_900">#2B2459</color>
-    <color name="system_accent2_1000">#171331</color>
-
-    <!-- Accent 3: cool cyan — restrained tertiary accent. -->
+    <color name="system_accent2_10">#FEFBFF</color>
+    <color name="system_accent2_50">#EEF0FF</color>
+    <color name="system_accent2_100">#DDE1F9</color>
+    <color name="system_accent2_200">#C1C6DD</color>
+    <color name="system_accent2_300">#A5AAC1</color>
+    <color name="system_accent2_400">#8B90A5</color>
+    <color name="system_accent2_500">#6F7488</color>
+    <color name="system_accent2_600">#585E71</color>
+    <color name="system_accent2_700">#414659</color>
+    <color name="system_accent2_800">#2A3042</color>
+    <color name="system_accent2_900">#151B2C</color>
+    <color name="system_accent2_1000">#000000</color>
+    <!-- system_accent3: hue +60 degrees per Material You tonal-palette guidance. -->
     <color name="system_accent3_0">#FFFFFF</color>
-    <color name="system_accent3_10">#F0FCFF</color>
-    <color name="system_accent3_50">#E0F8FC</color>
-    <color name="system_accent3_100">#C6EEF5</color>
-    <color name="system_accent3_200">#9DE0EC</color>
-    <color name="system_accent3_300">#6BCBDD</color>
-    <color name="system_accent3_400">#42B5CA</color>
-    <color name="system_accent3_500">#209DB2</color>
-    <color name="system_accent3_600">#087E92</color>
-    <color name="system_accent3_700">#006778</color>
-    <color name="system_accent3_800">#00505D</color>
-    <color name="system_accent3_900">#003942</color>
-    <color name="system_accent3_1000">#002128</color>
-
-    <!-- Neutral 1: cool lavender-gray surfaces for the glass-card aesthetic. -->
+    <color name="system_accent3_10">#FFFBFF</color>
+    <color name="system_accent3_50">#FFEBF9</color>
+    <color name="system_accent3_100">#FFD6F9</color>
+    <color name="system_accent3_200">#EAB6E5</color>
+    <color name="system_accent3_300">#CD9BC8</color>
+    <color name="system_accent3_400">#B181AD</color>
+    <color name="system_accent3_500">#92668F</color>
+    <color name="system_accent3_600">#7A5078</color>
+    <color name="system_accent3_700">#60395F</color>
+    <color name="system_accent3_800">#482248</color>
+    <color name="system_accent3_900">#300D31</color>
+    <color name="system_accent3_1000">#000000</color>
+    <!-- system_neutral1: same hue, very low chroma. -->
     <color name="system_neutral1_0">#FFFFFF</color>
-    <color name="system_neutral1_10">#F8F7FC</color>
-    <color name="system_neutral1_50">#F1F0F8</color>
-    <color name="system_neutral1_100">#E4E2EF</color>
-    <color name="system_neutral1_200">#CECCDC</color>
-    <color name="system_neutral1_300">#B8B6C8</color>
-    <color name="system_neutral1_400">#A09EB3</color>
-    <color name="system_neutral1_500">#88869B</color>
-    <color name="system_neutral1_600">#706E84</color>
-    <color name="system_neutral1_700">#59576D</color>
-    <color name="system_neutral1_800">#424056</color>
-    <color name="system_neutral1_900">#2C2A3E</color>
-    <color name="system_neutral1_1000">#171522</color>
-
-    <!-- Neutral 2: slightly less chromatic support surfaces. -->
+    <color name="system_neutral1_10">#FEFBFF</color>
+    <color name="system_neutral1_50">#F2F0F4</color>
+    <color name="system_neutral1_100">#E4E2E6</color>
+    <color name="system_neutral1_200">#C7C6CA</color>
+    <color name="system_neutral1_300">#ACAAAF</color>
+    <color name="system_neutral1_400">#919094</color>
+    <color name="system_neutral1_500">#757478</color>
+    <color name="system_neutral1_600">#5E5E62</color>
+    <color name="system_neutral1_700">#46464A</color>
+    <color name="system_neutral1_800">#303034</color>
+    <color name="system_neutral1_900">#1B1B1F</color>
+    <color name="system_neutral1_1000">#000000</color>
+    <!-- system_neutral2: same hue, slightly higher chroma. -->
     <color name="system_neutral2_0">#FFFFFF</color>
-    <color name="system_neutral2_10">#F9F8FB</color>
-    <color name="system_neutral2_50">#F2F1F6</color>
-    <color name="system_neutral2_100">#E5E4EC</color>
-    <color name="system_neutral2_200">#D0CFD9</color>
-    <color name="system_neutral2_300">#BAB9C5</color>
-    <color name="system_neutral2_400">#A3A2AF</color>
-    <color name="system_neutral2_500">#8B8A98</color>
-    <color name="system_neutral2_600">#747381</color>
-    <color name="system_neutral2_700">#5C5B69</color>
-    <color name="system_neutral2_800">#454451</color>
-    <color name="system_neutral2_900">#2E2D39</color>
-    <color name="system_neutral2_1000">#191820</color>
+    <color name="system_neutral2_10">#FEFBFF</color>
+    <color name="system_neutral2_50">#F0F0FA</color>
+    <color name="system_neutral2_100">#E2E2EC</color>
+    <color name="system_neutral2_200">#C5C6D0</color>
+    <color name="system_neutral2_300">#AAAAB4</color>
+    <color name="system_neutral2_400">#8F909A</color>
+    <color name="system_neutral2_500">#73747D</color>
+    <color name="system_neutral2_600">#5C5E67</color>
+    <color name="system_neutral2_700">#45464F</color>
+    <color name="system_neutral2_800">#2E3038</color>
+    <color name="system_neutral2_900">#191B23</color>
+    <color name="system_neutral2_1000">#000000</color>
 </resources>
