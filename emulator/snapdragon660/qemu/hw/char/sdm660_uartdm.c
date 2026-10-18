@@ -10,6 +10,7 @@
  */
 #include "qemu/osdep.h"
 #include "hw/sysbus.h"
+#include "hw/qdev-properties.h"
 #include "chardev/char-fe.h"
 #include "qemu/log.h"
 #include "qemu/module.h"
@@ -180,13 +181,12 @@ static Property sdm660_uartdm_properties[] = {
     DEFINE_PROP_END_OF_LIST(),
 };
 
-static void sdm660_uartdm_class_init(ObjectClass *klass, const void *data)
+static void sdm660_uartdm_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
 
     dc->realize = sdm660_uartdm_realize;
     dc->vmsd = NULL;
-    dc->reset = sdm660_uartdm_reset;
     device_class_set_props(dc, sdm660_uartdm_properties);
 }
 
