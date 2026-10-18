@@ -55,7 +55,25 @@ struct SDM660UARTDMState {
     unsigned rx_count;
 };
 
-static bool sdm660_uartdm_can_receive(void *opaque)\n{\n    SDM660UARTDMState *s = SDM660_UARTDM(opaque);\n    return s->rx_count < UARTDM_RX_FIFO_SIZE;\n}\n\nstatic void sdm660_uartdm_receive(void *opaque, const uint8_t *buf, int size)\n{\n    SDM660UARTDMState *s = SDM660_UARTDM(opaque);\n    int i;\n\n    for (i = 0; i < size && s->rx_count < UARTDM_RX_FIFO_SIZE; i++) {\n        unsigned tail = (s->rx_head + s->rx_count) % UARTDM_RX_FIFO_SIZE;\n        s->rx_fifo[tail] = buf[i];\n        s->rx_count++;\n    }\n}\n\nstatic uint64_t sdm660_uartdm_read(void *opaque, hwaddr offset,
+static bool sdm660_uartdm_can_receive(void *opaque)
+{
+    SDM660UARTDMState *s = SDM660_UARTDM(opaque);
+    return s->rx_count < UARTDM_RX_FIFO_SIZE;
+}
+
+static void sdm660_uartdm_receive(void *opaque, const uint8_t *buf, int size)
+{
+    SDM660UARTDMState *s = SDM660_UARTDM(opaque);
+    int i;
+
+    for (i = 0; i < size && s->rx_count < UARTDM_RX_FIFO_SIZE; i++) {
+        unsigned tail = (s->rx_head + s->rx_count) % UARTDM_RX_FIFO_SIZE;
+        s->rx_fifo[tail] = buf[i];
+        s->rx_count++;
+    }
+}
+
+static uint64_t sdm660_uartdm_read(void *opaque, hwaddr offset,
                                    unsigned size)
 {
     SDM660UARTDMState *s = SDM660_UARTDM(opaque);
@@ -71,15 +89,22 @@ static bool sdm660_uartdm_can_receive(void *opaque)\n{\n    SDM660UARTDMState *s
     case UARTDM_DMEN:
         return s->dmen;
     case UARTDM_SR:
-        /* Polling transmit is always ready in this non-timed first model. */
-        return UARTDM_TX_READY;
+        /* TX is immediate; RX-ready reflects bytes queued by the chardev. */
+        return UARTDM_TX_READY | (s->rx_count ? UARTDM_RX_READY : 0);
     case UARTDM_CR:
         return s->cr;
     case 0x000: return s->mr1;
     case 0x004: return s->mr2;
     case UARTDM_CSR: return s->csr;
     case UARTDM_IMR: return s->imr;
-    case UARTDM_RF:\n        if (s->rx_count) {\n            uint8_t byte = s->rx_fifo[s->rx_head];\n            s->rx_head = (s->rx_head + 1) % UARTDM_RX_FIFO_SIZE;\n            s->rx_count--;\n            return byte;\n        }\n        return 0;
+    case UARTDM_RF:
+        if (s->rx_count) {
+            uint8_t byte = s->rx_fifo[s->rx_head];
+            s->rx_head = (s->rx_head + 1) % UARTDM_RX_FIFO_SIZE;
+            s->rx_count--;
+            return byte;
+        }
+        return 0;
     default:
         return 0;
     }
@@ -165,6 +190,8 @@ static void sdm660_uartdm_reset(DeviceState *dev)
     s->rf = 0;
     s->tf = 0;
     s->tx_bytes = 0;
+    s->rx_head = 0;
+    s->rx_count = 0;
 }
 
 static void sdm660_uartdm_realize(DeviceState *dev, Error **errp)
@@ -173,7 +200,10 @@ static void sdm660_uartdm_realize(DeviceState *dev, Error **errp)
 
     if (!qemu_chr_fe_backend_connected(&s->chr)) {
         error_setg(errp, "sdm660-uartdm requires a QEMU chardev backend");
+        return;
     }
+    qemu_chr_fe_set_handlers(&s->chr, sdm660_uartdm_can_receive,
+                             sdm660_uartdm_receive, NULL, NULL, s, NULL, true);
 }
 
 static void sdm660_uartdm_init(Object *obj)
