@@ -54,6 +54,31 @@ jobs:
             exit "$status"
           fi
           echo "QEMU generic ARM64 machine initialized; no guest OS was booted."
+      - name: Boot a real ARM64 Linux guest on the reference machine
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/arm64-guest"
+          cd "$RUNNER_TEMP/arm64-guest"
+          BASE="https://deb.debian.org/debian/dists/bookworm/main/installer-arm64/current/images/netboot/debian-installer/arm64"
+          curl --fail --location --retry 3 "$BASE/linux" --output linux
+          curl --fail --location --retry 3 "$BASE/initrd.gz" --output initrd.gz
+          set +e
+          timeout --signal=TERM 35s qemu-system-aarch64 \
+            -machine virt,gic-version=3 -cpu cortex-a57 -smp 4 -m 2048 \
+            -kernel linux -initrd initrd.gz \
+            -append "console=ttyAMA0,115200n8 loglevel=7 ---" \
+            -nographic -no-reboot > guest-boot.log 2>&1
+          status=$?
+          set -e
+          cat guest-boot.log
+          if ! grep -Eqi 'Linux version|Debian GNU/Linux installer|Debian Installer' guest-boot.log; then
+            echo "No Linux/installer boot marker found; QEMU did not demonstrate a guest boot." >&2
+            exit 1
+          fi
+          echo "Guest boot marker found (timeout status $status). This validates generic ARM64 boot only, not SDM660 hardware."
+          mkdir -p "$GITHUB_WORKSPACE/report"
+          cp guest-boot.log "$GITHUB_WORKSPACE/report/arm64-guest-boot.log"
       - name: Validate launcher against QEMU
         run: |
           QEMU_SYSTEM_AARCH64=qemu-system-aarch64 python3 emulator/tools/check_qemu.py
@@ -61,8 +86,9 @@ jobs:
         run: |
           mkdir -p report
           QEMU_SYSTEM_AARCH64=qemu-system-aarch64 python3 emulator/tools/check_qemu.py > report/qemu-capabilities.json
+          if [[ -f "$GITHUB_WORKSPACE/report/arm64-guest-boot.log" ]]; then echo "Guest log already collected."; fi
       - uses: actions/upload-artifact@v4
         with:
           name: sdm660-emulator-foundation-report
-          path: report/qemu-capabilities.json
+          path: report/
           retention-days: 30
