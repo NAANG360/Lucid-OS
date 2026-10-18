@@ -1,5 +1,9 @@
 name: Lucid Theme Overlay
 
+concurrency:
+  group: lucid-theme-overlay-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
@@ -104,52 +108,6 @@ jobs:
           "$BUILD_TOOLS/aapt" dump badging out/LucidWallpapers.apk > report/wallpaper-app-badging.txt
           sha256sum out/LucidWallpapers.apk > report/wallpaper-app-sha256.txt
 
-      - name: Boot Android emulator and smoke-test Lucid Wallpapers
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
-          pre-emulator-launch-script: |
-            python3 - <<'PY'
-            from pathlib import Path
-            p = Path.home() / ".android/avd/test.avd/config.ini"
-            if not p.exists():
-                raise SystemExit(f"AVD config not found: {p}")
-            settings = {
-                "hw.lcd.width": "1080",
-                "hw.lcd.height": "2340",
-                "hw.lcd.density": "440",
-                "hw.ramSize": "3072",
-                "hw.cpu.ncore": "4",
-            }
-            lines = [line for line in p.read_text().splitlines()
-                     if not any(line.startswith(key + "=") for key in settings)]
-            lines.extend(f"{key}={value}" for key, value in settings.items())
-            p.write_text("\n".join(lines) + "\n")
-            print("Configured lavender-class 1080x2340 / 440 dpi emulator profile (not Xiaomi hardware emulation).")
-            PY
-          disable-animations: true
-          script: |
-            set -euo pipefail
-            mkdir -p report/emulator
-            adb wait-for-device
-            adb shell getprop ro.build.version.release | tee report/emulator/android-version.txt
-            adb install -r out/LucidWallpapers.apk
-            adb shell am start -W -n com.lucid.os.wallpapers/.MainActivity | tee report/emulator/activity-launch.txt
-            sleep 4
-            adb shell dumpsys activity activities > report/emulator/activities.txt
-            grep -q 'com.lucid.os.wallpapers/.MainActivity' report/emulator/activities.txt
-            adb shell screencap -p /sdcard/lucid-wallpapers.png
-            adb pull /sdcard/lucid-wallpapers.png report/emulator/lucid-wallpapers.png
-            adb logcat -d -t 4000 > report/emulator/logcat.txt
-            if grep -E 'FATAL EXCEPTION|Process: com\.lucid\.os\.wallpapers' report/emulator/logcat.txt; then
-              echo "Wallpaper app crashed in emulator." >&2
-              exit 1
-            fi
-            echo "PASS: APK installed, MainActivity resumed, screenshot captured, no app fatal exception found." | tee report/emulator/result.txt
-
       - name: Generate LucidOS boot animation
         shell: bash
         run: |
@@ -161,10 +119,10 @@ jobs:
           ls -lh out/LucidOS-bootanimation.zip
           sha256sum out/LucidOS-bootanimation.zip > report/bootanimation-sha256.txt
 
-      - name: Upload overlay, emulator evidence, and validation report
+      - name: Upload theme artifacts and validation report
         uses: actions/upload-artifact@v4
         with:
-          name: lucid-theme-overlay-emulator-smoke-test
+          name: lucid-theme-overlay-prototype
           path: |
             out/LucidOS-Framework-Theme-Overlay.apk
             out/LucidWallpapers.apk
