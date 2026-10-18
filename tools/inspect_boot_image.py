@@ -109,7 +109,20 @@ else:
     with open(os.path.join(outdir,"kernel.bin"),"wb") as f: f.write(kernel)
     with open(os.path.join(outdir,"ramdisk.raw"),"wb") as f: f.write(ramdisk)
     report.append("kernel_first_16_bytes="+kernel[:16].hex())
+    report.append("kernel_sha256="+__import__("hashlib").sha256(kernel).hexdigest())
+    report.append("kernel_bytes="+str(len(kernel)))
+    report.append("kernel_magic_ascii="+repr(kernel[:64]))
     report.append("ramdisk_first_16_bytes="+ramdisk[:16].hex())
+    report.append("ramdisk_sha256="+__import__("hashlib").sha256(ramdisk).hexdigest())
+    # Kernel strings provide a useful compatibility clue without claiming that
+    # a matching version string proves the image boots on the target device.
+    import re
+    strings = [s.decode("ascii", "ignore") for s in re.findall(rb"[ -~]{8,}", kernel)]
+    interesting = [s for s in strings if re.search(r"lavender|snapdragon|sdm660|msm.?8953|4\\.19\\.|qcom|androidboot\\.hardware", s, re.I)]
+    with open(os.path.join(outdir, "kernel-compatibility-strings.txt"), "w") as f:
+        f.write("\\n".join(interesting[:500]) + ("\\n" if interesting else ""))
+    report.append("kernel_compatibility_string_matches="+str(len(interesting)))
+    report.append("kernel_compatibility_strings_file=kernel-compatibility-strings.txt")
     kind, unpacked=decompress_ramdisk(ramdisk)
     report.append("ramdisk_compression="+kind)
     if unpacked:
