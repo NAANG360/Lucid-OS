@@ -7,7 +7,7 @@ sys.path.insert(0, str(ROOT / "model"))
 from peripherals import (
     SDM660BoardModel, QualcommUARTDMModel, UARTDM_DMEN, UARTDM_SR,
     UARTDM_SR_TX_READY, UARTDM_TF, UARTDM_TX_BAM_ENABLE,
-    UARTDM_TX_SINGLE_CHAR, UARTDM_CR, UARTDM_CR_RESET_TX,
+    UARTDM_TX_SINGLE_CHAR, UARTDM_CR, UARTDM_CR_RESET_TX, UARTDM_CR_TX_ENABLE,
 )
 
 class PeripheralContractTests(unittest.TestCase):
@@ -19,6 +19,7 @@ class PeripheralContractTests(unittest.TestCase):
 
     def test_uartdm_transmit_fifo_emits_low_byte(self):
         uart = QualcommUARTDMModel()
+        uart.write(UARTDM_CR, UARTDM_CR_TX_ENABLE)
         uart.write(UARTDM_TF, 0x1234)
         self.assertEqual(uart.output(), b"4")
 
@@ -30,6 +31,7 @@ class PeripheralContractTests(unittest.TestCase):
 
     def test_uartdm_transmit_reset_clears_buffer(self):
         uart = QualcommUARTDMModel()
+        uart.write(UARTDM_CR, UARTDM_CR_TX_ENABLE)
         uart.write(UARTDM_TF, ord("x"))
         uart.write(UARTDM_CR, UARTDM_CR_RESET_TX)
         self.assertEqual(uart.output(), b"")
