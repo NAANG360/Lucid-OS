@@ -74,13 +74,14 @@ jobs:
         run: |
           set -euo pipefail
           PACK="$RUNNER_TEMP/pack"
-          mkdir -p "$PACK/product/overlay" "$PACK/product/app/LucidWallpapers" "$PACK/product/media"
+          mkdir -p "$PACK/product/overlay" "$PACK/product/priv-app/LucidWallpapers" "$PACK/product/media" "$PACK/product/etc/permissions"
           cp "$RUNNER_TEMP/theme-artifacts/out/LucidOS-Framework-Theme-Overlay.apk" \
             "$PACK/product/overlay/LucidOSFrameworkThemeOverlay.apk"
           cp "$RUNNER_TEMP/theme-artifacts/out/LucidWallpapers.apk" \
-            "$PACK/product/app/LucidWallpapers/LucidWallpapers.apk"
+            "$PACK/product/priv-app/LucidWallpapers/LucidWallpapers.apk"
           cp "$RUNNER_TEMP/theme-artifacts/out/LucidOS-bootanimation.zip" \
             "$PACK/product/media/bootanimation.zip"
+          cp theme/privapp-permissions-lucid.xml "$PACK/product/etc/permissions/privapp-permissions-lucid.xml"
           cp theme/flashable/META-INF/com/google/android/updater-script \
             "$PACK/META-INF/com/google/android/updater-script"
           cp theme/flashable/README.md "$PACK/README.txt"
