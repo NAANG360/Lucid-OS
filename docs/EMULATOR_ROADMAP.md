@@ -13,8 +13,11 @@ QEMU supports ARM system emulation, but its generic `virt` machine is not a Snap
 - Generic ARM64 QEMU launcher with explicit caveats.
 - CI validation.
 
-### Stage 1 — board knowledge base
-- Import SDM660 common and lavender DTS, kernel config, fstab, init scripts and proprietary-file manifests.
+### Stage 1 — board knowledge base (partially implemented)
+- [x] Fetch a pinned public SDM660 common DTSI and a lavender board overlay in CI; preserve source revision and SHA-256 in the generated inventory.
+- [x] Inventory literal register and interrupt tuples without guessing address-cell semantics; apply label-based board overlay status to the base SoC node.
+- [x] Record verified boot-critical candidates and known source limitations in `emulator/snapdragon660/research/BOOT_CRITICAL_MAP.md`.
+- [ ] Import the exact matching lavender DTS/DTBO set, kernel config, fstab, init scripts and proprietary-file manifests.
 - Cross-reference the stock fastboot ROM's boot/vendor/product/system_ext images.
 - Document physical addresses, interrupt IDs, clocks, resets, regulators, buses and dependencies from available sources.
 - Identify which information is documented, inferred, or still unknown.
@@ -24,7 +27,7 @@ QEMU supports ARM system emulation, but its generic `virt` machine is not a Snap
 - Add an ARMv8 machine model with the documented memory map and compatible interrupt controller/UART/timer devices.
 - Add a board device tree that describes only implemented devices.
 - Boot a tiny purpose-built bare-metal diagnostic first; do not start with Android.
-- Add automated register-level tests for each emulated peripheral.
+- Add automated register-level tests for each emulated peripheral. The current Python UARTDM contract is test-only and not connected to QEMU.
 - Do not claim support for a peripheral until a test exercises it.
 
 ### Stage 3 — Linux bring-up
