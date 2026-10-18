@@ -47,24 +47,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/rom" "$RUNNER_TEMP/pack/META-INF/com/google/android" out
-          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
-          ASSET_ID="$(python3 - "$RUNNER_TEMP/releases.json" <<'PY'
-          import json, sys
-          for r in json.load(open(sys.argv[1])):
-              if r.get("tag_name") == "tobelucid-source-v1":
-                  for a in r.get("assets", []):
-                      if a.get("name") == "LucidOS-unsigned.zip":
-                          print(a["id"]); raise SystemExit(0)
-          raise SystemExit("LucidOS-unsigned.zip not found in draft release")
-          PY
-          )"
-          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/octet-stream" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" \
-            --output "$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
-          unzip -p "$RUNNER_TEMP/rom/LucidOS-unsigned.zip" \
-            META-INF/com/google/android/update-binary \
+          gh release download tobelucid-source-v1 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "LucidOS-unsigned.zip" \
+            --dir "$RUNNER_TEMP/rom"
+          ZIP="$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
+          test -s "$ZIP"
+          unzip -p "$ZIP" META-INF/com/google/android/update-binary \
             > "$RUNNER_TEMP/pack/META-INF/com/google/android/update-binary"
           test -s "$RUNNER_TEMP/pack/META-INF/com/google/android/update-binary"
           chmod 0755 "$RUNNER_TEMP/pack/META-INF/com/google/android/update-binary"
