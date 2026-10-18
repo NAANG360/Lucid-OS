@@ -7,6 +7,7 @@ is smaller than a referenced new-data range.
 """
 import os
 import sys
+import struct
 import brotli
 
 BLOCK = 4096
@@ -89,11 +90,24 @@ with open(output_path, "wb") as out, open(new_path, "rb") as newdata:
 
 os.remove(new_path)
 with open(output_path, "rb") as f:
-    f.seek(1024 + 56)
-    ext4_magic = f.read(2) == b"\x53\xef"
-print(f"version={version} header_total_blocks={total_blocks} image_blocks_from_ranges={image_blocks}")
-print(f"image_bytes={image_blocks * BLOCK} max_new_range_end={max_new_end}")
-print(f"new_blocks={new_blocks} erase_or_zero_commands={skipped}")
-print(f"new_dat_bytes={len(raw)} ext4_superblock_magic_at_1080={ext4_magic}")
+    f.seek(1024)
+    sb = f.read(1024)
+ext4_magic = len(sb) >= 58 and sb[56:58] == b"\x53\xef"
+fs_blocks = 0
+fs_block_size = 0
+if ext4_magic:
+    blocks_lo = struct.unpack_from("<I", sb, 4)[0]
+    log_block_size = struct.unpack_from("<I", sb, 24)[0]
+    fs_block_size = 1024 << log_block_size
+    blocks_hi = struct.unpack_from("<I", sb, 0x150)[0] if len(sb) >= 0x154 else 0
+    fs_blocks = (blocks_hi << 32) | blocks_lo
+    fs_bytes = fs_blocks * fs_block_size
+    if fs_bytes > os.path.getsize(output_path):
+        with open(output_path, "ab") as out:
+            out.truncate(fs_bytes)
+image_bytes = os.path.getsize(output_path)
+print(f"version={version} header_total_blocks={total_blocks} max_new_range_end={max_new_end}")
+print(f"image_bytes={image_bytes} new_blocks={new_blocks} erase_or_zero_commands={skipped}")
+print(f"new_dat_bytes={len(raw)} ext4_superblock_magic_at_1080={ext4_magic} ext4_blocks={fs_blocks} ext4_block_size={fs_block_size}")
 if header_mismatch:
     print(f"WARNING: transfer-list header declares {total_blocks} blocks but a new-data range ends at {max_new_end}.")
