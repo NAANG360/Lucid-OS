@@ -19,9 +19,9 @@ assert(
 
 package_extract_dir("product", "/product");
 
-set_metadata_recursive(
+set_metadata(
   "/product/overlay/LucidOSFrameworkThemeOverlay.apk",
-  "uid", 0, "gid", 0, "dmode", 0755, "fmode", 0644,
+  "uid", 0, "gid", 0, "mode", 0644,
   "selabel", "u:object_r:system_file:s0"
 );
 set_metadata_recursive(
