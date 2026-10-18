@@ -108,9 +108,11 @@ jobs:
           test -n "$E2FSDROID"
           chmod +x "$E2FSDROID"
           TOOLS_ROOT="$(dirname "$(dirname "$E2FSDROID")")"
-          echo "E2FSDROID=$E2FSDROID" >> "$GITHUB_ENV"
-          echo "AOSP_TOOLS_ROOT=$TOOLS_ROOT" >> "$GITHUB_ENV"
-          echo "LD_LIBRARY_PATH=$TOOLS_ROOT/lib64:$TOOLS_ROOT/lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+          {
+            echo "E2FSDROID=$E2FSDROID"
+            echo "AOSP_TOOLS_ROOT=$TOOLS_ROOT"
+            echo "LD_LIBRARY_PATH=$TOOLS_ROOT/lib64:$TOOLS_ROOT/lib:${LD_LIBRARY_PATH:-}"
+          } >> "$GITHUB_ENV"
           "$E2FSDROID" -h > report/e2fsdroid-help.txt 2>&1 || true
           ldd "$E2FSDROID" > report/e2fsdroid-linked-libraries.txt 2>&1 || true
 
