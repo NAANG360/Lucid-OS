@@ -40,4 +40,5 @@ jobs:
           "$RUNNER_TEMP/actionlint/actionlint" -version
 
       - name: Lint all GitHub Actions workflows
-        run: "$RUNNER_TEMP/actionlint/actionlint" -color
+        run: |
+          "$RUNNER_TEMP/actionlint/actionlint" -color
