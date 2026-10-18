@@ -1,0 +1,35 @@
+import { Hct, TonalPalette, hexFromArgb, argbFromHex } from "@material/material-color-utilities";
+import { readFileSync, writeFileSync } from "node:fs";
+
+const config = JSON.parse(readFileSync(new URL("../config.json", import.meta.url), "utf8"));
+const source = Hct.fromInt(argbFromHex(config.sourceColor));
+const resourceTones = [
+  ["0", 100], ["10", 99], ["50", 95], ["100", 90], ["200", 80],
+  ["300", 70], ["400", 60], ["500", 49], ["600", 40], ["700", 30],
+  ["800", 20], ["900", 10], ["1000", 0]
+];
+const groups = [
+  ["system_accent1", source.hue, "accent1"],
+  ["system_accent2", source.hue, 16],
+  ["system_accent3", (source.hue + 60) % 360, 32],
+  ["system_neutral1", source.hue, 4],
+  ["system_neutral2", source.hue, 8]
+];
+const xml = [
+  '<?xml version="1.0" encoding="utf-8"?>',
+  '<resources>',
+  '    <!-- Generated from theme/config.json using Material Color Utilities. -->',
+  `    <!-- Source: ${config.sourceColor}; hue ${source.hue.toFixed(2)}; chroma ${source.chroma.toFixed(2)}. -->`
+];
+for (const [prefix, hue, mode] of groups) {
+  xml.push(`    <!-- ${prefix}: ${mode === "accent1" ? "primary accent" : `hue ${hue.toFixed(2)} chroma ${mode}`} -->`);
+  for (const [nameTone, tone] of resourceTones) {
+    const chroma = mode === "accent1" ? (["0", "10", "50", "100"].includes(nameTone) ? 40 : 48) : mode;
+    const palette = TonalPalette.fromHueAndChroma(hue, chroma);
+    const color = hexFromArgb(palette.tone(tone)).toUpperCase();
+    xml.push(`    <color name="${prefix}_${nameTone}">${color}</color>`);
+  }
+}
+xml.push("</resources>", "");
+writeFileSync(new URL("../rro/res/values/colors.xml", import.meta.url), xml.join("\n"));
+console.log(`Generated 65 colors from ${config.sourceColor} (HCT hue ${source.hue.toFixed(2)}).`);
