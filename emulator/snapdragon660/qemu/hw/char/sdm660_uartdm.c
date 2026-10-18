@@ -47,7 +47,6 @@ struct SDM660UARTDMState {
     uint32_t mr2;
     uint32_t imr;
     uint32_t csr;
-    uint32_t rf;
     uint32_t tf;
     uint64_t tx_bytes;
     uint8_t rx_fifo[UARTDM_RX_FIFO_SIZE];
@@ -154,7 +153,6 @@ static void sdm660_uartdm_write(void *opaque, hwaddr offset,
     case 0x004: s->mr2 = v; break;
     case UARTDM_CSR: s->csr = v; break;
     case UARTDM_IMR: s->imr = v; break;
-    case UARTDM_RF: s->rf = v; break;
     default:
         /* Ignore unknown writes; log only to avoid drowning early boot. */
         break;
@@ -187,7 +185,6 @@ static void sdm660_uartdm_reset(DeviceState *dev)
     s->mr2 = 0;
     s->imr = 0;
     s->csr = 0;
-    s->rf = 0;
     s->tf = 0;
     s->tx_bytes = 0;
     s->rx_head = 0;
