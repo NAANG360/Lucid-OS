@@ -13,78 +13,110 @@ permissions:
 jobs:
   inspect-rom:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
-      - name: Prepare tools and check runner capacity
+      - name: Prepare runner and discover draft release asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq unzip
-          mkdir -p audit
+          mkdir -p audit "$RUNNER_TEMP/rom"
           {
             echo "UTC: $(date -u)"
             echo
-            echo "=== Disk before download ==="
+            echo "=== Runner disk before download ==="
             df -h
-            echo
-            echo "=== Release metadata ==="
-            gh release view tobelucid-source-v1 --repo "$GITHUB_REPOSITORY" --json name,tagName,isDraft,assets
           } > audit/runner-and-release.txt
+
+          # Draft releases cannot reliably be resolved by tag through gh release view.
+          # Find the asset through the authenticated Releases API instead.
+          RELEASE_JSON="$RUNNER_TEMP/releases.json"
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RELEASE_JSON"
+          ASSET_ID="$(python3 - "$RELEASE_JSON" <<'PY'
+          import json, sys
+          releases=json.load(open(sys.argv[1]))
+          for release in releases:
+              if release.get("tag_name") == "tobelucid-source-v1":
+                  for asset in release.get("assets", []):
+                      if asset.get("name") == "LucidOS-unsigned.zip":
+                          print(asset["id"])
+                          raise SystemExit(0)
+          raise SystemExit("Could not find LucidOS-unsigned.zip in release tag tobelucid-source-v1")
+          PY
+          )"
+          echo "$ASSET_ID" > "$RUNNER_TEMP/asset-id.txt"
+          python3 - "$RELEASE_JSON" >> audit/runner-and-release.txt <<'PY'
+          import json, sys
+          for release in json.load(open(sys.argv[1])):
+              if release.get("tag_name") == "tobelucid-source-v1":
+                  print("=== Release metadata ===")
+                  print("name:", release.get("name"))
+                  print("tag:", release.get("tag_name"))
+                  print("draft:", release.get("draft"))
+                  for asset in release.get("assets", []):
+                      print("asset:", asset.get("name"), "size:", asset.get("size"), "state:", asset.get("state"), "id:", asset.get("id"))
+          PY
+
+      - name: Download the draft release asset
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-
-      - name: Download ROM archive
         run: |
-          mkdir -p "$RUNNER_TEMP/rom"
-          gh release download tobelucid-source-v1 \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "LucidOS-unsigned.zip" \
-            --dir "$RUNNER_TEMP/rom"
+          set -euo pipefail
+          ASSET_ID="$(cat "$RUNNER_TEMP/asset-id.txt")"
           ZIP="$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/octet-stream" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" \
+            --output "$ZIP"
           test -s "$ZIP"
           {
-            echo "=== Archive file ==="
+            echo
+            echo "=== Downloaded archive ==="
             ls -lh "$ZIP"
             sha256sum "$ZIP"
             echo
-            echo "=== Disk after download ==="
+            echo "=== Runner disk after download ==="
             df -h
           } >> audit/runner-and-release.txt
-        env:
-          GH_TOKEN: ${{ github.token }}
 
-      - name: Inventory archive and inspect boot-critical configuration
+      - name: Inventory ZIP and extract small boot-critical text files
         shell: bash
         run: |
           set -euo pipefail
           ZIP="$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
-          unzip -Z -1 "$ZIP" > audit/archive-file-list.txt
-          zipinfo -l "$ZIP" > audit/archive-detailed-list.txt
-          {
-            echo "=== Entry count ==="
-            wc -l < audit/archive-file-list.txt
-            echo
-            echo "=== Boot / partition / installer / filesystem candidates ==="
-            grep -Ei '(^|/)(META-INF/.*(updater-script|update-binary)|.*(fstab|recovery\.fstab|dynamic_partitions|super_empty|payload\.bin|boot\.img|vendor_boot\.img|init_boot\.img|dtbo\.img|vbmeta.*\.img|recovery\.img|cust.*\.img|vendor.*\.img|system.*\.img|product.*\.img|system_ext.*\.img|odm.*\.img|.*\.rc|.*\.prop|.*\.sh)$' audit/archive-file-list.txt | head -n 1000 || true
-            echo
-            echo "=== Text configuration / installer files (first 200 entries) ==="
-            grep -Ei '(^|/)(updater-script|update-binary|.*fstab.*|.*dynamic.*partition.*|.*metadata.*|.*(install|flash|assert|partition).*\.sh|.*\.prop|.*\.rc|.*\.xml)$' audit/archive-file-list.txt | head -n 200 || true
-          } > audit/critical-file-index.txt
-
-          : > audit/selected-text-files.txt
-          while IFS= read -r entry; do
-            [[ "$entry" =~ (^|/)(updater-script|.*fstab.*|.*dynamic.*partition.*|.*(install|flash|assert|partition).*\.sh|.*\.prop|.*\.rc|.*\.xml)$ ]] || continue
-            [[ "$entry" == */ ]] && continue
-            size=$(unzip -l "$ZIP" "$entry" | awk 'END {print $1}')
-            [[ "$size" =~ ^[0-9]+$ ]] || continue
-            (( size <= 200000 )) || continue
-            {
-              echo
-              echo "===== $entry (uncompressed bytes: $size) ====="
-              unzip -p "$ZIP" "$entry" | head -c 200000 || true
-              echo
-            } >> audit/selected-text-files.txt
-          done < audit/archive-file-list.txt
-
+          python3 - "$ZIP" audit <<'PY'
+          import json, os, re, sys, zipfile
+          archive, outdir = sys.argv[1], sys.argv[2]
+          os.makedirs(outdir, exist_ok=True)
+          critical = re.compile(r'(^|/)(META-INF/.*(updater-script|update-binary)|[^/]*(fstab|dynamic_partitions|super_empty|payload\.bin|boot\.img|vendor_boot\.img|init_boot\.img|dtbo\.img|vbmeta[^/]*\.img|recovery\.img|cust[^/]*\.img|vendor[^/]*\.img|system[^/]*\.img|product[^/]*\.img|system_ext[^/]*\.img|odm[^/]*\.img|[^/]*\.rc|[^/]*\.prop|[^/]*\.sh)$)', re.I)
+          text_candidate = re.compile(r'(^|/)(updater-script|[^/]*fstab[^/]*|[^/]*dynamic[^/]*partition[^/]*|[^/]*(install|flash|assert|partition)[^/]*\.sh|[^/]*\.prop|[^/]*\.rc|[^/]*\.xml)$', re.I)
+          with zipfile.ZipFile(archive) as z:
+              infos = z.infolist()
+              with open(os.path.join(outdir, "archive-file-list.txt"), "w") as f:
+                  for i in infos: f.write(i.filename + "\n")
+              with open(os.path.join(outdir, "critical-file-index.txt"), "w") as f:
+                  f.write("Archive entries: %d\n\n" % len(infos))
+                  f.write("Boot, partition, installer and filesystem candidates:\n")
+                  for i in infos:
+                      if critical.search(i.filename):
+                          f.write("%10d  %s\n" % (i.file_size, i.filename))
+              with open(os.path.join(outdir, "selected-text-files.txt"), "w") as f:
+                  for i in infos:
+                      if i.is_dir() or i.file_size > 200_000 or not text_candidate.search(i.filename):
+                          continue
+                      f.write("\n===== %s (%d bytes) =====\n" % (i.filename, i.file_size))
+                      try:
+                          data = z.read(i).decode("utf-8", "replace")
+                          f.write(data[:200_000] + "\n")
+                      except Exception as e:
+                          f.write("[read failed: %s]\n" % e)
+          print("Indexed %d ZIP entries" % len(infos))
+          PY
           {
             echo "=== ZIP integrity test ==="
             unzip -t "$ZIP" | tail -n 5
