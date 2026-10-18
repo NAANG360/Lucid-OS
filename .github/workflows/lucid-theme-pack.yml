@@ -3,7 +3,7 @@ name: LucidOS Theme Pack
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["LucidOS Theme Overlay"]
+    workflows: ["Lucid Theme Overlay"]
     types: [completed]
 
 permissions:
