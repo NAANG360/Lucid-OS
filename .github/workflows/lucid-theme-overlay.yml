@@ -1,0 +1,84 @@
+name: Lucid Theme Overlay
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - theme/rro/**
+      - theme/assets/**
+      - .github/workflows/lucid-theme-overlay.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-overlay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Android build tools
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'build-tools;35.0.0'
+
+      - name: Compile and validate framework overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          AAPT2="$BUILD_TOOLS/aapt2"
+          mkdir -p out report theme/rro/res/drawable-nodpi
+          cp theme/assets/lucid-wallpaper-dusk.jpg theme/rro/res/drawable-nodpi/default_wallpaper.jpg
+          {
+            echo "LucidOS RRO build"
+            date -u
+            echo
+            echo "=== Target framework ==="
+            ls -lh system-tree/system/framework/framework-res.apk
+            sha256sum system-tree/system/framework/framework-res.apk
+            echo
+            echo "=== Expected dynamic palette resources in target ==="
+            "$AAPT2" dump resources system-tree/system/framework/framework-res.apk | grep -E 'color/system_(accent[123]|neutral[12])_(0|10|50|100|200|300|400|500|600|700|800|900|1000)' | head -n 80
+          } > report/build-report.txt
+
+          "$AAPT2" compile --dir theme/rro/res -o out/compiled-resources.zip
+          "$AAPT2" link \
+            --manifest theme/rro/AndroidManifest.xml \
+            -I system-tree/system/framework/framework-res.apk \
+            --auto-add-overlay \
+            -o out/lucid-framework-overlay-unsigned.apk \
+            out/compiled-resources.zip
+
+          keytool -genkeypair -noprompt \
+            -keystore "$RUNNER_TEMP/lucid-overlay.jks" \
+            -storepass 'lucid-overlay-build' -keypass 'lucid-overlay-build' \
+            -alias lucid-overlay -keyalg RSA -keysize 2048 -validity 3650 \
+            -dname 'CN=LucidOS Development Overlay'
+          "$BUILD_TOOLS/zipalign" -f 4 out/lucid-framework-overlay-unsigned.apk out/lucid-framework-overlay-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$RUNNER_TEMP/lucid-overlay.jks" \
+            --ks-key-alias lucid-overlay \
+            --ks-pass pass:lucid-overlay-build \
+            --key-pass pass:lucid-overlay-build \
+            --out out/LucidOS-Framework-Theme-Overlay.apk \
+            out/lucid-framework-overlay-aligned.apk
+          "$BUILD_TOOLS/apksigner" verify --verbose out/LucidOS-Framework-Theme-Overlay.apk
+          "$BUILD_TOOLS/aapt" dump badging out/LucidOS-Framework-Theme-Overlay.apk > report/apk-badging.txt
+          "$AAPT2" dump resources out/LucidOS-Framework-Theme-Overlay.apk > report/overlay-resources.txt
+          sha256sum out/LucidOS-Framework-Theme-Overlay.apk > report/overlay-sha256.txt
+          echo "Compile/sign validation succeeded. Runtime overlay policy remains unverified." >> report/build-report.txt
+
+      - name: Upload overlay and validation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-theme-overlay-prototype
+          path: |
+            out/LucidOS-Framework-Theme-Overlay.apk
+            report/
+          if-no-files-found: error
+          retention-days: 7
