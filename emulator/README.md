@@ -9,7 +9,8 @@ This project builds a reproducible, free QEMU environment for ARM64 boot-flow ex
 - Describe the target lavender profile (8 ARM64 cores, 4 GiB RAM target, 1080×2340 display profile).
 - Validate QEMU availability and required command-line features.
 - Launch an ARM64 guest on QEMU's generic `virt` board when a compatible generic ARM64 kernel and initramfs are supplied.
-- Generate a hardware/firmware inventory from source references and the ROM package validator already in this repository.
+- Generate an evidence-preserving inventory from a pinned public SDM660 SoC DTSI and a lavender board overlay, including the UART console status override.
+- Exercise a small Qualcomm UARTDM transmit-register contract (TX-ready polling, transmit FIFO, transmit reset, and single-character/BAM control) in Python unit tests. This is not yet connected to QEMU's MMIO bus.
 - Run reproducible headless boot tests in free GitHub Actions.
 
 ## What it cannot do yet
@@ -57,7 +58,7 @@ Scripts and original documentation in this directory are MIT licensed. Third-par
 
 ## Public firmware/dump research
 
-See [the SDM660 public evidence ledger](research/SDM660_PUBLIC_EVIDENCE.md) and machine-readable [evidence JSON](research/sdm660-evidence.json). Current research distinguishes a public service-dump listing from a verified full raw eMMC image: the advertised 126.6 MB UFI ZIP is **not evidence of a complete 58.24 GiB user-area dump**.
+See the [verified boot-critical DTS map](snapdragon660/research/BOOT_CRITICAL_MAP.md), [SDM660 public evidence ledger](research/SDM660_PUBLIC_EVIDENCE.md) and machine-readable [evidence JSON](research/sdm660-evidence.json). Current research distinguishes a public service-dump listing from a verified full raw eMMC image: the advertised 126.6 MB UFI ZIP is **not evidence of a complete 58.24 GiB user-area dump**.
 
 Inventory local firmware packages without executing binaries or extracting archive members:
 
