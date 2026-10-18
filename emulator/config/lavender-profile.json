@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "target": {
+    "device": "Xiaomi Redmi Note 7",
+    "codename": "lavender",
+    "soc": "Qualcomm Snapdragon 660 (SDM660)",
+    "cpu_architecture": "AArch64",
+    "cpu_cores": 8,
+    "ram_bytes": 4294967296,
+    "display": {
+      "width": 1080,
+      "height": 2340,
+      "density_dpi": 440
+    },
+    "storage": "eMMC"
+  },
+  "generic_qemu_reference": {
+    "machine": "virt",
+    "cpu_model": "cortex-a57",
+    "smp": 8,
+    "memory_mib": 4096,
+    "warning": "Generic ARMv8 reference only; not Kryo 260 or SDM660 peripheral emulation."
+  },
+  "implementation_status": {
+    "generic_arm64_bootstrap": true,
+    "sdm660_specific_machine": false,
+    "adreno512": false,
+    "hexagon_dsp": false,
+    "modem": false,
+    "secure_world": false
+  }
+}
