@@ -46,8 +46,10 @@ not blindly copy the MTP status or assume every SoC node is enabled.
 
 ## Known limitations before compile/runtime validation
 
-- The CI workflow compiles against QEMU v10.0.0 and realizes the device on a
-  reference machine; this does not validate a Snapdragon board or guest boot.
+- The CI workflow compiles against QEMU v10.0.0 and realizes the user-creatable
+  SysBus device under QEMU's `none` machine. This checks registration and object
+  realization only; it does not validate MMIO transactions, a Snapdragon board,
+  or guest boot.
 - SR reports TX-ready immediately; no baud timing or FIFO depth is simulated.
 - TX output is only a debug console path, not a complete UARTDM implementation.
 - Device reset does not yet model hardware reset side effects beyond register state.
