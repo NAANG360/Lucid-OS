@@ -64,7 +64,9 @@ def node_blocks(text: str):
                         props[p.group("key")] = p.group("value").strip()
             pos += 1
         yield {"label": m.group("label"), "node": m.group("name"), "properties": props}
-        i = j
+        # Continue after the opening brace, not after the closing brace, so
+        # nested hardware nodes are inventoried as independent entries too.
+        i = start
 
 def parse_cells(value: str):
     out = []
