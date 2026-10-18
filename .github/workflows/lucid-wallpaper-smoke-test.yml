@@ -1,5 +1,9 @@
 name: Lucid Wallpaper Emulator Smoke Test
 
+concurrency:
+  group: lucid-wallpaper-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   workflow_run:
