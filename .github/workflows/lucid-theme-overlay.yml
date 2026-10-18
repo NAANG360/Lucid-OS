@@ -110,6 +110,25 @@ jobs:
           target: google_apis
           arch: x86_64
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
+          pre-emulator-launch-script: |
+            python3 - <<'PY'
+            from pathlib import Path
+            p = Path.home() / ".android/avd/test.avd/config.ini"
+            if not p.exists():
+                raise SystemExit(f"AVD config not found: {p}")
+            settings = {
+                "hw.lcd.width": "1080",
+                "hw.lcd.height": "2340",
+                "hw.lcd.density": "440",
+                "hw.ramSize": "3072",
+                "hw.cpu.ncore": "4",
+            }
+            lines = [line for line in p.read_text().splitlines()
+                     if not any(line.startswith(key + "=") for key in settings)]
+            lines.extend(f"{key}={value}" for key, value in settings.items())
+            p.write_text("\\n".join(lines) + "\\n")
+            print("Configured lavender-class 1080x2340 / 440 dpi emulator profile (not Xiaomi hardware emulation).")
+            PY
           disable-animations: true
           script: |
             set -euo pipefail
