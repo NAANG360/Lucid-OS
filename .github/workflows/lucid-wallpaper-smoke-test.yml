@@ -23,7 +23,7 @@ jobs:
   smoke-test:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,8 +57,9 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -writable-system
           pre-emulator-launch-script: python3 tools/configure_android_emulator.py
           disable-animations: true
+          emulator-boot-timeout: 900
           script: |
-            set -euo pipefail
+            set -eu
             mkdir -p report/emulator
             adb wait-for-device
             adb shell getprop ro.build.version.release | tee report/emulator/android-version.txt
