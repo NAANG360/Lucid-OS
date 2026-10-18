@@ -36,7 +36,7 @@ jobs:
             fi
           }
           clone_sparse https://github.com/SDM660-Project/device_xiaomi_lavender.git lavender-device
-          clone_sparse https://github.com/SDM660-Project/device_xiaomi_sdm660-common.git sdm660-common
+          clone_sparse https://github.com/Device-Tree-for-Redmi-Note-7-lavender/device_xiaomi_sdm660-common.git sdm660-common
           clone_sparse https://github.com/sdm660-mainline/linux.git sdm660-mainline-linux \
             arch/arm64/boot/dts/qcom arch/arm64/configs \
             Documentation/devicetree/bindings/arm/qcom \
