@@ -122,11 +122,14 @@ print(f"new_dat_bytes={len(raw)} ext4_superblock_magic_at_1080={ext4_magic} ext4
 if fs_blocks:
     fs_bytes = fs_blocks * fs_block_size
     written_blocks = actual_new_blocks + zero_blocks
-    coverage = 100.0 * written_blocks / fs_blocks
+    touched_blocks = written_blocks + erase_blocks
+    write_coverage = 100.0 * written_blocks / fs_blocks
+    touched_coverage = 100.0 * touched_blocks / fs_blocks
     print(f"filesystem_declared_bytes={fs_bytes}")
-    print(f"new_plus_zero_block_coverage={written_blocks}/{fs_blocks} ({coverage:.2f}%)")
-    print(f"transfer_is_full_filesystem_image={written_blocks >= fs_blocks}")
-    if written_blocks < fs_blocks:
-        print("WARNING: transfer list does not write the full declared filesystem. A zero-based reconstruction is incomplete; it needs a compatible base image or a verified full-image source.")
+    print(f"new_plus_zero_block_coverage={written_blocks}/{fs_blocks} ({write_coverage:.2f}%)")
+    print(f"new_zero_plus_erase_coverage={touched_blocks}/{fs_blocks} ({touched_coverage:.2f}%)")
+    print(f"transfer_covers_full_filesystem_by_operations={touched_blocks >= fs_blocks}")
+    if touched_blocks < fs_blocks:
+        print("WARNING: transfer list leaves declared filesystem blocks untouched. A zero-based reconstruction is incomplete; it needs a compatible base image or a verified full-image source.")
 if not header_matches_write_count:
     print("WARNING: transfer-list header does not equal the number of blocks covered by new + zero commands.")
