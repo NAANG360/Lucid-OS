@@ -25,6 +25,7 @@ jobs:
         run: |
           python -m unittest discover -s emulator/snapdragon660/tests -v
           python emulator/snapdragon660/tools/build_platform_description.py --check
+          python emulator/snapdragon660/tools/run_board_contract.py --output emulator/snapdragon660/board-contract-smoke.json
       - name: Install QEMU
         run: |
           sudo apt-get update
