@@ -30,6 +30,21 @@ The archive's `boot.img` is 64 MiB and begins with the expected `ANDROID!` magic
 
 This **does not prove the kernel/ramdisk is compatible with lavender or that AVB will accept the images**, but it means the header is not obviously malformed. The header data is consistent with the declared SDK 35 system more than with the Android 10 fingerprint string. Do not treat the header as the root cause without checking the kernel load addresses, ramdisk contents, AVB flags/descriptors, and recovery logs.
 
+## Boot image and AVB findings
+
+- The boot image has a valid `ANDROID!` legacy header, a 4,096-byte page size, a 16.5 MB gzip-compressed kernel, and a 1.8 MB gzip-compressed ramdisk. Its OS-version word encodes Android 15.0.0 / December 2025.
+- The kernel identifies itself as `4.19.325-st-San-Kernel-Kurotsuki-R1.1.107`. The upstream release page identifies that kernel build as intended for the Redmi Note 7 (`lavender`), so the version number alone is not evidence of a wrong-device kernel. See the [San-Kernel Kurotsuki release notes](https://san-kernel.vercel.app/Release/kurotsuki-r1.1.107).
+- The ramdisk's `fstab.qcom` declares `system`, `vendor`, `product`, `system_ext`, and `odm` as logical, first-stage-mounted ext4 partitions. It contains no `cust` mount.
+- `dtbo.img` has the expected DTBO magic. `vbmeta.img` has an `AVB0` header and flags value `3`, meaning hashtree and verification are disabled in that vbmeta image.
+
+These checks make a malformed boot header, a missing `cust` fstab entry, and ordinary AVB verification failure less likely as the immediate cause. They do not prove the kernel successfully boots on the physical device.
+
+## Product-partition completeness concern
+
+The dynamic-partition operation list removes existing groups and says it is applying a full OTA, then creates a `product` logical partition of 2,504,368,128 bytes. But the product transfer list only writes 123,902 blocks (507,502,592 bytes), contains no `zero` or `erase` commands, while the reconstructed product ext4 superblock declares 601,750 blocks (2,464,768,000 bytes).
+
+That means the archive does not explicitly populate the whole product filesystem. This may be valid only when the untouched blocks already exist in the exact source product partition. The installer first discards the physical `system`/super storage and then rebuilds dynamic-partition metadata, so it is unsafe to assume those untouched product blocks survive. This is a **high-priority packaging concern**, not yet a proven root cause; an `e2fsck` check of the reconstructed product image and the intended source/base image are needed before choosing a repair.
+
 ## What this says about the cust theory
 
 The ZIP does not attempt to create or flash `cust`. That alone does **not** prove that cust is irrelevant to boot, because a device/vendor configuration can expect files or properties from a separate cust partition. But there is no direct evidence in the installer that a missing cust image caused the fastboot return.
