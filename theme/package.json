@@ -2,7 +2,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "generate-palette": "node scripts/generate-palette.mjs"
+    "generate-palette": "node scripts/generate-palette.mjs",
+    "theme:blue": "node scripts/generate-palette.mjs lucid-blue",
+    "theme:violet": "node scripts/generate-palette.mjs violet-dusk",
+    "theme:cyan": "node scripts/generate-palette.mjs cyan-horizon"
   },
   "dependencies": {
     "@material/material-color-utilities": "0.3.0"
