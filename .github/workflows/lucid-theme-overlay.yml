@@ -138,8 +138,10 @@ jobs:
           cp theme/assets/lucid-wallpaper-alpine.jpg theme/wallpaper-app/assets/
           "$BUILD_TOOLS/aapt2" compile --dir theme/wallpaper-app/res -o out/wallpaper/compiled-resources.zip
           "$BUILD_TOOLS/aapt2" link --manifest theme/wallpaper-app/AndroidManifest.xml -I "$ANDROID_JAR" -A theme/wallpaper-app/assets -o out/LucidWallpapers-unsigned.apk out/wallpaper/compiled-resources.zip
-          javac -source 8 -target 8 -bootclasspath "$ANDROID_JAR" -d "$RUNNER_TEMP/classes" $(find theme/wallpaper-app/src -name '*.java' -print)
-          "$BUILD_TOOLS/d8" --lib "$ANDROID_JAR" --output "$RUNNER_TEMP/dex" $(find "$RUNNER_TEMP/classes" -name '*.class' -print)
+          mapfile -t JAVA_SOURCES < <(find theme/wallpaper-app/src -name '*.java' -print)
+          javac -source 8 -target 8 -bootclasspath "$ANDROID_JAR" -d "$RUNNER_TEMP/classes" "${JAVA_SOURCES[@]}"
+          mapfile -t CLASS_FILES < <(find "$RUNNER_TEMP/classes" -name '*.class' -print)
+          "$BUILD_TOOLS/d8" --lib "$ANDROID_JAR" --output "$RUNNER_TEMP/dex" "${CLASS_FILES[@]}"
           (cd "$RUNNER_TEMP/dex" && zip -q "$GITHUB_WORKSPACE/out/LucidWallpapers-unsigned.apk" classes.dex)
           "$BUILD_TOOLS/zipalign" -f 4 out/LucidWallpapers-unsigned.apk out/LucidWallpapers-aligned.apk
           "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/lucid-overlay.jks" --ks-key-alias lucid-overlay --ks-pass pass:lucid-overlay-build --key-pass pass:lucid-overlay-build --out out/LucidWallpapers.apk out/LucidWallpapers-aligned.apk
