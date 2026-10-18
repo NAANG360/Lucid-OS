@@ -79,6 +79,28 @@ jobs:
           PY
           file report/kernel.bin report/ramdisk.raw report/ramdisk.cpio 2>/dev/null > report/ramdisk-file-types.txt || true
 
+      - name: Summarize boot compatibility evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "# LucidOS boot image audit"
+            echo
+            for f in report/boot-header-report.txt report/ramdisk-critical-config.txt report/kernel-compatibility-strings.txt report/boot-image-file-types.txt report/boot-image-sha256.txt report/ramdisk-file-types.txt; do
+              if [[ -s "$f" ]]; then
+                echo "## $f"
+                echo '\`\`\`text'
+                if [[ "$f" == *kernel-compatibility-strings.txt ]]; then
+                  head -n 120 "$f"
+                else
+                  head -n 240 "$f"
+                fi
+                echo '\`\`\`'
+                echo
+              fi
+            done
+          } | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Upload boot and ramdisk audit
         uses: actions/upload-artifact@v4
         with:
