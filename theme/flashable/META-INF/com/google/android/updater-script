@@ -25,8 +25,13 @@ set_metadata(
   "selabel", "u:object_r:system_file:s0"
 );
 set_metadata_recursive(
-  "/product/app/LucidWallpapers",
+  "/product/priv-app/LucidWallpapers",
   "uid", 0, "gid", 0, "dmode", 0755, "fmode", 0644,
+  "selabel", "u:object_r:system_file:s0"
+);
+set_metadata(
+  "/product/etc/permissions/privapp-permissions-lucid.xml",
+  "uid", 0, "gid", 0, "mode", 0644,
   "selabel", "u:object_r:system_file:s0"
 );
 set_metadata(
