@@ -182,7 +182,6 @@ static void sdm660_uartdm_init(Object *obj)
 
 static const Property sdm660_uartdm_properties[] = {
     DEFINE_PROP_CHR("chardev", SDM660UARTDMState, chr),
-    DEFINE_PROP_END_OF_LIST(),
 };
 
 static void sdm660_uartdm_class_init(ObjectClass *klass, void *data)
