@@ -1,0 +1,95 @@
+name: Lucid Wallpaper Emulator Smoke Test
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Lucid Theme Overlay"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  smoke-test:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download built wallpaper APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p report/emulator
+          if [[ -n "$SOURCE_RUN_ID" ]]; then
+            RUN_ID="$SOURCE_RUN_ID"
+          else
+            RUN_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/lucid-theme-overlay.yml/runs?status=success&per_page=10" --jq '.workflow_runs[0].id')"
+          fi
+          test -n "$RUN_ID"
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name lucid-theme-overlay-prototype --dir "$GITHUB_WORKSPACE"
+          test -s out/LucidWallpapers.apk
+          echo "source_run=$RUN_ID" > report/emulator/source-run.txt
+
+      - name: Boot Android emulator and smoke-test Lucid Wallpapers
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
+          pre-emulator-launch-script: |
+            python3 - <<'PY'
+            from pathlib import Path
+            p = Path.home() / ".android/avd/test.avd/config.ini"
+            if not p.exists():
+                raise SystemExit(f"AVD config not found: {p}")
+            settings = {
+                "hw.lcd.width": "1080",
+                "hw.lcd.height": "2340",
+                "hw.lcd.density": "440",
+                "hw.ramSize": "3072",
+                "hw.cpu.ncore": "4",
+            }
+            lines = [line for line in p.read_text().splitlines()
+                     if not any(line.startswith(key + "=") for key in settings)]
+            lines.extend(f"{key}={value}" for key, value in settings.items())
+            p.write_text("\n".join(lines) + "\n")
+            print("Configured 1080x2340 / 440 dpi emulator profile (not Xiaomi hardware emulation).")
+            PY
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            mkdir -p report/emulator
+            adb wait-for-device
+            adb shell getprop ro.build.version.release | tee report/emulator/android-version.txt
+            adb install -r out/LucidWallpapers.apk
+            adb shell am start -W -n com.lucid.os.wallpapers/.MainActivity | tee report/emulator/activity-launch.txt
+            sleep 4
+            adb shell dumpsys activity activities > report/emulator/activities.txt
+            grep -q 'com.lucid.os.wallpapers' report/emulator/activities.txt
+            adb shell screencap -p /sdcard/lucid-wallpapers.png
+            adb pull /sdcard/lucid-wallpapers.png report/emulator/lucid-wallpapers.png
+            adb logcat -d -t 4000 > report/emulator/logcat.txt
+            if grep -E 'FATAL EXCEPTION|Process: com\.lucid\.os\.wallpapers' report/emulator/logcat.txt; then
+              echo "Wallpaper app crashed in emulator." >&2
+              exit 1
+            fi
+            echo "PASS: APK installed, MainActivity resumed, screenshot captured, no app fatal exception found." | tee report/emulator/result.txt
+
+      - name: Upload emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-wallpaper-emulator-evidence
+          path: report/emulator/
+          if-no-files-found: warn
+          retention-days: 7
