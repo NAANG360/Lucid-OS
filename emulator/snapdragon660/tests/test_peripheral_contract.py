@@ -23,6 +23,14 @@ class PeripheralContractTests(unittest.TestCase):
         uart.write(UARTDM_TF, 0x1234)
         self.assertEqual(uart.output(), b"4")
 
+    def test_uartdm_suppresses_output_until_tx_is_enabled(self):
+        uart = QualcommUARTDMModel()
+        uart.write(UARTDM_TF, ord("x"))
+        self.assertEqual(uart.output(), b"")
+        uart.write(UARTDM_CR, UARTDM_CR_TX_ENABLE)
+        uart.write(UARTDM_TF, ord("y"))
+        self.assertEqual(uart.output(), b"y")
+
     def test_uartdm_dmen_selects_polled_single_character_mode(self):
         uart = QualcommUARTDMModel()
         uart.write(UARTDM_DMEN, 0xFFFFFFFF)
