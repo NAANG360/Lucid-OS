@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate-palette": "node scripts/generate-palette.mjs"
+  },
+  "dependencies": {
+    "@material/material-color-utilities": "0.3.0"
+  }
+}
