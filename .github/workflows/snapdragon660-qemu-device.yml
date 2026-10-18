@@ -29,6 +29,14 @@ jobs:
           git clone --depth 1 --branch v10.0.0 https://github.com/qemu/qemu.git qemu-src
           cp emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c qemu-src/hw/char/
           printf "\\nsystem_ss.add(files('sdm660_uartdm.c'))\\n" >> qemu-src/hw/char/meson.build
+      - name: Verify UARTDM offsets against pinned lavender kernel source
+        run: |
+          curl -fsSL \
+            https://raw.githubusercontent.com/xiaomi-sdm660/android_kernel_xiaomi_sdm660/5ce3bc43631dca83f6081757c8982c2d5f6e017c/drivers/tty/serial/msm_serial_hs_hwreg.h \
+            -o /tmp/msm_serial_hs_hwreg.h
+          python3 emulator/snapdragon660/tools/validate_uartdm_register_map.py \
+            --kernel-header /tmp/msm_serial_hs_hwreg.h \
+            --qemu-source emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c
       - name: Configure and compile AArch64 system emulator
         working-directory: qemu-src
         run: |
