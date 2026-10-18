@@ -54,7 +54,7 @@ jobs:
           api-level: 35
           target: google_apis
           arch: x86_64
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -writable-system
           pre-emulator-launch-script: |
             python3 - <<'PY'
             from pathlib import Path
@@ -82,9 +82,9 @@ jobs:
             adb shell getprop ro.build.version.release | tee report/emulator/android-version.txt
             # WRITE_SECURE_SETTINGS is signature|privileged; normal adb install cannot grant it.
             # Install as a privileged system app and allowlist the permission on this disposable emulator.
-            adb root
-            adb wait-for-device
-            adb remount
+            timeout 60s adb root
+            timeout 60s adb wait-for-device
+            timeout 120s adb remount
             adb shell mkdir -p /system/priv-app/LucidWallpapers /system/etc/permissions
             adb push out/LucidWallpapers.apk /system/priv-app/LucidWallpapers/LucidWallpapers.apk
             adb shell chmod 0644 /system/priv-app/LucidWallpapers/LucidWallpapers.apk
@@ -98,9 +98,10 @@ jobs:
             XML
             adb push "$RUNNER_TEMP/privapp-permissions.xml" /system/etc/permissions/privapp-permissions-com.lucid.os.wallpapers.xml
             adb shell chmod 0644 /system/etc/permissions/privapp-permissions-com.lucid.os.wallpapers.xml
-            adb reboot
-            adb wait-for-device
-            adb shell 'until [ "$(getprop sys.boot_completed)" = "1" ]; do sleep 2; done'
+            timeout 30s adb reboot
+            timeout 180s adb wait-for-device
+            timeout 180s adb shell 'until [ "$(getprop sys.boot_completed)" = "1" ]; do sleep 2; done'
+            adb shell getprop sys.boot_completed | tee report/emulator/boot-completed-after-privapp.txt
             adb shell pm path com.lucid.os.wallpapers | tee report/emulator/privileged-package-path.txt
             adb shell dumpsys package com.lucid.os.wallpapers > report/emulator/package-dump.txt
             grep -q 'android.permission.WRITE_SECURE_SETTINGS: granted=true' report/emulator/package-dump.txt
