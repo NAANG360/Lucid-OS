@@ -161,8 +161,7 @@ jobs:
             "$TREE/media/bootanimation.zip"
           cp theme/privapp-permissions-lucid.xml "$TREE/etc/permissions/privapp-permissions-lucid.xml"
           printf 'status=clean\nsource=cloud-rebuilt\n' > "$TREE/etc/lucid-base-product-verified"
-          chmod 0644 "$TREE/overlay/LucidOSFrameworkThemeOverlay.apk" \
-            "$TREE/priv-app/LucidWallpapers/LucidWallpapers.apk" \
+          chmod 0644 "$TREE/priv-app/LucidWallpapers/LucidWallpapers.apk" \
             "$TREE/media/bootanimation.zip" "$TREE/etc/lucid-base-product-verified" \
             "$TREE/etc/permissions/privapp-permissions-lucid.xml"
           chmod 0755 "$TREE/priv-app" "$TREE/priv-app/LucidWallpapers" "$TREE/media" "$TREE/etc" "$TREE/etc/permissions"
