@@ -27,8 +27,8 @@ def node_blocks(text: str):
         m = NODE_RE.search(clean, i)
         if not m:
             break
-        start = m.end()
-        depth, j, quoted, escaped = 1, start, False, False
+        body_start = m.end()
+        depth, j, quoted, escaped = 1, body_start, False, False
         while j < len(clean) and depth:
             c = clean[j]
             if quoted:
@@ -40,7 +40,7 @@ def node_blocks(text: str):
                 elif c == "{": depth += 1
                 elif c == "}": depth -= 1
             j += 1
-        body = clean[start:j-1] if depth == 0 else clean[start:]
+        body = clean[body_start:j-1] if depth == 0 else clean[body_start:]
         props = {}
         # Only read properties at this node's top level. A naive regex over the
         # whole body would incorrectly attribute child-node reg/interrupts to
@@ -66,7 +66,7 @@ def node_blocks(text: str):
         yield {"label": m.group("label"), "node": m.group("name"), "properties": props}
         # Continue after the opening brace, not after the closing brace, so
         # nested hardware nodes are inventoried as independent entries too.
-        i = start
+        i = body_start
 
 def parse_cells(value: str):
     out = []
