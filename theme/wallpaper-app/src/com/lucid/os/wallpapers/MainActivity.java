@@ -109,12 +109,9 @@ public final class MainActivity extends Activity {
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.addView(paletteButton("Lucid Blue", "#0866FF", BLUE),
-            new LinearLayout.LayoutParams(0, dp(48), 1f));
-        row.addView(paletteButton("Violet", "#7657FF", Color.rgb(118, 87, 255)),
-            new LinearLayout.LayoutParams(0, dp(48), 1f));
-        row.addView(paletteButton("Cyan", "#00AFC8", Color.rgb(0, 175, 200)),
-            new LinearLayout.LayoutParams(0, dp(48), 1f));
+        row.addView(paletteButton("Lucid Blue", "#0866FF", BLUE));
+        row.addView(paletteButton("Violet", "#7657FF", Color.rgb(118, 87, 255)));
+        row.addView(paletteButton("Cyan", "#00AFC8", Color.rgb(0, 175, 200)));
         card.addView(row);
         return card;
     }
