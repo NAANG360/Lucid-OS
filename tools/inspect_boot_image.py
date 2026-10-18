@@ -118,7 +118,7 @@ else:
     # a matching version string proves the image boots on the target device.
     import re
     strings = [s.decode("ascii", "ignore") for s in re.findall(rb"[ -~]{8,}", kernel)]
-    interesting = [s for s in strings if re.search(r"lavender|snapdragon|sdm660|msm.?8953|4\\.19\\.|qcom|androidboot\\.hardware", s, re.I)]
+    interesting = [s for s in strings if re.search(r"lavender|snapdragon|sdm660|msm.?8953|4\\.19\\.|kurotsuki|san-kernel|linux version|localversion|androidboot\\.hardware", s, re.I)]
     with open(os.path.join(outdir, "kernel-compatibility-strings.txt"), "w") as f:
         f.write("\\n".join(interesting[:500]) + ("\\n" if interesting else ""))
     report.append("kernel_compatibility_string_matches="+str(len(interesting)))
