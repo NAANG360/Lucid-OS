@@ -7,6 +7,6 @@
         android:targetName="ThemeCustomization"
         android:category="android.theme.customization.accent_color"
         android:isStatic="true"
-        android:priority="1" />
+        android:priority="999" />
     <application android:hasCode="false" />
 </manifest>
