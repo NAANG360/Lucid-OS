@@ -35,15 +35,14 @@ jobs:
           p = Path("qemu-src/hw/arm/virt.c")
           s = p.read_text()
           needle = "    machine_class_allow_dynamic_sysbus_dev(mc, TYPE_VFIO_CALXEDA_XGMAC);"
-          replacement = needle + "\\n    machine_class_allow_dynamic_sysbus_dev(mc, \\"sdm660-uartdm\\");"
+          added = '    machine_class_allow_dynamic_sysbus_dev(mc, "sdm660-uartdm");'
           if s.count(needle) != 1:
               raise SystemExit("Could not uniquely locate virt SysBus allowlist")
-          s = s.replace(needle, replacement)
-          if "machine_class_allow_dynamic_sysbus_dev(mc, \\"sdm660-uartdm\\");" not in s:
+          s = s.replace(needle, needle + "\\n" + added)
+          if added not in s:
               raise SystemExit("UARTDM allowlist insertion failed")
           p.write_text(s)
-          PY
-      - name: Verify UARTDM offsets against pinned lavender kernel source
+          PY      - name: Verify UARTDM offsets against pinned lavender kernel source
         run: |
           curl -fsSL \
             https://raw.githubusercontent.com/xiaomi-sdm660/android_kernel_xiaomi_sdm660/5ce3bc43631dca83f6081757c8982c2d5f6e017c/drivers/tty/serial/msm_serial_hs_hwreg.h \
