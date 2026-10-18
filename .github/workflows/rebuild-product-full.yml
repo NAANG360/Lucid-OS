@@ -37,6 +37,48 @@ jobs:
             --pattern "product-mod-tree.tar.zst" \
             --dir "$RUNNER_TEMP/source"
           test -s "$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
+          ZIP="$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
+          unzip -p "$ZIP" dynamic_partitions_op_list > "$RUNNER_TEMP/dynamic_partitions_op_list"
+          PARTITION_SIZE="$(awk '$1=="resize" && $2=="product" {print $3; exit}' "$RUNNER_TEMP/dynamic_partitions_op_list")"
+          if [[ ! "$PARTITION_SIZE" =~ ^[0-9]+$ ]] || (( PARTITION_SIZE % 4096 != 0 )); then
+            echo "Could not determine a valid product logical-partition size from dynamic_partitions_op_list." >&2
+            exit 1
+          fi
+          echo "$PARTITION_SIZE" > "$RUNNER_TEMP/product-partition-size.txt"
+          {
+            echo "product_partition_size_bytes=$PARTITION_SIZE"
+            echo "product_partition_blocks=$((PARTITION_SIZE / 4096))"
+            echo "=== Original product transfer-list header ==="
+            unzip -p "$ZIP" product.transfer.list | head -n 4
+          } > report/product-partition-layout.txt
+          for image in boot.img recovery.img; do
+            if unzip -Z -1 "$ZIP" | grep -Fxq "$image"; then
+              unzip -p "$ZIP" "$image" > "$RUNNER_TEMP/$image"
+              file "$RUNNER_TEMP/$image" >> report/boot-image-audit.txt
+            else
+              echo "Missing $image in the original ROM archive." >> report/boot-image-audit.txt
+              exit 1
+            fi
+          done
+          python3 - "$RUNNER_TEMP/boot.img" "$RUNNER_TEMP/recovery.img" >> report/boot-image-audit.txt <<'PY'
+          import os, struct, sys
+          for path in sys.argv[1:]:
+              data=open(path,'rb').read(64)
+              if data[:8] != b'ANDROID!':
+                  raise SystemExit(f"{os.path.basename(path)}: missing ANDROID! boot image magic")
+              header=struct.unpack_from('<I',data,40)[0]
+              kernel=struct.unpack_from('<I',data,8)[0]
+              if header <= 2:
+                  ramdisk=struct.unpack_from('<I',data,16)[0]
+                  page=struct.unpack_from('<I',data,36)[0]
+              else:
+                  ramdisk=struct.unpack_from('<I',data,12)[0]
+                  page=4096
+              size=os.path.getsize(path)
+              if kernel == 0 or ramdisk == 0 or page < 2048 or page > 65536:
+                  raise SystemExit(f"{os.path.basename(path)}: implausible header fields header={header} kernel={kernel} ramdisk={ramdisk} page={page}")
+              print(f"{os.path.basename(path)}: magic=ANDROID! header_version={header} kernel_bytes={kernel} ramdisk_bytes={ramdisk} page_size={page} file_bytes={size}")
+          PY
           test -s "$RUNNER_TEMP/source/product-mod-tree.tar.zst"
           zstd -t "$RUNNER_TEMP/source/product-mod-tree.tar.zst"
           zstd -dc "$RUNNER_TEMP/source/product-mod-tree.tar.zst" | tar -xf - -C "$RUNNER_TEMP/source"
@@ -108,7 +150,7 @@ jobs:
           TREE="$(cat "$RUNNER_TEMP/product-tree-path.txt")"
           IMAGE="$RUNNER_TEMP/product-full.img"
           BLOCK_SIZE=4096
-          PARTITION_SIZE=2504368128
+          PARTITION_SIZE="$(cat "$RUNNER_TEMP/product-partition-size.txt")"
           BLOCKS=$((PARTITION_SIZE / BLOCK_SIZE))
           FILE_CONTEXTS="$RUNNER_TEMP/product-file-contexts"
           cp system-tree/system/etc/selinux/plat_file_contexts "$FILE_CONTEXTS"
@@ -155,7 +197,8 @@ jobs:
           IMAGE="$RUNNER_TEMP/product-full.img"
           UPDATE="$RUNNER_TEMP/update"
           mkdir -p "$UPDATE"
-          BLOCKS=$((2504368128 / 4096))
+          PARTITION_SIZE="$(cat "$RUNNER_TEMP/product-partition-size.txt")"
+          BLOCKS=$((PARTITION_SIZE / 4096))
           printf '4\n%s\n0\n0\nnew 2,0,%s\n' "$BLOCKS" "$BLOCKS" > "$UPDATE/product.transfer.list"
           brotli -q 6 -c "$IMAGE" > "$UPDATE/product.new.dat.br"
           ls -lh "$UPDATE/product.new.dat.br" > report/full-product-payload-size.txt
