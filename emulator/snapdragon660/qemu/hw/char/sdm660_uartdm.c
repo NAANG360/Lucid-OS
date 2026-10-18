@@ -127,7 +127,7 @@ static void sdm660_uartdm_write(void *opaque, hwaddr offset,
     switch (offset) {
     case UARTDM_TF: {
         uint8_t byte = v & 0xff;
-        if (qemu_chr_fe_backend_connected(&s->chr)) {
+        if (s->tx_enabled && qemu_chr_fe_backend_connected(&s->chr)) {
             int ret = qemu_chr_fe_write_all(&s->chr, &byte, 1);
             if (ret < 0) {
                 qemu_log_mask(LOG_GUEST_ERROR,
