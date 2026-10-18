@@ -71,6 +71,7 @@ jobs:
           else
             echo "This aapt2 build-tools version does not expose dump overlayable; runtime policy remains to be checked." > report/target-overlayable.txt
           fi
+          "$BUILD_TOOLS/apksigner" verify --print-certs system-tree/system/framework/framework-res.apk > report/framework-res-certificate.txt 2>&1 || true
           "$AAPT2" compile --dir theme/rro/res -o out/compiled-resources.zip
           "$AAPT2" link --manifest theme/rro/AndroidManifest.xml -I system-tree/system/framework/framework-res.apk --auto-add-overlay -o out/lucid-framework-overlay-unsigned.apk out/compiled-resources.zip
 
