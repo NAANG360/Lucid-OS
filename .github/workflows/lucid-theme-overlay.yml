@@ -126,7 +126,7 @@ jobs:
             lines = [line for line in p.read_text().splitlines()
                      if not any(line.startswith(key + "=") for key in settings)]
             lines.extend(f"{key}={value}" for key, value in settings.items())
-            p.write_text("\\n".join(lines) + "\\n")
+            p.write_text("\n".join(lines) + "\n")
             print("Configured lavender-class 1080x2340 / 440 dpi emulator profile (not Xiaomi hardware emulation).")
             PY
           disable-animations: true
