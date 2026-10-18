@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - tools/inspect_boot_image.py
+      - tools/validate_rom_package.py
       - .github/workflows/rom-boot-image-audit.yml
 
 permissions:
@@ -43,6 +44,7 @@ jobs:
             -H "Accept: application/octet-stream" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" \
             --output "$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
+          python3 tools/validate_rom_package.py "$RUNNER_TEMP/rom/LucidOS-unsigned.zip" report/rom-package-validation.md
           python3 - "$RUNNER_TEMP/rom/LucidOS-unsigned.zip" "$RUNNER_TEMP/boot" <<'PY'
           import os, sys, zipfile
           archive, outdir = sys.argv[1:]
