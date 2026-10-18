@@ -42,7 +42,7 @@ jobs:
             "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/652845990" \
             --output payload/LucidOS-unsigned.zip
           sha256sum payload/* | tee report/download-sha256.txt
-          ls -lh payload | tee report/download-sizes.txt
+          find payload -maxdepth 1 -type f -printf '%f %s bytes\\n' | sort | tee report/download-sizes.txt
       - name: Inspect both transfer lists and reconstruct product payloads
         run: |
           set -euo pipefail
@@ -58,7 +58,7 @@ jobs:
           PY
           for part in original current; do
             echo "===== $part transfer list =====" | tee -a report/transfer-list-analysis.txt
-            cat "payload/$part-product.transfer.list" | tee -a report/transfer-list-analysis.txt
+            tee -a report/transfer-list-analysis.txt < "payload/$part-product.transfer.list"
             python3 tools/reconstruct_transfer_image.py \
               "payload/$part-product.transfer.list" \
               "payload/$part-product.new.dat.br" \
