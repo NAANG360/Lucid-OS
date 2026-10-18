@@ -39,6 +39,21 @@ jobs:
         run: |
           qemu-system-aarch64 --version
           qemu-system-aarch64 -machine help | grep -E '(^|[[:space:]])virt([[:space:]]|$)'
+      - name: Smoke-start the generic ARM64 machine
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          timeout --signal=TERM 5s qemu-system-aarch64 \
+            -machine virt,gic-version=3 -cpu cortex-a57 -smp 8 -m 4096 \
+            -display none -serial none -monitor none -nodefaults -S
+          status=$?
+          set -e
+          if [[ "$status" -ne 124 && "$status" -ne 143 && "$status" -ne 0 ]]; then
+            echo "QEMU machine failed to start (exit $status)." >&2
+            exit "$status"
+          fi
+          echo "QEMU generic ARM64 machine initialized; no guest OS was booted."
       - name: Validate launcher against QEMU
         run: |
           QEMU_SYSTEM_AARCH64=qemu-system-aarch64 python3 emulator/tools/check_qemu.py
