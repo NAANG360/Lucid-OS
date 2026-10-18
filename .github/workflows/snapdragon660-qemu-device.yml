@@ -35,7 +35,7 @@ jobs:
           p = Path("qemu-src/hw/arm/virt.c")
           s = p.read_text()
           needle = "    machine_class_allow_dynamic_sysbus_dev(mc, TYPE_VFIO_CALXEDA_XGMAC);"
-          added = '    machine_class_allow_dynamic_sysbus_dev(mc, "sdm660-uartdm");'
+          added = "    machine_class_allow_dynamic_sysbus_dev(mc, TYPE_SYS_BUS_DEVICE);"
           if s.count(needle) != 1:
               raise SystemExit("Could not uniquely locate virt SysBus allowlist")
           s = s.replace(needle, needle + chr(10) + added)
