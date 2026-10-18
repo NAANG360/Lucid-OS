@@ -11,6 +11,7 @@
 #include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "hw/qdev-properties.h"
+#include "hw/qdev-properties-system.h"
 #include "chardev/char-fe.h"
 #include "qemu/log.h"
 #include "qemu/module.h"
