@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "variant_name": "Snapdragon 660 / Redmi Note 7 lavender",
+  "soc": {
+    "vendor": "Qualcomm",
+    "part": "SDM660",
+    "marketing_name": "Snapdragon 660",
+    "cpu_cluster": "Kryo 260",
+    "cpu_cores": 8,
+    "gpu": "Adreno 512",
+    "dsp": "Hexagon 680",
+    "isp": "Spectra 160",
+    "storage_controller": "eMMC 5.1"
+  },
+  "device": {
+    "manufacturer": "Xiaomi",
+    "model": "Redmi Note 7",
+    "codename": "lavender",
+    "ram_bytes_target": 4294967296,
+    "display": {"width": 1080, "height": 2340}
+  },
+  "implementation": {
+    "status": "hardware-model-prototype",
+    "qemu_machine_type": "sdm660-lavender",
+    "cpu_execution": "QEMU AArch64 CPU backend; Kryo 260 microarchitecture and performance are NOT reproduced",
+    "board_base": "QEMU ARM virt reference platform used only as a temporary execution substrate",
+    "real_sdm660_machine_model": false,
+    "device_tree_is_silicon_accurate": false,
+    "bootable_stock_android": false,
+    "peripherals": {
+      "gic_timer_uart_psci": "reference-substrate only",
+      "ufs_emmc": "not modeled as Qualcomm controller",
+      "adreno512": "not modeled",
+      "hexagon680": "not modeled",
+      "spectra160": "not modeled",
+      "modem": "not modeled",
+      "rpm_tz_scm_pmic_clocks_resets": "not modeled"
+    }
+  },
+  "next_milestones": [
+    "replace temporary ARM virt substrate with a native QEMU SDM660 machine",
+    "derive memory map and compatible strings from public lavender kernel sources",
+    "implement SDM660-specific interrupt, clock, reset and storage models",
+    "validate Linux kernel bring-up against a matching device tree",
+    "incrementally implement Android-required Qualcomm interfaces"
+  ]
+}
