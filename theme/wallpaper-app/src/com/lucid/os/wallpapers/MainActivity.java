@@ -8,8 +8,6 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.provider.Settings;
-import org.json.JSONObject;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
@@ -138,16 +136,7 @@ public final class MainActivity extends Activity {
 
     private void applyPalette(String label, String sourceColor) {
         try {
-            JSONObject palette = new JSONObject();
-            palette.put("android.theme.customization.system_palette", sourceColor);
-            palette.put("android.theme.customization.theme_style", "TONAL_SPOT");
-            palette.put("android.theme.customization.color_source", "preset");
-            palette.put("android.theme.customization.dynamic_color", "1");
-            boolean changed = Settings.Secure.putString(
-                getContentResolver(),
-                "theme_customization_overlay_packages",
-                palette.toString()
-            );
+            boolean changed = LucidPalette.apply(this, sourceColor);
             if (changed) {
                 Toast.makeText(this, label + " palette applied. System colors may take a moment to update.",
                     Toast.LENGTH_LONG).show();
