@@ -1,0 +1,44 @@
+name: Snapdragon 660 Variant
+on:
+  push:
+    paths:
+      - 'emulator/snapdragon660/**'
+      - 'emulator/tests/**'
+      - '.github/workflows/snapdragon660-variant.yml'
+  pull_request:
+    paths:
+      - 'emulator/snapdragon660/**'
+      - 'emulator/tests/**'
+      - '.github/workflows/snapdragon660-variant.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sdm660-profile:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate Snapdragon board profile and generated device tree
+        run: |
+          python -m unittest discover -s emulator/snapdragon660/tests -v
+          python emulator/snapdragon660/tools/build_platform_description.py --check
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-arm device-tree-compiler
+      - name: Verify QEMU's available CPU models and machine capabilities
+        run: |
+          qemu-system-aarch64 -machine help > machine-help.txt
+          qemu-system-aarch64 -cpu help > cpu-help.txt
+          python emulator/snapdragon660/tools/check_host_qemu.py --machines machine-help.txt --cpus cpu-help.txt --output qemu-capabilities.json
+      - name: Upload Snapdragon variant artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapdragon660-lavender-variant
+          path: |
+            emulator/snapdragon660/platform-description.json
+            emulator/snapdragon660/device-tree/sdm660-lavender.dts
+            qemu-capabilities.json
