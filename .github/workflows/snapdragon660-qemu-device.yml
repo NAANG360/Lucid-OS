@@ -20,12 +20,15 @@ jobs:
       - name: Install QEMU build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y             git python3 python3-venv python3-pip ninja-build meson             build-essential pkg-config libglib2.0-dev lib pixman-1-dev             libfdt-dev zlib1g-dev
+          sudo apt-get install -y \
+            git python3 python3-venv python3-pip ninja-build meson \
+            build-essential pkg-config libglib2.0-dev libpixman-1-dev \
+            libfdt-dev zlib1g-dev
       - name: Fetch pinned QEMU source
         run: |
           git clone --depth 1 --branch v10.0.0 https://github.com/qemu/qemu.git qemu-src
           cp emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c qemu-src/hw/char/
-          printf "\nsystem_ss.add(files('sdm660_uartdm.c'))\n" >> qemu-src/hw/char/meson.build
+          printf "\\nsystem_ss.add(files('sdm660_uartdm.c'))\\n" >> qemu-src/hw/char/meson.build
       - name: Configure and compile AArch64 system emulator
         working-directory: qemu-src
         run: |
