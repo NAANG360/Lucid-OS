@@ -32,9 +32,15 @@ These are the strongest directly relevant screen candidates identified from the 
 5. **Use overlays before replacing platform apps.** Prefer runtime resource overlays (RRO) for eligible framework/SystemUI resources. Modify Settings/SystemUI source only when the ROM has the matching source tree. Never replace privileged APKs with an unrelated prototype.
 6. **Keep bootability ahead of cosmetics.** Build and validate theme artifacts against the exact framework/resource set in the release archive. Do not flash an unvalidated overlay or alter partition layout as part of a theme change.
 
-## Current blocker discovered in the repository
+## Implementation and validation status
 
-The committed `system-tree/system/build.prop` declares Android SDK 35 / release 15 and LineageOS 22.2, while its build fingerprint references a Xiaomi Android 10 release. This is a mixed-generation property set, not reliable proof of the actual boot target. The repository also does not currently contain a Settings.apk or SystemUI.apk at the expected extracted paths. The release archive must be inspected to identify the real framework, Settings, SystemUI, boot image, installer and partition metadata before building an installable overlay.
+- **Built in cloud CI:** Lucid Wallpapers app, Lucid Blue / Violet Dusk / Cyan Horizon palette controls, a Material tonal resource-overlay prototype, and a matching boot animation based on wallpaper 4.
+- **Native system theming path:** the palette controls write Android's `theme_customization_overlay_packages` secure setting, using a Lucid seed color and `TONAL_SPOT` style. The app is intended to ship in `/product/priv-app` with an explicit `WRITE_SECURE_SETTINGS` allowlist; it does not replace the wallpaper automatically at boot.
+- **Not yet proven:** whether the custom framework resource overlay can be mapped by the exact ROM's overlay manager. The available host AAPT2 did not provide a conclusive overlayability report, so the static overlay must remain a prototype until runtime mapping is verified.
+- **Confirmed install blocker:** the unsigned OTA's product transfer list writes only 123,902 blocks, while the product filesystem spans 601,750 blocks. Reconstructing it from an empty super image produces invalid ext4 extents and a corrupt root directory. The current ZIP must not be treated as a bootable full install. See `docs/ROM_INSTALLER_FINDINGS.md` and `docs/PRODUCT_REBUILD_INPUT.md`.
+- **Required source input:** a complete extracted `product_mod` tree is needed to rebuild a full ext4 product image, apply Android file contexts, add the Lucid assets, validate with `e2fsck`, and replace the partial OTA payload with a full-block payload.
+
+The Control Center and Settings Figma frames remain design targets for later SystemUI/Settings-specific work. This repository currently has extracted system files and APK resources, not the matching Android source tree; a real Quick Settings layout rewrite cannot be honestly claimed from a wallpaper or color overlay alone.
 
 ## Selected visual direction
 
