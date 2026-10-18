@@ -1,0 +1,33 @@
+name: Build Snapdragon UARTDM QEMU Device
+on:
+  push:
+    paths:
+      - 'emulator/snapdragon660/qemu/**'
+      - '.github/workflows/snapdragon660-qemu-device.yml'
+  pull_request:
+    paths:
+      - 'emulator/snapdragon660/qemu/**'
+      - '.github/workflows/snapdragon660-qemu-device.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile-qemu-device:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install QEMU build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y             git python3 python3-venv python3-pip ninja-build meson             build-essential pkg-config libglib2.0-dev lib pixman-1-dev             libfdt-dev zlib1g-dev
+      - name: Fetch pinned QEMU source
+        run: |
+          git clone --depth 1 --branch v10.0.0 https://github.com/qemu/qemu.git qemu-src
+          cp emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c qemu-src/hw/char/
+          printf "\nsystem_ss.add(files('sdm660_uartdm.c'))\n" >> qemu-src/hw/char/meson.build
+      - name: Configure and compile AArch64 system emulator
+        working-directory: qemu-src
+        run: |
+          ./configure --target-list=aarch64-softmmu --disable-werror --disable-docs
+          ninja -C build qemu-system-aarch64
