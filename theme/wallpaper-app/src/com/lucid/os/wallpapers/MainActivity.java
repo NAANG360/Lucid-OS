@@ -8,6 +8,8 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.provider.Settings;
+import org.json.JSONObject;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
@@ -60,6 +62,8 @@ public final class MainActivity extends Activity {
         subParams.bottomMargin = dp(22);
         root.addView(subtitle, subParams);
 
+        root.addView(paletteCard());
+
         root.addView(wallpaperCard(
             "lucid-wallpaper-dusk.jpg",
             "01  /  DUSK",
@@ -80,6 +84,84 @@ public final class MainActivity extends Activity {
         root.addView(footer, footerParams);
 
         setContentView(scroll);
+    }
+
+    private View paletteCard() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(16), dp(16), dp(16));
+        card.setBackground(roundRect(Color.WHITE, dp(24)));
+        card.setElevation(dp(3));
+        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(-1, -2);
+        cardParams.bottomMargin = dp(18);
+        card.setLayoutParams(cardParams);
+
+        TextView heading = text("System palette", 20, INK, true);
+        card.addView(heading);
+        TextView description = text(
+            "Apply a Lucid color profile to Android surfaces, including Settings and system UI.",
+            13, MUTED, false
+        );
+        LinearLayout.LayoutParams descParams = new LinearLayout.LayoutParams(-1, -2);
+        descParams.topMargin = dp(5);
+        descParams.bottomMargin = dp(12);
+        card.addView(description, descParams);
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.addView(paletteButton("Lucid Blue", "#0866FF", BLUE),
+            new LinearLayout.LayoutParams(0, dp(48), 1f));
+        row.addView(paletteButton("Violet", "#7657FF", Color.rgb(118, 87, 255)),
+            new LinearLayout.LayoutParams(0, dp(48), 1f));
+        row.addView(paletteButton("Cyan", "#00AFC8", Color.rgb(0, 175, 200)),
+            new LinearLayout.LayoutParams(0, dp(48), 1f));
+        card.addView(row);
+        return card;
+    }
+
+    private Button paletteButton(String label, String sourceColor, int buttonColor) {
+        Button button = new Button(this);
+        button.setText(label);
+        button.setTextColor(Color.WHITE);
+        button.setTextSize(12);
+        button.setAllCaps(false);
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        button.setBackground(roundRect(buttonColor, dp(16)));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(48), 1f);
+        params.leftMargin = dp(3);
+        params.rightMargin = dp(3);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                applyPalette(label, sourceColor);
+            }
+        });
+        button.setLayoutParams(params);
+        return button;
+    }
+
+    private void applyPalette(String label, String sourceColor) {
+        try {
+            JSONObject palette = new JSONObject();
+            palette.put("android.theme.customization.system_palette", sourceColor);
+            palette.put("android.theme.customization.theme_style", "TONAL_SPOT");
+            palette.put("android.theme.customization.color_source", "preset");
+            palette.put("android.theme.customization.dynamic_color", "1");
+            boolean changed = Settings.Secure.putString(
+                getContentResolver(),
+                "theme_customization_overlay_packages",
+                palette.toString()
+            );
+            if (changed) {
+                Toast.makeText(this, label + " palette applied. System colors may take a moment to update.",
+                    Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "Android did not accept the palette change.", Toast.LENGTH_LONG).show();
+            }
+        } catch (SecurityException e) {
+            Toast.makeText(this, "Palette control needs the privileged LucidOS install.", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Couldn't apply palette: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private View wallpaperCard(String asset, String eyebrow, String title, String description) {
