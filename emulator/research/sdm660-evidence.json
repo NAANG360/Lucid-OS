@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "target": {
+    "device": "Xiaomi Redmi Note 7",
+    "codename": "lavender",
+    "soc": "Qualcomm SDM660",
+    "cpu": "Kryo 260, 4 high-performance + 4 low-power cores",
+    "gpu": "Adreno 512",
+    "dsp": "Hexagon 680 with HVX",
+    "isp": "Spectra 160",
+    "storage": "eMMC 5.1",
+    "display_native": "2340x1080"
+  },
+  "evidence": [
+    {
+      "id": "qualcomm-sdm660",
+      "kind": "official-product-brief",
+      "url": "https://www.qualcomm.com/processors/application-processors/products/sdm660",
+      "confidence": "high",
+      "supports": ["cpu", "gpu", "dsp", "isp", "memory", "storage", "modem"],
+      "limitations": ["Not a complete register-level programming manual"]
+    },
+    {
+      "id": "xiaomi-sdm660-common",
+      "kind": "public-source-tree",
+      "url": "https://github.com/xiaomi-sdm660/android_device_xiaomi_sdm660-common",
+      "confidence": "high",
+      "supports": ["android-device-configuration", "lavender-support", "proprietary-file-manifest"],
+      "limitations": ["Not a QEMU machine model"]
+    },
+    {
+      "id": "lavender-device-tree-4.19",
+      "kind": "public-source-tree",
+      "url": "https://github.com/SDM660-Project/device_xiaomi_lavender",
+      "confidence": "high",
+      "supports": ["device-specific-android-configuration"],
+      "limitations": ["Kernel-era-specific; not a full hardware specification"]
+    },
+    {
+      "id": "lavender-partition-table",
+      "kind": "public-text-transcription",
+      "url": "https://gist.github.com/CEKIKOFGAMERS/7c2ae174020fdb25ef33d2c01656fcf1",
+      "confidence": "medium",
+      "supports": ["partition-names", "approximate-layout"],
+      "limitations": ["Variant-specific; not a raw image"]
+    },
+    {
+      "id": "ufi-emmc-service-dump",
+      "kind": "third-party-service-dump-listing",
+      "url": "https://androidfilehost.com/?fid=10620683726822074016",
+      "published_size_bytes_approx": 132749926,
+      "confidence": "low-until-downloaded-and-hashed",
+      "supports": ["lead-for-selected-service-partitions"],
+      "limitations": ["Not verified as a full raw eMMC image; do not assume it includes all partitions"]
+    },
+    {
+      "id": "lavender-emmc-log",
+      "kind": "public-service-log",
+      "url": "https://www.serviceemmc.com/2020/01/log-info-emmcemcp-redmi-note-7-lavender.html",
+      "confidence": "medium",
+      "supports": ["eMMC-model", "capacity", "platform", "build-metadata"],
+      "limitations": ["Log only, not firmware"]
+    }
+  ],
+  "emulator_status": {
+    "generic_qemu_virt": "reference platform only",
+    "custom_sdm660_machine": "not implemented",
+    "adreno_512": "not implemented",
+    "hexagon_680": "not implemented",
+    "spectra_160": "not implemented",
+    "modem_and_rf": "not implemented",
+    "secure_world_and_boot_chain": "not implemented"
+  }
+}
