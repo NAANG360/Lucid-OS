@@ -8,7 +8,7 @@ on:
       - .github/workflows/rom-cloud-audit.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   inspect-rom:
