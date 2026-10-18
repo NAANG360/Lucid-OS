@@ -86,7 +86,7 @@ jobs:
           "$BUILD_TOOLS/aapt" dump badging out/LucidOS-Framework-Theme-Overlay.apk > report/apk-badging.txt
           "$AAPT2" dump resources out/LucidOS-Framework-Theme-Overlay.apk > report/overlay-resources.txt
           sha256sum out/LucidOS-Framework-Theme-Overlay.apk > report/overlay-sha256.txt
-          echo "Compile/sign validation succeeded. Runtime overlay policy remains unverified." >> report/build-report.txt
+          echo "Compile/sign validation succeeded. Static RRO is test-only and excluded from flashable packages until runtime mapping is verified; native dynamic palette controls are the shipping system-color path." >> report/build-report.txt
 
       - name: Test framework overlay mapping with AOSP idmap2
         shell: bash
