@@ -39,7 +39,7 @@ jobs:
             --input xiaomi-sdm660/android_kernel_xiaomi_sdm660@5ce3bc43631dca83f6081757c8982c2d5f6e017c=emulator/snapdragon660/upstream/sdm660.dtsi \
             --input okta-10/mystic_kernel_sdm660-4.4@3fbc81d0cd7ee4116a72926b3777ea0379be9dd7=emulator/snapdragon660/upstream/sdm660-mtp_lavender.dtsi \
             --output emulator/snapdragon660/sdm660-hardware-inventory.json
-          python -c "import json; p=json.load(open('emulator/snapdragon660/sdm660-hardware-inventory.json')); assert p['counts']['nodes_with_reg'] > 10; assert p['boot_critical_candidates']['interrupt_controller']; assert p['boot_critical_candidates']['uart']; print(json.dumps(p['counts'], indent=2))"
+          python -c "import json; p=json.load(open('emulator/snapdragon660/sdm660-hardware-inventory.json')); assert p['counts']['nodes_with_reg'] > 10; assert p['boot_critical_candidates']['interrupt_controller']; assert p['boot_critical_candidates']['uart']; u=[n for n in p['boot_critical_candidates']['uart'] if n['label']=='uartblsp1dm1']; assert u and u[0]['status']==['ok'], u; print(json.dumps({'counts':p['counts'],'lavender_console_status':u[0]['status']}, indent=2))"
       - name: Install QEMU
         run: |
           sudo apt-get update
