@@ -30,6 +30,8 @@ OBJECT_DECLARE_SIMPLE_TYPE(SDM660UARTDMState, SDM660_UARTDM)
 #define UARTDM_CSR             0x0a0
 #define UARTDM_IMR             0x0b0
 #define UARTDM_TX_READY        (1u << 2)
+#define UARTDM_RX_READY        (1u << 0)
+#define UARTDM_RX_FIFO_SIZE    256
 #define UARTDM_TX_BAM_ENABLE   (1u << 2)
 #define UARTDM_TX_SINGLE_CHAR  (1u << 4)
 #define UARTDM_CR_RESET_TX     (2u << 4)
@@ -48,9 +50,12 @@ struct SDM660UARTDMState {
     uint32_t rf;
     uint32_t tf;
     uint64_t tx_bytes;
+    uint8_t rx_fifo[UARTDM_RX_FIFO_SIZE];
+    unsigned rx_head;
+    unsigned rx_count;
 };
 
-static uint64_t sdm660_uartdm_read(void *opaque, hwaddr offset,
+static bool sdm660_uartdm_can_receive(void *opaque)\n{\n    SDM660UARTDMState *s = SDM660_UARTDM(opaque);\n    return s->rx_count < UARTDM_RX_FIFO_SIZE;\n}\n\nstatic void sdm660_uartdm_receive(void *opaque, const uint8_t *buf, int size)\n{\n    SDM660UARTDMState *s = SDM660_UARTDM(opaque);\n    int i;\n\n    for (i = 0; i < size && s->rx_count < UARTDM_RX_FIFO_SIZE; i++) {\n        unsigned tail = (s->rx_head + s->rx_count) % UARTDM_RX_FIFO_SIZE;\n        s->rx_fifo[tail] = buf[i];\n        s->rx_count++;\n    }\n}\n\nstatic uint64_t sdm660_uartdm_read(void *opaque, hwaddr offset,
                                    unsigned size)
 {
     SDM660UARTDMState *s = SDM660_UARTDM(opaque);
@@ -74,7 +79,7 @@ static uint64_t sdm660_uartdm_read(void *opaque, hwaddr offset,
     case 0x004: return s->mr2;
     case UARTDM_CSR: return s->csr;
     case UARTDM_IMR: return s->imr;
-    case UARTDM_RF: return s->rf;
+    case UARTDM_RF:\n        if (s->rx_count) {\n            uint8_t byte = s->rx_fifo[s->rx_head];\n            s->rx_head = (s->rx_head + 1) % UARTDM_RX_FIFO_SIZE;\n            s->rx_count--;\n            return byte;\n        }\n        return 0;
     default:
         return 0;
     }
