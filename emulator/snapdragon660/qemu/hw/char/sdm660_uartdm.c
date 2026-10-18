@@ -176,7 +176,7 @@ static void sdm660_uartdm_init(Object *obj)
     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
 }
 
-static Property sdm660_uartdm_properties[] = {
+static const Property sdm660_uartdm_properties[] = {
     DEFINE_PROP_CHR("chardev", SDM660UARTDMState, chr),
     DEFINE_PROP_END_OF_LIST(),
 };
@@ -186,6 +186,7 @@ static void sdm660_uartdm_class_init(ObjectClass *klass, void *data)
     DeviceClass *dc = DEVICE_CLASS(klass);
 
     dc->realize = sdm660_uartdm_realize;
+    device_class_set_legacy_reset(dc, sdm660_uartdm_reset);
     dc->vmsd = NULL;
     device_class_set_props(dc, sdm660_uartdm_properties);
 }
