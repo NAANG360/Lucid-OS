@@ -13,6 +13,10 @@ This repository currently contains an extracted Android system filesystem and re
 - `design/LUCIDOS_VISUAL_SYSTEM.md` — Figma-to-Android visual implementation map.
 - `docs/ROM_BASE_FINDINGS.md` — evidence-based notes about the current ROM base.
 - `.github/workflows/rom-cloud-audit.yml` — cloud inventory of the unsigned release archive.
+- `.github/workflows/rom-reconstruct-partitions.yml` — reconstructs OTA block images in a cloud runner and inventories the actual Settings/SystemUI/launcher APKs.
+- `.github/workflows/lucid-theme-overlay.yml` — builds the LucidOS Material color resource overlay against the extracted framework resources.
+- `theme/assets/` — selected original Figma wallpaper assets (dusk default candidate and alpine alternate).
+- `theme/scripts/generate-palette.mjs` — generates the 65 Android tonal palette resources from the Figma-inspired blue source color.
 
 ## Design direction
 
