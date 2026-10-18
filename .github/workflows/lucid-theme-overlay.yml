@@ -32,8 +32,7 @@ jobs:
           set -euo pipefail
           BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
           AAPT2="$BUILD_TOOLS/aapt2"
-          mkdir -p out report theme/rro/res/drawable-nodpi
-          cp theme/assets/lucid-wallpaper-dusk.jpg theme/rro/res/drawable-nodpi/default_wallpaper.jpg
+          mkdir -p out report
           {
             echo "LucidOS RRO build"
             date -u
@@ -46,6 +45,11 @@ jobs:
             "$AAPT2" dump resources system-tree/system/framework/framework-res.apk | grep -E 'color/system_(accent[123]|neutral[12])_(0|10|50|100|200|300|400|500|600|700|800|900|1000)' | head -n 80
           } > report/build-report.txt
 
+          if "$AAPT2" dump overlayable system-tree/system/framework/framework-res.apk > report/target-overlayable.txt 2>&1; then
+            echo "Overlayable metadata captured."
+          else
+            echo "This aapt2 build-tools version does not expose dump overlayable; runtime policy remains to be checked." > report/target-overlayable.txt
+          fi
           "$AAPT2" compile --dir theme/rro/res -o out/compiled-resources.zip
           "$AAPT2" link \
             --manifest theme/rro/AndroidManifest.xml \
