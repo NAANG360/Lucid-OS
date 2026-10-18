@@ -36,6 +36,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(SDM660UARTDMState, SDM660_UARTDM)
 #define UARTDM_TX_SINGLE_CHAR  (1u << 4)
 #define UARTDM_CR_RESET_TX     (2u << 4)
 #define UARTDM_CR_TX_ENABLE    (1u << 2)
+#define UARTDM_CR_TX_DISABLE   (1u << 3)
 
 struct SDM660UARTDMState {
     SysBusDevice parent_obj;
@@ -49,6 +50,7 @@ struct SDM660UARTDMState {
     uint32_t csr;
     uint32_t tf;
     uint64_t tx_bytes;
+    bool tx_enabled;
     uint8_t rx_fifo[UARTDM_RX_FIFO_SIZE];
     unsigned rx_head;
     unsigned rx_count;
@@ -145,8 +147,11 @@ static void sdm660_uartdm_write(void *opaque, hwaddr offset,
         s->cr = v;
         if (v == UARTDM_CR_RESET_TX) {
             s->tf = 0;
+            s->tx_enabled = false;
         } else if (v == UARTDM_CR_TX_ENABLE) {
-            /* Enable state is retained for guest observability. */
+            s->tx_enabled = true;
+        } else if (v == UARTDM_CR_TX_DISABLE) {
+            s->tx_enabled = false;
         }
         break;
     case 0x000: s->mr1 = v; break;
@@ -187,6 +192,7 @@ static void sdm660_uartdm_reset(DeviceState *dev)
     s->csr = 0;
     s->tf = 0;
     s->tx_bytes = 0;
+    s->tx_enabled = false;
     s->rx_head = 0;
     s->rx_count = 0;
 }
