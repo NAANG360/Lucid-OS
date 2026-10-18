@@ -119,18 +119,20 @@ jobs:
           FILE_CONTEXTS="$RUNNER_TEMP/product-file-contexts"
           cp system-tree/system/etc/selinux/plat_file_contexts "$FILE_CONTEXTS"
 
-          mkdir -p "$TREE/overlay" "$TREE/app/LucidWallpapers" "$TREE/media" "$TREE/etc"
+          mkdir -p "$TREE/overlay" "$TREE/priv-app/LucidWallpapers" "$TREE/media" "$TREE/etc/permissions"
           cp "$RUNNER_TEMP/theme/out/LucidOS-Framework-Theme-Overlay.apk" \
             "$TREE/overlay/LucidOSFrameworkThemeOverlay.apk"
           cp "$RUNNER_TEMP/theme/out/LucidWallpapers.apk" \
-            "$TREE/app/LucidWallpapers/LucidWallpapers.apk"
+            "$TREE/priv-app/LucidWallpapers/LucidWallpapers.apk"
           cp "$RUNNER_TEMP/theme/out/LucidOS-bootanimation.zip" \
             "$TREE/media/bootanimation.zip"
+          cp theme/privapp-permissions-lucid.xml "$TREE/etc/permissions/privapp-permissions-lucid.xml"
           printf 'status=clean\nsource=cloud-rebuilt\n' > "$TREE/etc/lucid-base-product-verified"
           chmod 0644 "$TREE/overlay/LucidOSFrameworkThemeOverlay.apk" \
-            "$TREE/app/LucidWallpapers/LucidWallpapers.apk" \
-            "$TREE/media/bootanimation.zip" "$TREE/etc/lucid-base-product-verified"
-          chmod 0755 "$TREE/overlay" "$TREE/app" "$TREE/app/LucidWallpapers" "$TREE/media" "$TREE/etc"
+            "$TREE/priv-app/LucidWallpapers/LucidWallpapers.apk" \
+            "$TREE/media/bootanimation.zip" "$TREE/etc/lucid-base-product-verified" \
+            "$TREE/etc/permissions/privapp-permissions-lucid.xml"
+          chmod 0755 "$TREE/overlay" "$TREE/priv-app" "$TREE/priv-app/LucidWallpapers" "$TREE/media" "$TREE/etc" "$TREE/etc/permissions"
           sudo chown -hR 0:0 "$TREE"
 
           truncate -s "$PARTITION_SIZE" "$IMAGE"
