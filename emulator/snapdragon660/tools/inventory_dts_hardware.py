@@ -57,7 +57,7 @@ def node_blocks(text: str):
                 elif ch == "{": depth += 1
                 elif ch == "}": depth -= 1
                 elif ch == ";" and depth == 0:
-                    start = body.rfind("\n", 0, pos) + 1
+                    start = body.rfind(";", 0, pos) + 1
                     statement = body[start:pos + 1]
                     p = PROP_RE.search(statement)
                     if p:
