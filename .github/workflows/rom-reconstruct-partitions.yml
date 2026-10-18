@@ -39,7 +39,8 @@ jobs:
               if r.get("tag_name") == "tobelucid-source-v1":
                   for a in r.get("assets", []):
                       if a.get("name") == "LucidOS-unsigned.zip":
-                          print(a["id"]); raise SystemExit(0)
+                          print(a["id"])
+                          raise SystemExit(0)
           raise SystemExit("LucidOS-unsigned.zip not found in the draft release")
           PY
           )"
@@ -49,22 +50,32 @@ jobs:
             "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" \
             --output "$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
           sha256sum "$RUNNER_TEMP/rom/LucidOS-unsigned.zip" | tee report/archive-sha256.txt
-          python3 - "$RUNNER_TEMP/rom/LucidOS-unsigned.zip" "$RUNNER_TEMP/partitions" <<'PY'
+          python3 - "$RUNNER_TEMP/rom/LucidOS-unsigned.zip" "$RUNNER_TEMP/partitions" report <<'PY'
           import os, sys, zipfile
-          archive, outdir = sys.argv[1:]
+          archive, outdir, reportdir = sys.argv[1:]
           names = []
           for part in ("system", "vendor", "product", "system_ext", "odm"):
               names.extend([f"{part}.transfer.list", f"{part}.new.dat.br"])
+          names.extend([
+              "dynamic_partitions_op_list",
+              "META-INF/com/android/metadata",
+              "META-INF/com/google/android/updater-script",
+          ])
           with zipfile.ZipFile(archive) as z:
               for name in names:
                   info = z.getinfo(name)
-                  dest = os.path.join(outdir, name)
+                  if name.endswith((".transfer.list", ".new.dat.br")):
+                      dest = os.path.join(outdir, name)
+                  else:
+                      dest = os.path.join(reportdir, name.replace("/", "_") + ".txt")
+                  os.makedirs(os.path.dirname(dest), exist_ok=True)
                   with z.open(info) as src, open(dest, "wb") as dst:
                       while True:
                           chunk = src.read(4 * 1024 * 1024)
-                          if not chunk: break
+                          if not chunk:
+                              break
                           dst.write(chunk)
-          print("Extracted transfer lists and compressed new.dat streams.")
+          print("Extracted transfer lists, compressed new.dat streams, and installer metadata.")
           PY
 
       - name: Reconstruct logical partition images
@@ -104,20 +115,24 @@ jobs:
             fi
           done
 
-          find "$RUNNER_TEMP/mnt" -type f \( \
+          sudo find "$RUNNER_TEMP/mnt" -type f \( \
             -name 'Settings.apk' -o -name 'SystemUI.apk' -o \
             -name 'Launcher3.apk' -o -name 'Launcher3QuickStep.apk' -o \
             -name 'WallpaperPicker2.apk' -o -name 'SettingsProvider.apk' \
           \) -print | sort -u >> report/package-locations.txt
 
+          mkdir -p "$RUNNER_TEMP/apks"
           while IFS= read -r apk; do
-            [[ -f "$apk" ]] || continue
+            [[ "$apk" == /* ]] || continue
             base="$(basename "$apk" .apk)"
+            copy="$RUNNER_TEMP/apks/$base.apk"
+            sudo cp "$apk" "$copy"
+            sudo chmod 644 "$copy"
             echo "===== $apk =====" >> "report/$base-resources.txt"
-            ls -lh "$apk" >> "report/$base-resources.txt"
-            sha256sum "$apk" >> "report/$base-resources.txt"
-            "$BUILD_TOOLS/aapt" dump badging "$apk" >> "report/$base-resources.txt" 2>&1 || true
-            "$BUILD_TOOLS/aapt2" dump resources "$apk" > "$RUNNER_TEMP/$base-full-resources.txt" 2>&1 || true
+            ls -lh "$copy" >> "report/$base-resources.txt"
+            sha256sum "$copy" >> "report/$base-resources.txt"
+            "$BUILD_TOOLS/aapt" dump badging "$copy" >> "report/$base-resources.txt" 2>&1 || true
+            "$BUILD_TOOLS/aapt2" dump resources "$copy" > "$RUNNER_TEMP/$base-full-resources.txt" 2>&1 || true
             grep -Ei 'resource .* (color|drawable|mipmap|style|bool|dimen|string)/.*(accent|primary|secondary|background|surface|tile|icon|settings|theme|wallpaper|overlay|qs_|quick_settings)' \
               "$RUNNER_TEMP/$base-full-resources.txt" | head -n 350 >> "report/$base-resources.txt" || true
             grep -Ei 'overlayable|ThemeCustomization|default_wallpaper' "$RUNNER_TEMP/$base-full-resources.txt" | head -n 100 >> "report/$base-resources.txt" || true
