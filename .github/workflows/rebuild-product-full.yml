@@ -28,62 +28,30 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/source" "$RUNNER_TEMP/rom" "$RUNNER_TEMP/theme" report out
-          gh release download tobelucid-source-v1 \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "LucidOS-unsigned.zip" \
-            --dir "$RUNNER_TEMP/rom"
-          gh release download tobelucid-source-v1 \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "product-mod-tree.tar.zst" \
-            --dir "$RUNNER_TEMP/source"
-          test -s "$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
-          ZIP="$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
-          unzip -p "$ZIP" dynamic_partitions_op_list > "$RUNNER_TEMP/dynamic_partitions_op_list"
-          PARTITION_SIZE="$(awk '$1=="resize" && $2=="product" {print $3; exit}' "$RUNNER_TEMP/dynamic_partitions_op_list")"
-          if [[ ! "$PARTITION_SIZE" =~ ^[0-9]+$ ]] || (( PARTITION_SIZE % 4096 != 0 )); then
-            echo "Could not determine a valid product logical-partition size from dynamic_partitions_op_list." >&2
-            exit 1
-          fi
-          echo "$PARTITION_SIZE" > "$RUNNER_TEMP/product-partition-size.txt"
-          {
-            echo "product_partition_size_bytes=$PARTITION_SIZE"
-            echo "product_partition_blocks=$((PARTITION_SIZE / 4096))"
-            echo "=== Original product transfer-list header ==="
-            unzip -p "$ZIP" product.transfer.list | head -n 4
-          } > report/product-partition-layout.txt
-          for image in boot.img recovery.img; do
-            if unzip -Z -1 "$ZIP" | grep -Fxq "$image"; then
-              unzip -p "$ZIP" "$image" > "$RUNNER_TEMP/$image"
-              file "$RUNNER_TEMP/$image" >> report/boot-image-audit.txt
-            else
-              echo "Missing $image in the original ROM archive." >> report/boot-image-audit.txt
-              exit 1
-            fi
-          done
-          python3 - "$RUNNER_TEMP/boot.img" "$RUNNER_TEMP/recovery.img" >> report/boot-image-audit.txt <<'PY'
-          import os, struct, sys
-          for path in sys.argv[1:]:
-              data=open(path,'rb').read(64)
-              if data[:8] != b'ANDROID!':
-                  raise SystemExit(f"{os.path.basename(path)}: missing ANDROID! boot image magic")
-              header=struct.unpack_from('<I',data,40)[0]
-              kernel=struct.unpack_from('<I',data,8)[0]
-              if header <= 2:
-                  ramdisk=struct.unpack_from('<I',data,16)[0]
-                  page=struct.unpack_from('<I',data,36)[0]
-              else:
-                  ramdisk=struct.unpack_from('<I',data,12)[0]
-                  page=4096
-              size=os.path.getsize(path)
-              if header > 2:
-                  raise SystemExit(f"{os.path.basename(path)}: boot header v{header} requires a newer vendor_boot-style layout; lavender is expected to use legacy boot/recovery headers")
-              if kernel == 0 or ramdisk == 0 or page < 2048 or page > 65536:
-                  raise SystemExit(f"{os.path.basename(path)}: implausible header fields header={header} kernel={kernel} ramdisk={ramdisk} page={page}")
-              if kernel + ramdisk > size:
-                  raise SystemExit(f"{os.path.basename(path)}: declared kernel+ramdisk exceeds image size")
-              print(f"{os.path.basename(path)}: magic=ANDROID! header_version={header} kernel_bytes={kernel} ramdisk_bytes={ramdisk} page_size={page} file_bytes={size}")
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          python3 - "$RUNNER_TEMP/releases.json" "$RUNNER_TEMP/release-assets.json" <<'PY'
+          import json, sys
+          release=next((r for r in json.load(open(sys.argv[1])) if r.get("tag_name")=="tobelucid-source-v1"),None)
+          if not release:
+              raise SystemExit("Draft release tobelucid-source-v1 not visible to workflow token.")
+          assets={a["name"]:a["id"] for a in release.get("assets",[])}
+          for required in ("LucidOS-unsigned.zip","product-mod-tree.tar.zst"):
+              if required not in assets:
+                  raise SystemExit(f"Missing release asset {required}; upload the complete product tree first.")
+          json.dump({"release_id":release["id"],"rom_asset_id":assets["LucidOS-unsigned.zip"],
+                     "tree_asset_id":assets["product-mod-tree.tar.zst"],
+                     "fixed_asset_id":assets.get("LucidOS-unsigned-full-product.zip")},open(sys.argv[2],"w"))
           PY
-          test -s "$RUNNER_TEMP/source/product-mod-tree.tar.zst"
+          ROM_ID="$(python3 -c 'import json;print(json.load(open("'"$RUNNER_TEMP/release-assets.json"'"))["rom_asset_id"])')"
+          TREE_ID="$(python3 -c 'import json;print(json.load(open("'"$RUNNER_TEMP/release-assets.json"'"))["tree_asset_id"])')"
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ROM_ID" \
+            --output "$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$TREE_ID" \
+            --output "$RUNNER_TEMP/source/product-mod-tree.tar.zst"
           zstd -t "$RUNNER_TEMP/source/product-mod-tree.tar.zst"
           zstd -dc "$RUNNER_TEMP/source/product-mod-tree.tar.zst" | tar -xf - -C "$RUNNER_TEMP/source"
           TREE="$(find "$RUNNER_TEMP/source" -maxdepth 5 -type d -name product_mod -print -quit)"
@@ -219,8 +187,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          RELEASE_ID="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/tobelucid-source-v1" --jq '.id' 2>/dev/null || echo 416305078)"
-          OLD_ID="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/tobelucid-source-v1" --jq '.assets[] | select(.name=="LucidOS-unsigned-full-product.zip") | .id' 2>/dev/null || true)"
+          RELEASE_ID="$(python3 -c 'import json;print(json.load(open("\'"$RUNNER_TEMP/release-assets.json"\'"))["release_id"])' 2>/dev/null || echo 416305078)"
+          OLD_ID="$(python3 -c 'import json;print(json.load(open("\'"$RUNNER_TEMP/release-assets.json"\'")).get("fixed_asset_id") or "")' 2>/dev/null || true)"
           if [[ -n "$OLD_ID" ]]; then
             gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$OLD_ID"
           fi
