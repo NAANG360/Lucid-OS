@@ -24,7 +24,16 @@ jobs:
       - name: Install Android build tools
         uses: android-actions/setup-android@v3
         with:
-          packages: 'build-tools;35.0.0 platforms;android-35'
+          packages: 'build-tools;35.0.0'
+
+      - name: Install Android API 35 platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platforms;android-35"
 
       - name: Generate Figma-matched Material tonal palette
         working-directory: theme
