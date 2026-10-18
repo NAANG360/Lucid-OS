@@ -1,0 +1,40 @@
+ui_print(" ");
+ui_print("  L U C I D   O S");
+ui_print("  Theme Pack — prototype");
+ui_print(" ");
+
+assert(
+  getprop("ro.product.device") == "lavender" ||
+  getprop("ro.build.product") == "lavender" ||
+  abort("This theme pack is only for Redmi Note 7 (lavender).")
+);
+
+ifelse(is_mounted("/product"), unmount("/product"));
+mount("ext4", "EMMC", map_partition("product"), "/product");
+
+assert(
+  file_getprop("/product/etc/lucid-base-product-verified", "status") == "clean" ||
+  abort("Product partition is not verified as complete. Aborting without changes; repair the base ROM first.")
+);
+
+package_extract_dir("product", "/product");
+
+set_metadata_recursive(
+  "/product/overlay/LucidOSFrameworkThemeOverlay.apk",
+  "uid", 0, "gid", 0, "dmode", 0755, "fmode", 0644,
+  "selabel", "u:object_r:system_file:s0"
+);
+set_metadata_recursive(
+  "/product/app/LucidWallpapers",
+  "uid", 0, "gid", 0, "dmode", 0755, "fmode", 0644,
+  "selabel", "u:object_r:system_file:s0"
+);
+set_metadata(
+  "/product/media/bootanimation.zip",
+  "uid", 0, "gid", 0, "mode", 0644,
+  "selabel", "u:object_r:system_file:s0"
+);
+
+unmount("/product");
+ui_print("LucidOS theme files installed.");
+ui_print("Reboot only after the base ROM has been verified.");
