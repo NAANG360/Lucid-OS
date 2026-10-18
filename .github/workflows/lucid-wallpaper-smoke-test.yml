@@ -75,25 +75,8 @@ jobs:
             mkdir -p report/emulator
             adb wait-for-device
             adb shell getprop ro.build.version.release | tee report/emulator/android-version.txt
-            adb root || true
-            adb wait-for-device
-            if adb remount; then
-              adb shell mkdir -p /system/priv-app/LucidWallpapers
-              adb push out/LucidWallpapers.apk /system/priv-app/LucidWallpapers/LucidWallpapers.apk
-              adb push theme/privapp-permissions-lucid.xml /system/etc/permissions/privapp-permissions-lucid.xml
-              adb shell chmod 0644 /system/priv-app/LucidWallpapers/LucidWallpapers.apk
-              adb shell chmod 0644 /system/etc/permissions/privapp-permissions-lucid.xml
-              adb reboot
-              adb wait-for-device
-              for i in $(seq 1 60); do
-                [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1" ] && break
-                sleep 2
-              done
-            else
-              echo "adb remount unavailable; falling back to regular install for UI and permission smoke test." | tee report/emulator/privileged-install-fallback.txt
-              adb install -r out/LucidWallpapers.apk
-              adb shell pm grant com.lucid.os.wallpapers android.permission.WRITE_SECURE_SETTINGS || true
-            fi
+            adb install -r out/LucidWallpapers.apk
+            adb shell pm grant com.lucid.os.wallpapers android.permission.WRITE_SECURE_SETTINGS
             adb shell am start -W -n com.lucid.os.wallpapers/.MainActivity | tee report/emulator/activity-launch.txt
             sleep 4
             adb shell dumpsys activity activities > report/emulator/activities.txt
