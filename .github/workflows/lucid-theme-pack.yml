@@ -1,0 +1,109 @@
+name: LucidOS Theme Pack
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["LucidOS Theme Overlay"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  assemble-theme-pack:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download built theme artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$SOURCE_RUN_ID" ]]; then
+            RUN_ID="$SOURCE_RUN_ID"
+          else
+            RUN_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/lucid-theme-overlay.yml/runs?status=success&per_page=10" --jq '.workflow_runs[0].id')"
+          fi
+          test -n "$RUN_ID"
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name lucid-theme-overlay-prototype --dir "$RUNNER_TEMP/theme-artifacts"
+          test -s "$RUNNER_TEMP/theme-artifacts/LucidOS-Framework-Theme-Overlay.apk"
+          test -s "$RUNNER_TEMP/theme-artifacts/LucidWallpapers.apk"
+          test -s "$RUNNER_TEMP/theme-artifacts/LucidOS-bootanimation.zip"
+          echo "Theme artifact source run: $RUN_ID" > report-source-run.txt
+
+      - name: Download original updater engine
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rom" "$RUNNER_TEMP/pack/META-INF/com/google/android" out
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          ASSET_ID="$(python3 - "$RUNNER_TEMP/releases.json" <<'PY'
+          import json, sys
+          for r in json.load(open(sys.argv[1])):
+              if r.get("tag_name") == "tobelucid-source-v1":
+                  for a in r.get("assets", []):
+                      if a.get("name") == "LucidOS-unsigned.zip":
+                          print(a["id"]); raise SystemExit(0)
+          raise SystemExit("LucidOS-unsigned.zip not found in draft release")
+          PY
+          )"
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/octet-stream" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" \
+            --output "$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
+          unzip -p "$RUNNER_TEMP/rom/LucidOS-unsigned.zip" \
+            META-INF/com/google/android/update-binary \
+            > "$RUNNER_TEMP/pack/META-INF/com/google/android/update-binary"
+          test -s "$RUNNER_TEMP/pack/META-INF/com/google/android/update-binary"
+          chmod 0755 "$RUNNER_TEMP/pack/META-INF/com/google/android/update-binary"
+
+      - name: Assemble guarded recovery ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACK="$RUNNER_TEMP/pack"
+          mkdir -p "$PACK/product/overlay" "$PACK/product/app/LucidWallpapers" "$PACK/product/media"
+          cp "$RUNNER_TEMP/theme-artifacts/LucidOS-Framework-Theme-Overlay.apk" \
+            "$PACK/product/overlay/LucidOSFrameworkThemeOverlay.apk"
+          cp "$RUNNER_TEMP/theme-artifacts/LucidWallpapers.apk" \
+            "$PACK/product/app/LucidWallpapers/LucidWallpapers.apk"
+          cp "$RUNNER_TEMP/theme-artifacts/LucidOS-bootanimation.zip" \
+            "$PACK/product/media/bootanimation.zip"
+          cp theme/flashable/META-INF/com/google/android/updater-script \
+            "$PACK/META-INF/com/google/android/updater-script"
+          cp theme/flashable/README.md "$PACK/README.txt"
+          printf 'Prototype only. Installer refuses to run unless /product/etc/lucid-base-product-verified contains status=clean.\n' \
+            > "$PACK/INSTALL-GUARD.txt"
+          chmod 0644 "$PACK/META-INF/com/google/android/updater-script"
+          (
+            cd "$PACK"
+            zip -0 -X -r "$GITHUB_WORKSPACE/out/LucidOS-Theme-Pack-Prototype.zip" .
+          )
+          unzip -t out/LucidOS-Theme-Pack-Prototype.zip | tail -n 2
+          unzip -Z -1 out/LucidOS-Theme-Pack-Prototype.zip > report-theme-pack-files.txt
+          sha256sum out/LucidOS-Theme-Pack-Prototype.zip > report-theme-pack-sha256.txt
+          ls -lh out/LucidOS-Theme-Pack-Prototype.zip
+
+      - name: Upload theme pack prototype
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-theme-pack-prototype
+          path: |
+            out/LucidOS-Theme-Pack-Prototype.zip
+            report-source-run.txt
+            report-theme-pack-files.txt
+            report-theme-pack-sha256.txt
+          if-no-files-found: error
+          retention-days: 7
