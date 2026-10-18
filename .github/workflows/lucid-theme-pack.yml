@@ -35,9 +35,9 @@ jobs:
           test -n "$RUN_ID"
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name lucid-theme-overlay-prototype --dir "$RUNNER_TEMP/theme-artifacts"
-          test -s "$RUNNER_TEMP/theme-artifacts/LucidOS-Framework-Theme-Overlay.apk"
-          test -s "$RUNNER_TEMP/theme-artifacts/LucidWallpapers.apk"
-          test -s "$RUNNER_TEMP/theme-artifacts/LucidOS-bootanimation.zip"
+          test -s "$RUNNER_TEMP/theme-artifacts/out/LucidOS-Framework-Theme-Overlay.apk"
+          test -s "$RUNNER_TEMP/theme-artifacts/out/LucidWallpapers.apk"
+          test -s "$RUNNER_TEMP/theme-artifacts/out/LucidOS-bootanimation.zip"
           echo "Theme artifact source run: $RUN_ID" > report-source-run.txt
 
       - name: Download original updater engine
@@ -75,11 +75,11 @@ jobs:
           set -euo pipefail
           PACK="$RUNNER_TEMP/pack"
           mkdir -p "$PACK/product/overlay" "$PACK/product/app/LucidWallpapers" "$PACK/product/media"
-          cp "$RUNNER_TEMP/theme-artifacts/LucidOS-Framework-Theme-Overlay.apk" \
+          cp "$RUNNER_TEMP/theme-artifacts/out/LucidOS-Framework-Theme-Overlay.apk" \
             "$PACK/product/overlay/LucidOSFrameworkThemeOverlay.apk"
-          cp "$RUNNER_TEMP/theme-artifacts/LucidWallpapers.apk" \
+          cp "$RUNNER_TEMP/theme-artifacts/out/LucidWallpapers.apk" \
             "$PACK/product/app/LucidWallpapers/LucidWallpapers.apk"
-          cp "$RUNNER_TEMP/theme-artifacts/LucidOS-bootanimation.zip" \
+          cp "$RUNNER_TEMP/theme-artifacts/out/LucidOS-bootanimation.zip" \
             "$PACK/product/media/bootanimation.zip"
           cp theme/flashable/META-INF/com/google/android/updater-script \
             "$PACK/META-INF/com/google/android/updater-script"
