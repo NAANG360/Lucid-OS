@@ -131,15 +131,35 @@ jobs:
           def boot_report(data):
               out=[]
               if data[:8] != b"ANDROID!":
-                  return ["Not an Android boot image magic; first 64 bytes: "+data[:64].hex()]
+                  return ["FAIL: no ANDROID! boot magic; first 64 bytes: "+data[:64].hex()]
               out.append("magic: ANDROID!")
-              if len(data) >= 44:
-                  kernel, ramdisk, second, tags, page, version = struct.unpack_from("<6I", data, 8)
-                  out += [f"kernel_size: {kernel}", f"ramdisk_size: {ramdisk}", f"second_size: {second}", f"tags_addr: 0x{tags:08x}", f"page_size: {page}", f"header_version: {version}"]
-                  if version == 0 and len(data) >= 48:
-                      out.append(f"os_version_word: 0x{struct.unpack_from('<I', data, 40)[0]:08x}")
-                  if version in (3,4) and len(data) >= 44:
-                      out.append(f"header_size: {struct.unpack_from('<I', data, 20)[0]}")
+              if len(data) < 48:
+                  return out + ["FAIL: truncated boot header"]
+              words = struct.unpack_from("<10I", data, 8)
+              kernel_size, kernel_addr, ramdisk_size, ramdisk_addr, second_size, second_addr, tags_addr, page_size, header_version, os_version = words
+              out += [
+                  f"legacy_kernel_size: {kernel_size}",
+                  f"legacy_kernel_addr: 0x{kernel_addr:08x}",
+                  f"legacy_ramdisk_size: {ramdisk_size}",
+                  f"legacy_ramdisk_addr: 0x{ramdisk_addr:08x}",
+                  f"legacy_second_size: {second_size}",
+                  f"legacy_second_addr: 0x{second_addr:08x}",
+                  f"legacy_tags_addr: 0x{tags_addr:08x}",
+                  f"legacy_page_size: {page_size}",
+                  f"header_version_at_offset_40: {header_version} (0x{header_version:08x})",
+                  f"os_version_at_offset_44: 0x{os_version:08x}",
+              ]
+              if header_version in (0,1,2):
+                  out.append("header_layout: legacy v0-v2")
+                  out.append("legacy_page_size_valid: "+str(page_size in (2048,4096,16384)))
+                  if page_size not in (2048,4096,16384):
+                      out.append("WARNING: page_size is not a valid legacy Android boot image page size")
+              elif header_version in (3,4):
+                  header_size = struct.unpack_from("<I",data,20)[0]
+                  out += [f"header_layout: v{header_version}", f"v3_v4_header_size: {header_size}", "v3_v4_header_size_valid: "+str(header_size in (1580,1584))]
+              else:
+                  v3_header_size = struct.unpack_from("<I",data,20)[0]
+                  out += ["WARNING: header version at offset 40 is outside Android boot header v0-v4", f"v3_v4_interpretation_header_size_at_offset_20: {v3_header_size}"]
               return out
           with zipfile.ZipFile(zp) as z, open(os.path.join(outdir,"binary-image-report.txt"),"w") as f:
               names={i.filename:i for i in z.infolist()}
