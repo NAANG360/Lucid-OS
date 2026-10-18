@@ -4,12 +4,12 @@ if [[ $# -lt 2 || $# -gt 3 ]]; then
   echo "Usage: $0 <ARM64-kernel-Image> <initramfs.cpio.gz> [serial-log.txt]" >&2
   exit 2
 fi
+for f in "$1" "$2"; do
+  [[ -f "$f" ]] || { echo "Missing input: $f" >&2; exit 2; }
+done
 KERNEL="$(realpath "$1")"
 INITRD="$(realpath "$2")"
 LOG="${3:-qemu-arm64-serial.log}"
-for f in "$KERNEL" "$INITRD"; do
-  [[ -f "$f" ]] || { echo "Missing input: $f" >&2; exit 2; }
-done
 QEMU="${QEMU_SYSTEM_AARCH64:-qemu-system-aarch64}"
 command -v "$QEMU" >/dev/null || {
   echo "qemu-system-aarch64 not found. Install qemu-system-arm." >&2
