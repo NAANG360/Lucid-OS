@@ -43,7 +43,7 @@ These checks make a malformed boot header, a missing `cust` fstab entry, and ord
 
 The dynamic-partition operation list removes existing groups and says it is applying a full OTA, then creates a `product` logical partition of 2,504,368,128 bytes. But the product transfer list only writes 123,902 blocks (507,502,592 bytes), contains no `zero` or `erase` commands, while the reconstructed product ext4 superblock declares 601,750 blocks (2,464,768,000 bytes).
 
-That means the archive does not explicitly populate the whole product filesystem. The cloud reconstruction confirms this is not a complete product filesystem: `e2fsck -fn` reports invalid extent nodes and a corrupted root directory, and the product mount exposes no files. The installer first discards the physical `system`/super storage and then rebuilds dynamic-partition metadata, so those untouched blocks cannot be relied on to survive. This is a **confirmed packaging defect and a leading explanation for the failed boot**. The exact repair requires the complete product source image/tree; the partial `.new.dat.br` payload cannot recreate the missing blocks by itself.
+A zero-based reconstruction does not populate the whole product filesystem: `e2fsck -fn` reports invalid extent nodes and a corrupted root directory, and the reconstructed product mount exposes no files. This proves the product payload is **not independently reconstructable from an empty image**. However, the updater script discards the physical `system` and `vendor` partitions, but does not explicitly `blkdiscard` the physical `product` partition before calling `block_image_update`. Therefore, the installer may be relying on pre-existing product blocks as the base for this partial update; whether the retrofit dynamic-partition metadata preserves and maps those blocks correctly is not yet established. Treat this as a serious packaging/base-image dependency and a leading boot-failure suspect, **not as conclusive proof that product corruption alone caused the fastboot return**. A self-contained repair still requires a verified full product image or complete product tree; the partial `.new.dat.br` stream cannot recreate untouched blocks by itself.
 
 ## Cloud reconstruction results (2026-10-18)
 
@@ -59,7 +59,7 @@ The transfer-list reconstruction and read-only filesystem checks completed in Gi
 
 The archive does contain `Settings.apk` and `SystemUI.apk`, both located under `system_ext/priv-app`, plus `SettingsProvider.apk` under `system/priv-app`. The resource dump identifies Android 15-era Material 3 and Quick Settings resources, including `qs_tile_ripple_color`, `brightness_slider_overlay_color`, and several `m3_sys_color_*` colors. The captured SystemUI overlayable-policy dump is empty, so do not assume those resources are legally overlayable just because they exist in the APK. Any SystemUI RRO must be validated against the actual target policy.
 
-The product issue is now the first packaging blocker to resolve before another ROM flash. The overlay and wallpaper work must not be allowed to obscure this bootability problem.
+The product payload's dependency on untouched blocks is the first packaging risk to resolve before another ROM flash. Verify the retrofit mapping/base-image behavior against the original ROM before treating this as the sole cause of the boot failure. The overlay and wallpaper work must not obscure boot-chain validation.
 
 ## What this says about the cust theory
 
