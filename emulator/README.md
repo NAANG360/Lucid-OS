@@ -37,7 +37,7 @@ python3 emulator/tools/check_qemu.py
 Boot a **generic** ARM64 Linux kernel and initramfs:
 
 ```sh
-./emulator/run-generic-arm64.sh /path/to/Image /path/to/initramfs.cpio.gz
+bash emulator/run-generic-arm64.sh /path/to/Image /path/to/initramfs.cpio.gz
 ```
 
 This is a reference guest on QEMU `virt`, not the lavender Android ROM. It uses a Cortex-A57 CPU model as an available ARMv8 reference; it does not reproduce Kryo 260 microarchitecture.
