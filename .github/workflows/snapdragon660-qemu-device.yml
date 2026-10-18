@@ -29,6 +29,18 @@ jobs:
           git clone --depth 1 --branch v10.0.0 https://github.com/qemu/qemu.git qemu-src
           cp emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c qemu-src/hw/char/
           printf "\\nsystem_ss.add(files('sdm660_uartdm.c'))\\n" >> qemu-src/hw/char/meson.build
+          # QEMU deliberately whitelists dynamic SysBus devices per machine.
+          # Allow this prototype on the stock virt machine only for smoke testing.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("qemu-src/hw/arm/virt.c")
+          s = p.read_text()
+          needle = "    mc->init = machvirt_init;\n"
+          replacement = needle + '    machine_class_allow_dynamic_sysbus_dev(mc, "sdm660-uartdm");\n'
+          if s.count(needle) != 1:
+              raise SystemExit("Could not uniquely locate virt machine class init")
+          p.write_text(s.replace(needle, replacement))
+          PY
       - name: Verify UARTDM offsets against pinned lavender kernel source
         run: |
           curl -fsSL \
@@ -59,7 +71,7 @@ jobs:
         run: |
           set -eux
           ./build/qemu-system-aarch64 \
-            -machine none -accel tcg -nodefaults -display none \
+            -machine virt -accel tcg -nodefaults -display none \
             -monitor none -serial none -S \
             -chardev file,id=uart,path=/tmp/sdm660-uartdm-smoke.log \
             -device sdm660-uartdm,chardev=uart \
