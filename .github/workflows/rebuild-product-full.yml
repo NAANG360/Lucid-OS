@@ -19,7 +19,7 @@ jobs:
       - name: Install filesystem and compression tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq e2fsprogs brotli zstd zip unzip attr
+          sudo apt-get install -y -qq e2fsprogs brotli zstd zip unzip attr file
 
       - name: Download source product tree, ROM archive, and theme artifacts
         shell: bash
@@ -75,8 +75,12 @@ jobs:
                   ramdisk=struct.unpack_from('<I',data,12)[0]
                   page=4096
               size=os.path.getsize(path)
+              if header > 2:
+                  raise SystemExit(f"{os.path.basename(path)}: boot header v{header} requires a newer vendor_boot-style layout; lavender is expected to use legacy boot/recovery headers")
               if kernel == 0 or ramdisk == 0 or page < 2048 or page > 65536:
                   raise SystemExit(f"{os.path.basename(path)}: implausible header fields header={header} kernel={kernel} ramdisk={ramdisk} page={page}")
+              if kernel + ramdisk > size:
+                  raise SystemExit(f"{os.path.basename(path)}: declared kernel+ramdisk exceeds image size")
               print(f"{os.path.basename(path)}: magic=ANDROID! header_version={header} kernel_bytes={kernel} ramdisk_bytes={ramdisk} page_size={page} file_bytes={size}")
           PY
           test -s "$RUNNER_TEMP/source/product-mod-tree.tar.zst"
