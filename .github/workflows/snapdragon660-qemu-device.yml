@@ -42,6 +42,14 @@ jobs:
           if added not in s:
               raise SystemExit("UARTDM allowlist insertion failed")
           p.write_text(s)
+          # Make the smoke-test harness explicitly recognize this prototype type.
+          p = Path("qemu-src/hw/core/machine.c")
+          s = p.read_text()
+          needle = "        allowed |= !!object_class_dynamic_cast(klass, wl->value);"
+          if s.count(needle) != 1:
+              raise SystemExit("Could not uniquely locate dynamic SysBus type check")
+          s = s.replace(needle, needle + chr(10) + '        allowed |= g_str_equal(type, "sdm660-uartdm");')
+          p.write_text(s)
           PY
       - name: Verify UARTDM offsets against pinned lavender kernel source
         run: |
