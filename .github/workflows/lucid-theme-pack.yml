@@ -1,5 +1,9 @@
 name: LucidOS Theme Pack
 
+concurrency:
+  group: lucid-theme-pack-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   workflow_run:
