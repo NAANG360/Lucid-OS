@@ -63,7 +63,7 @@ jobs:
               "payload/$part-product.transfer.list" \
               "payload/$part-product.new.dat.br" \
               "images/$part-product.img" | tee "report/$part-reconstruction.txt" || echo "RECONSTRUCTION_FAILED=$?" | tee -a "report/$part-reconstruction.txt"
-            ls -lh "images/$part-product.img" 2>&1 | tee -a "report/$part-reconstruction.txt" || true
+            stat -c "%n %s bytes" "images/$part-product.img" 2>&1 | tee -a "report/$part-reconstruction.txt" || true
             file "images/$part-product.img" 2>&1 | tee -a "report/$part-reconstruction.txt" || true
             e2fsck -fn "images/$part-product.img" > "report/$part-e2fsck.txt" 2>&1 || true
             dumpe2fs -h "images/$part-product.img" > "report/$part-superblock.txt" 2>&1 || true
