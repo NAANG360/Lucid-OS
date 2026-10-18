@@ -1,22 +1,27 @@
 # Lucid-OS
 
-Repository for the Lucid-OS Android system extraction and related
-reconstruction work.
+Private development repository for Lucid OS targeting the Xiaomi Redmi Note 7 (`lavender`).
 
-## Repository contents
+## Project status
 
-- `system-tree/` — Extracted Android system filesystem.
-- `system_original_metadata.tsv` — Original metadata, if available.
+This repository currently contains an extracted Android system filesystem and related reconstruction work. It is **not yet a complete, independently buildable ROM source tree**, and the unsigned release archive has not been verified as bootable.
 
-## Important
+## Work areas
 
-This repository currently contains an extracted system filesystem.
-It is not necessarily a complete, independently buildable Android ROM
-source tree.
+- `system-tree/` — extracted Android system filesystem.
+- `system_original_metadata.tsv` — original filesystem metadata, if available.
+- `design/LUCIDOS_VISUAL_SYSTEM.md` — Figma-to-Android visual implementation map.
+- `docs/ROM_BASE_FINDINGS.md` — evidence-based notes about the current ROM base.
+- `.github/workflows/rom-cloud-audit.yml` — cloud inventory of the unsigned release archive.
 
-Build instructions, device-specific configuration, proprietary
-dependencies, and redistribution permissions must be verified separately.
+## Design direction
 
-## Target device
+Use the LucidOS designs in the [Figma file](https://www.figma.com/design/UPUZotxcIfcIdElWklOHFN/cosmosOS) as the visual source, while translating the screens into native Android behavior. Do not ship cosmosOS wordmarks or iPhone mockup frames as ROM assets.
 
-Xiaomi Redmi Note 7 (`lavender`), if applicable to this extraction.
+## Device and build constraints
+
+The committed build properties declare SDK 35 / Android 15 and LineageOS 22.2 while retaining an Android 10 base fingerprint. That mismatch must be resolved from the actual release archive before targeting overlays or rebuilding images.
+
+## Build and safety status
+
+No artifact should be described as bootable until its installer, partition metadata, image contents, and relevant boot configuration have been checked. Prefer reversible overlays and cloud validation before modifying boot-critical images.
