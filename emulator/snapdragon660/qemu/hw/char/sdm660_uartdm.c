@@ -26,6 +26,9 @@ OBJECT_DECLARE_SIMPLE_TYPE(SDM660UARTDMState, SDM660_UARTDM)
 #define UARTDM_SR              0x0a4
 #define UARTDM_CR              0x0a8
 #define UARTDM_TF              0x100
+#define UARTDM_RF              0x140
+#define UARTDM_CSR             0x0a0
+#define UARTDM_IMR             0x0b0
 #define UARTDM_TX_READY        (1u << 2)
 #define UARTDM_TX_BAM_ENABLE   (1u << 2)
 #define UARTDM_TX_SINGLE_CHAR  (1u << 4)
@@ -69,9 +72,9 @@ static uint64_t sdm660_uartdm_read(void *opaque, hwaddr offset,
         return s->cr;
     case 0x000: return s->mr1;
     case 0x004: return s->mr2;
-    case 0x010: return s->csr;
-    case 0x014: return s->imr;
-    case 0x040: return s->rf;
+    case UARTDM_CSR: return s->csr;
+    case UARTDM_IMR: return s->imr;
+    case UARTDM_RF: return s->rf;
     default:
         return 0;
     }
@@ -119,9 +122,9 @@ static void sdm660_uartdm_write(void *opaque, hwaddr offset,
         break;
     case 0x000: s->mr1 = v; break;
     case 0x004: s->mr2 = v; break;
-    case 0x010: s->csr = v; break;
-    case 0x014: s->imr = v; break;
-    case 0x040: s->rf = v; break;
+    case UARTDM_CSR: s->csr = v; break;
+    case UARTDM_IMR: s->imr = v; break;
+    case UARTDM_RF: s->rf = v; break;
     default:
         /* Ignore unknown writes; log only to avoid drowning early boot. */
         break;
