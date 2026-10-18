@@ -29,17 +29,19 @@ jobs:
           git clone --depth 1 --branch v10.0.0 https://github.com/qemu/qemu.git qemu-src
           cp emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c qemu-src/hw/char/
           printf "\\nsystem_ss.add(files('sdm660_uartdm.c'))\\n" >> qemu-src/hw/char/meson.build
-          # QEMU deliberately whitelists dynamic SysBus devices per machine.
-          # Allow this prototype on the stock virt machine only for smoke testing.
+          # Add the custom concrete device to virt's dynamic SysBus allowlist.
           python3 - <<'PY'
           from pathlib import Path
           p = Path("qemu-src/hw/arm/virt.c")
           s = p.read_text()
-          needle = "    mc->init = machvirt_init;\n"
-          replacement = needle + '    machine_class_allow_dynamic_sysbus_dev(mc, "sdm660-uartdm");\n'
+          needle = "    machine_class_allow_dynamic_sysbus_dev(mc, TYPE_VFIO_CALXEDA_XGMAC);"
+          replacement = needle + "\\n    machine_class_allow_dynamic_sysbus_dev(mc, \\"sdm660-uartdm\\");"
           if s.count(needle) != 1:
-              raise SystemExit("Could not uniquely locate virt machine class init")
-          p.write_text(s.replace(needle, replacement))
+              raise SystemExit("Could not uniquely locate virt SysBus allowlist")
+          s = s.replace(needle, replacement)
+          if "machine_class_allow_dynamic_sysbus_dev(mc, \\"sdm660-uartdm\\");" not in s:
+              raise SystemExit("UARTDM allowlist insertion failed")
+          p.write_text(s)
           PY
       - name: Verify UARTDM offsets against pinned lavender kernel source
         run: |
