@@ -129,7 +129,11 @@ public final class MainActivity extends Activity {
         button.setPadding(dp(12), dp(7), dp(12), dp(7));
         LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(-1, dp(52));
         buttonParams.topMargin = dp(14);
-        button.setOnClickListener(v -> applyWallpaper(asset));
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                applyWallpaper(asset);
+            }
+        });
         card.addView(button, buttonParams);
 
         card.setLayoutParams(cardParams);
