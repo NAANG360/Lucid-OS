@@ -42,8 +42,27 @@ def node_blocks(text: str):
             j += 1
         body = clean[start:j-1] if depth == 0 else clean[start:]
         props = {}
-        for p in PROP_RE.finditer(body):
-            props[p.group("key")] = p.group("value").strip()
+        # Only read properties at this node's top level. A naive regex over the
+        # whole body would incorrectly attribute child-node reg/interrupts to
+        # their parent, corrupting the inventory.
+        depth, pos, quoted, escaped = 0, 0, False, False
+        while pos < len(body):
+            ch = body[pos]
+            if quoted:
+                if escaped: escaped = False
+                elif ch == "\\\\": escaped = True
+                elif ch == '"': quoted = False
+            else:
+                if ch == '"': quoted = True
+                elif ch == "{": depth += 1
+                elif ch == "}": depth -= 1
+                elif ch == ";" and depth == 0:
+                    start = body.rfind("\\n", 0, pos) + 1
+                    statement = body[start:pos + 1]
+                    p = PROP_RE.search(statement)
+                    if p:
+                        props[p.group("key")] = p.group("value").strip()
+            pos += 1
         yield {"label": m.group("label"), "node": m.group("name"), "properties": props}
         i = j
 
