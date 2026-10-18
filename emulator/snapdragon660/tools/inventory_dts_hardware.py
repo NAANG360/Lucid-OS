@@ -50,14 +50,14 @@ def node_blocks(text: str):
             ch = body[pos]
             if quoted:
                 if escaped: escaped = False
-                elif ch == "\\\\": escaped = True
+                elif ch == "\\": escaped = True
                 elif ch == '"': quoted = False
             else:
                 if ch == '"': quoted = True
                 elif ch == "{": depth += 1
                 elif ch == "}": depth -= 1
                 elif ch == ";" and depth == 0:
-                    start = body.rfind("\\n", 0, pos) + 1
+                    start = body.rfind("\n", 0, pos) + 1
                     statement = body[start:pos + 1]
                     p = PROP_RE.search(statement)
                     if p:
