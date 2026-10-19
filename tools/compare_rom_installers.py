@@ -44,8 +44,8 @@ def transfer_summary(data: bytes) -> list[str]:
     if len(lines) < 4:
         return out + ["ERROR: transfer list has fewer than four header lines"]
     try:
-        partition_write_blocks = int(lines[1])
-        if partition_write_blocks < 0:
+        expected_write_blocks = int(lines[1])
+        if expected_write_blocks < 0:
             raise ValueError
     except ValueError:
         return out + ["ERROR: transfer-list write-block header is not a nonnegative integer"]
@@ -71,7 +71,7 @@ def transfer_summary(data: bytes) -> list[str]:
                 continue
             ranges = list(zip(vals[1::2], vals[2::2]))
             if any(
-                start < 0 or finish < start or finish > partition_write_blocks
+                start < 0 or finish < start
                 for start, finish in ranges
             ):
                 malformed_ranges += 1
@@ -81,10 +81,14 @@ def transfer_summary(data: bytes) -> list[str]:
             )
         except ValueError:
             malformed_ranges += 1
+    counted_write_blocks = ranges_by_cmd.get("new", 0) + ranges_by_cmd.get("zero", 0)
     out.extend((
         f"command_counts={counts}",
         f"range_blocks_by_command={ranges_by_cmd}",
         f"malformed_range_commands={malformed_ranges}",
+        f"expected_write_blocks={expected_write_blocks}",
+        f"counted_new_plus_zero_blocks={counted_write_blocks}",
+        f"write_block_count_matches_header={counted_write_blocks == expected_write_blocks}",
         f"operation_specific_commands_not_interpreted={unparsed_ops}",
     ))
     return out
