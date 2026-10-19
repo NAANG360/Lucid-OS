@@ -85,6 +85,8 @@ jobs:
             --kernel-header /tmp/msm_serial_hs_hwreg.h \
             --kernel-dtsi /tmp/sdm660.dtsi \
             --qemu-source emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c
+      - name: Validate source-derived SDM660 memory map
+        run: python3 emulator/snapdragon660/tools/validate_board_memory_map.py
       - name: Configure AArch64 system emulator on cache miss
         if: steps.qemu-cache.outputs.cache-hit != 'true'
         working-directory: qemu-src
