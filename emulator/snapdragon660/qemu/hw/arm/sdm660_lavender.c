@@ -105,7 +105,7 @@ static void lavender_add_cpu_nodes(SDM660LavenderState *s)
 static void lavender_create_fdt(SDM660LavenderState *s)
 {
     static const char uart_compatible[] =
-        "qcom,msm-uartdm-v1.4\\0qcom,msm-uartdm";
+        "qcom,msm-uartdm-v1.4\0qcom,msm-uartdm";
     char *fdt;
     s->fdt = create_device_tree(&s->fdt_size);
     if (!s->fdt) {
