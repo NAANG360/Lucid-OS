@@ -18,7 +18,7 @@ def validate(data):
         assert entry["evidence"] in {"confirmed-dtsi-declaration", "inferred"}
         assert entry["implementation"] in {
             "not-implemented", "prototype-device-not-board-mapped",
-            "implemented-and-tested"
+            "prototype-board-mapped-unverified", "implemented-and-tested"
         }
         ranges.append((base, base + size, entry["name"]))
     ranges.sort()
