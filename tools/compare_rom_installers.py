@@ -215,13 +215,13 @@ def main() -> int:
                 for line in diff:
                     print(line)
 
-        print("\\n" + "=" * 88 + "\\nCRITICAL IMAGE AND PAYLOAD HASHES\\n" + "=" * 88)
+        print("\n" + "=" * 88 + "\nCRITICAL IMAGE AND PAYLOAD HASHES\n" + "=" * 88)
         binary_names = sorted({
             name for _, names in loaded.values() for name in names
             if name.endswith(BINARY_SUFFIXES)
         })
         for name in binary_names:
-            print(f"\\n--- BINARY {name} ---")
+            print(f"\n--- BINARY {name} ---")
             for label, (z, names) in loaded.items():
                 if name not in names:
                     print(f"{label}: MISSING")
