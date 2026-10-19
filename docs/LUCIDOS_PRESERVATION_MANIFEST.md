@@ -22,6 +22,12 @@ The current repository tree was queried recursively at commit `b38492e67f0732996
 
 **Name mismatch to resolve:** the exact string `init.lucid.rd` was not found in the recursive tracked Git tree. The tracked file found is `system-tree/system/etc/init/init.lucid.rc`. This does not establish that `init.lucid.rd` is absent from the release ZIP, boot ramdisk, or any uploaded/local source. Search those separately and preserve the exact file if found; do not silently rename or discard it.
 
+### First-boot setup and Figma-derived personalization
+- `setup-app/AndroidManifest.xml`, `setup-app/res/values/styles.xml`, and `setup-app/src/com/cosmos/setup/MainActivity.java` now define a new Figma-inspired onboarding app under package `com.cosmos.setup`.
+- `tools/build_lucid_setup.sh` and `.github/workflows/lucid-setup-app.yml` build and validate a development-signed APK artifact. This artifact is not yet integrated into the ROM image and must not be mistaken for a replacement already present in `system-tree/system/priv-app/LucidSetup/LucidSetup.apk`.
+- The app offers an opt-in Lucid Blue / Violet Dusk / Cyan Horizon palette and Dusk / Alpine wallpaper selection, and records completion using the secure setting `lucid_setup_complete`. The first-boot launcher now waits for Package Manager and resolves the activity rather than assuming it is immediately available.
+- Integration is a coupled change: replace the existing APK with the new build in the clean-base candidate, preserve the existing `com.cosmos.setup` privileged-permission allowlist, verify `WRITE_SECURE_SETTINGS` is actually granted, and only then rely on the completion setting. Do not ship the new launcher with the old APK and assume the new completion behavior exists.
+
 ### Boot animation and Figma-derived artwork
 - `tools/generate_bootanimation.py` — 4,072 bytes, blob `f4b859ac63d4373072c94e5db5d60d30386b61ff`.
 - `theme/assets/lucid-wallpaper-dusk.jpg` — primary Figma-derived wallpaper, blob `9857c6e8a3d02c683f2730cefb1d2f56c7b16224`.
