@@ -46,10 +46,42 @@ def main() -> int:
                 f"{qemu_name}=0x{implementation[qemu_name]:x}, "
                 f"but pinned kernel says {kernel_name}=0x{reference[kernel_name]:x}"
             )
+    dtsi = args.kernel_dtsi.read_text()
+    node = re.search(
+        r"uartblsp1dm1:\s*serial@0c170000\s*\{(.*?)\n\s*\};",
+        dtsi, re.S
+    )
+    if not node:
+        errors.append("pinned SoC DTSI is missing the uartblsp1dm1 node at 0x0c170000")
+    else:
+        reg = re.search(
+            r"\breg\s*=\s*<\s*(0x[0-9a-fA-F]+|[0-9]+)\s+(0x[0-9a-fA-F]+|[0-9]+)\s*>",
+            node.group(1)
+        )
+        if not reg:
+            errors.append("uartblsp1dm1 node has no single-cell reg base/size tuple")
+        else:
+            base, window = (int(value, 0) for value in reg.groups())
+            size_match = re.search(
+                r"^\s*#define\s+UARTDM_MMIO_SIZE\s+(0x[0-9a-fA-F]+|[0-9]+)\b",
+                args.qemu_source.read_text(), re.M
+            )
+            if base != 0x0c170000:
+                errors.append(f"uartblsp1dm1 base is 0x{base:x}, expected 0xc170000")
+            if size_match is None:
+                errors.append("QEMU model is missing UARTDM_MMIO_SIZE")
+            elif int(size_match.group(1), 0) != window:
+                errors.append(
+                    f"UARTDM_MMIO_SIZE=0x{int(size_match.group(1), 0):x}, "
+                    f"but pinned DTSI declares window 0x{window:x}"
+                )
     if errors:
         print("\n".join(errors))
         return 1
-    print(f"validated {len(EXPECTED)} UARTDM register offsets against pinned lavender kernel source")
+    print(
+        f"validated {len(EXPECTED)} UARTDM register offsets and MMIO window "
+        "against pinned lavender kernel source"
+    )
     return 0
 
 
