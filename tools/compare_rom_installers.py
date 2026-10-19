@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import difflib
 import hashlib
-import re
 import zipfile
 from pathlib import Path
 
