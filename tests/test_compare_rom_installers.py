@@ -36,14 +36,14 @@ class TransferSummaryTests(unittest.TestCase):
 
     def test_operation_specific_commands_are_counted_not_misparsed(self):
         data = (
-            "4\\n10\\n0\\n0\\n"
-            "new 2,0,2\\n"
-            "move 4,0,10,20,30\\n"
-            "stash 1,sha256-example\\n"
-            "free 1\\n"
-            "bsdiff 0 1 2 3 4\\n"
+            "4\n10\n0\n0\n"
+            "new 2,0,2\n"
+            "move 4,0,10,20,30\n"
+            "stash 1,sha256-example\n"
+            "free 1\n"
+            "bsdiff 0 1 2 3 4\n"
         ).encode()
-        result = "\\n".join(MODULE.transfer_summary(data))
+        result = "\n".join(MODULE.transfer_summary(data))
         self.assertIn("'move': 1", result)
         self.assertIn("'stash': 1", result)
         self.assertIn("'free': 1", result)
