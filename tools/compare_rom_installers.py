@@ -182,14 +182,16 @@ def main() -> int:
             print(f"LUCID    size={len(b)} sha256={digest_bytes(b)}")
             if a == b:
                 print("content=IDENTICAL")
-                continue
-            print("content=DIFFERENT")
+            else:
+                print("content=DIFFERENT")
+            # Validate transfer lists even when both archives carry identical
+            # bytes: identical malformed metadata is still a packaging defect.
             if name.endswith(".transfer.list"):
                 print("ORIGINAL transfer summary:")
                 print("\n".join(transfer_summary(a)))
                 print("LUCID transfer summary:")
                 print("\n".join(transfer_summary(b)))
-            if name.endswith(TEXT_SUFFIXES):
+            if name.endswith(TEXT_SUFFIXES) and a != b:
                 diff = difflib.unified_diff(
                     a.decode("utf-8", "replace").splitlines(),
                     b.decode("utf-8", "replace").splitlines(),
