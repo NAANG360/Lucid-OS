@@ -235,7 +235,7 @@ static void sdm660_uartdm_class_init(ObjectClass *klass, void *data)
 
 static const TypeInfo sdm660_uartdm_info = {
     .name = TYPE_SDM660_UARTDM,
-    .parent = TYPE_SYS_BUS_DEVICE,
+    .parent = TYPE_DYNAMIC_SYS_BUS_DEVICE,
     .instance_size = sizeof(SDM660UARTDMState),
     .instance_init = sdm660_uartdm_init,
     .class_init = sdm660_uartdm_class_init,
