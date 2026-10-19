@@ -56,7 +56,7 @@ for token in ("Settings.ACTION_DISPLAY_SETTINGS", "Settings.ACTION_SOUND_SETTING
     check(token in settings_java, f"Lucid Settings missing expected destination: {token}")
 
 boundary_doc = (ROOT / "theme/systemui/INTEGRATION_PLAN.md").read_text()
-check("stock notification shade is not replaced" in boundary_doc, "Document the boundary between app-level Control Center and SystemUI shade")
+check("does not replace the stock shade" in boundary_doc, "Document the boundary between app-level Control Center and SystemUI shade")
 
 if errors:
     print("Lucid UI source contract: FAIL")
