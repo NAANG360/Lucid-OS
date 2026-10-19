@@ -73,7 +73,7 @@ def validate(dtsi: str, machine: str) -> dict:
         raise ValueError("UART SPI must connect to GIC INTID 32 + SPI number")
 
     gic_match = re.search(
-        r"intc:\\s*interrupt-controller@17a00000\\s*\\{(.*?)\\n\\s*\\};",
+        r"intc:\s*interrupt-controller@17a00000\s*\{(.*?)\n\s*\};",
         dtsi, re.S,
     )
     if not gic_match:
@@ -81,7 +81,7 @@ def validate(dtsi: str, machine: str) -> dict:
     gic_node = gic_match.group(1)
     if '"arm,gic-v3"' not in gic_node or '"arm,gic-v3"' not in machine:
         raise ValueError("native machine and pinned DTSI must both identify GICv3")
-    gic_reg = re.search(r"\\breg\\s*=\\s*(.*?);", gic_node, re.S)
+    gic_reg = re.search(r"\breg\s*=\s*(.*?);", gic_node, re.S)
     if not gic_reg:
         raise ValueError("GICv3 node has no reg property")
     gic_cells = [
