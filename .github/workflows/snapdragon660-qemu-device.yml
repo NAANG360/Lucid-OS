@@ -173,6 +173,7 @@ jobs:
               movz x6, #0x2000
               movk x6, #0x8000, lsl #16
               str wzr, [x6]
+              dsb sy
               /* PSCI 0.2 CPU_ON 64-bit, target CPU affinity 0x001. */
               movz x0, #3
               movk x0, #0xc400, lsl #16
