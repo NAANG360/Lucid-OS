@@ -127,7 +127,7 @@ static void lavender_create_fdt(SDM660LavenderState *s)
     qemu_fdt_setprop_cell(fdt, "/timer", "interrupt-parent", 1);
     qemu_fdt_setprop(fdt, "/timer", "always-on", NULL, 0);
     qemu_fdt_setprop_cells(fdt, "/timer", "interrupts",
-                           1, 13, 4, 1, 14, 4, 1, 11, 4, 1, 10, 4);
+                           1, 13, 0xf08, 1, 14, 0xf08, 1, 11, 0xf08, 1, 10, 0xf08);
 
     qemu_fdt_add_subnode(fdt, "/intc");
     qemu_fdt_setprop_string(fdt, "/intc", "compatible", "arm,gic-v3");
