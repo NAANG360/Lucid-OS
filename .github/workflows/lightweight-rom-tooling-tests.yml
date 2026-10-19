@@ -21,7 +21,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install reconstruction test dependency
-        run: python3 -m pip install --user brotli
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3-brotli
       - name: Test ROM comparison and partition reconstruction
         run: |
           python3 -m unittest discover -s tests -p 'test_compare_rom_installers.py' -v
