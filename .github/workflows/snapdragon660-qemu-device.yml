@@ -182,6 +182,9 @@ jobs:
               mov x3, #0
               smc #0
               cbnz x0, fail
+              /* Treat all caller-saved registers as clobbered by SMC. */
+              movz x6, #0x2000
+              movk x6, #0x8000, lsl #16
               movz x4, #0x4240
               movk x4, #0xf, lsl #16
           1:  ldr w5, [x6]
