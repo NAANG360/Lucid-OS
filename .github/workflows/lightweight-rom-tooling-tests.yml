@@ -13,6 +13,8 @@ on:
       - 'tests/test_validate_lucid_preservation.py'
       - 'tools/stage_lucid_overlays.py'
       - 'tests/test_stage_lucid_overlays.py'
+      - 'system-tree/system/bin/lucid_*.sh'
+      - 'system-tree/system/etc/init/init.lucid.rc'
       - '.github/workflows/lightweight-rom-tooling-tests.yml'
 
 permissions:
