@@ -123,6 +123,19 @@ def main() -> int:
                     raise RuntimeError(f"UARTDM DMEN single-character mode mismatch: {dmen}")
                 print("PASS: DMEN disables TX BAM and selects single-character mode")
 
+                # The UARTDM ISR exposes a TX-ready event and CR clears its latch.
+                qtest_command(qtest, f"writel 0x{base + 0x0b0:x} 0x80")
+                qtest_command(qtest, f"writel 0x{base + 0x100:x} 0x5a")
+                isr = qtest_command(qtest, f"readl 0x{base + 0x0b4:x}")
+                if int(isr.split()[-1], 0) & 0x80 == 0:
+                    raise RuntimeError(f"UARTDM TX-ready ISR bit was not latched: {isr}")
+                qtest_command(qtest, f"writel 0x{base + 0x0a8:x} 0x300")
+                isr = qtest_command(qtest, f"readl 0x{base + 0x0b4:x}")
+                if int(isr.split()[-1], 0) & 0x80:
+                    raise RuntimeError(f"UARTDM TX-ready ISR bit did not clear: {isr}")
+                qtest_command(qtest, f"writel 0x{base + 0x0b0:x} 0x0")
+                print("PASS: UARTDM TX-ready ISR latch and clear command")
+
                 # A disabled transmitter must not leak data to the chardev.
                 qtest_command(qtest, f"writel 0x{base + 0x100:x} 0x58")
                 qtest_command(qtest, f"writel 0x{base + 0x0a8:x} 0x4")
