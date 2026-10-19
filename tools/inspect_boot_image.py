@@ -130,6 +130,23 @@ else:
         files=parse_newc(unpacked)
         with open(os.path.join(outdir,"ramdisk-file-list.txt"),"w") as f:
             for name in sorted(files): f.write(name+"\n")
+        # Audit Lucid init hooks in the real boot ramdisk, not just Git sources.
+        lucid_hits=[]
+        for name,data in sorted(files.items()):
+            lower_name=name.lower()
+            lower_data=data.lower()
+            tokens=(b"init.lucid.rd", b"init.lucid.rc", b"lucid_desktop", b"lucid_root_toggle", b"lucid_firstboot")
+            if "lucid" in lower_name or any(token in lower_data for token in tokens):
+                lucid_hits.append((name, data))
+        with open(os.path.join(outdir,"ramdisk-lucid-preservation-scan.txt"),"w") as f:
+            f.write("lucid_related_file_count=%d\n" % len(lucid_hits))
+            f.write("init_lucid_rd_name_found=%s\n" % any(os.path.basename(name)=="init.lucid.rd" for name,_ in lucid_hits))
+            f.write("init_lucid_rc_name_found=%s\n" % any(os.path.basename(name)=="init.lucid.rc" for name,_ in lucid_hits))
+            for name,data in lucid_hits:
+                f.write("\n===== "+name+" =====\n")
+                f.write(data.decode("utf-8","replace")[:12000]+"\n")
+        report.append("lucid_related_ramdisk_files="+str(len(lucid_hits)))
+        report.append("lucid_ramdisk_scan=ramdisk-lucid-preservation-scan.txt")
         critical=[]
         for name, data in sorted(files.items()):
             base=os.path.basename(name)
