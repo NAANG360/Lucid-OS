@@ -1,0 +1,111 @@
+name: Audit original LineageOS product payload
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_full_reconstruction:
+        description: 'Reconstruct product image and run ext4 checks (large download, several GB of temporary storage)'
+        type: boolean
+        required: true
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  audit-original-product:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout audit tooling
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y brotli e2fsprogs python3 python3-brotli unzip jq
+
+      - name: Locate original LineageOS release asset
+        id: asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/releases" > /tmp/releases.json
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          releases=json.load(open('/tmp/releases.json'))
+          target=None
+          for release in releases:
+              for asset in release.get('assets', []):
+                  if asset.get('name') == 'lineage-22.2-20251222-UNOFFICIAL-lavender.zip':
+                      target=(release, asset)
+                      break
+              if target: break
+          if not target: raise SystemExit('Original LineageOS ZIP asset not found in accessible releases')
+          release,asset=target
+          print('release_id='+str(release['id']))
+          print('asset_id='+str(asset['id']))
+          print('asset_size='+str(asset['size']))
+          print('asset_digest='+str(asset.get('digest','unknown')))
+          print('is_draft='+str(release.get('draft',False)).lower())
+          PY
+
+      - name: Download original LineageOS ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_ID: ${{ steps.asset.outputs.asset_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p work
+          gh api "repos/${GITHUB_REPOSITORY}/releases/assets/${ASSET_ID}" -H 'Accept: application/octet-stream' > work/original.zip
+          test -s work/original.zip
+          file work/original.zip
+          unzip -tq work/original.zip
+          sha256sum work/original.zip | tee work/original.sha256
+
+      - name: Inventory original ZIP product payload
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee work/original-product-inventory.txt
+          import zipfile
+          z=zipfile.ZipFile('work/original.zip')
+          for i in z.infolist():
+              n=i.filename.lower()
+              if 'product' in n or n.endswith('updater-script') or n.endswith('dynamic_partitions_op_list'):
+                  print(f'{i.file_size:>12}  {i.filename}')
+          PY
+          unzip -l work/original.zip | grep -Ei 'product|updater-script|dynamic_partitions' | tee work/original-product-zip-list.txt
+
+      - name: Extract original product OTA payload and reconstruct
+        if: ${{ inputs.run_full_reconstruction }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import zipfile
+          z=zipfile.ZipFile('work/original.zip')
+          names=z.namelist()
+          for suffix in ('product.new.dat.br','product.transfer.list'):
+              matches=[n for n in names if n.endswith(suffix)]
+              if len(matches) != 1: raise SystemExit(f'Expected exactly one {suffix}; found: {matches}')
+              with z.open(matches[0]) as src, open('work/'+suffix,'wb') as dst:
+                  while True:
+                      block=src.read(1024*1024)
+                      if not block: break
+                      dst.write(block)
+              print(f'extracted {matches[0]}')
+          PY
+          python3 tools/reconstruct_transfer_image.py work/product.transfer.list work/product.new.dat.br work/product-original-reconstructed.img | tee work/product-reconstruction.txt
+          e2fsck -fn work/product-original-reconstructed.img 2>&1 | tee work/product-e2fsck.txt || true
+          dumpe2fs -h work/product-original-reconstructed.img > work/product-superblock.txt 2>&1 || true
+          debugfs -R 'ls -l /' work/product-original-reconstructed.img > work/product-root-listing.txt 2>&1 || true
+          debugfs -R 'ls -l /app' work/product-original-reconstructed.img > work/product-app-listing.txt 2>&1 || true
+
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-lineage-product-audit
+          path: work/
+          if-no-files-found: warn
+          retention-days: 14
