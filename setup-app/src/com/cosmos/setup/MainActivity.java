@@ -50,6 +50,7 @@ public final class MainActivity extends Activity {
         if (screen == 1) showWelcome();
         else if (screen == 2) showWifi();
         else if (screen == 3) showAccount();
+        else if (screen == 4) showAccount();
         else showWelcome();
     }
 
@@ -70,6 +71,7 @@ public final class MainActivity extends Activity {
 
     private void showWelcome() {
         shell(LAVENDER, true);
+        screen = 0;
         root.setPadding(dp(24), dp(28), dp(24), dp(26));
         root.addView(new ArtView(this, ArtView.WELCOME), new LinearLayout.LayoutParams(-1, 0, 1f));
         TextView title = label("Let's set up your device", 26, INK, true);
@@ -84,6 +86,7 @@ public final class MainActivity extends Activity {
 
     private void showWifi() {
         shell(LAVENDER, true);
+        screen = 1;
         root.setPadding(dp(0), dp(0), dp(0), dp(20));
         root.addView(new ArtView(this, ArtView.WIFI), new LinearLayout.LayoutParams(-1, 0, 1f));
         TextView title = label("Connect to Wi-Fi", 23, Color.BLACK, true);
@@ -111,6 +114,7 @@ public final class MainActivity extends Activity {
 
     private void showAccount() {
         shell(NIGHT, false);
+        screen = 2;
         root.setPadding(dp(20), dp(0), dp(20), dp(18));
         ArtView art = new ArtView(this, ArtView.MOON);
         root.addView(art, new LinearLayout.LayoutParams(-1, 0, 1f));
@@ -144,6 +148,7 @@ public final class MainActivity extends Activity {
 
     private void showPhone() {
         shell(NIGHT, false);
+        screen = 3;
         root.setPadding(dp(24), dp(24), dp(24), dp(24));
         TextView back = label("‹", 32, WHITE, false);
         back.setOnClickListener(v -> showAccount());
@@ -163,6 +168,7 @@ public final class MainActivity extends Activity {
 
     private void showActivation() {
         shell(LAVENDER, true);
+        screen = 4;
         root.setGravity(Gravity.CENTER);
         root.setPadding(dp(28), dp(24), dp(28), dp(24));
         root.addView(new ArtView(this, ArtView.ACTIVATE), new LinearLayout.LayoutParams(-1, dp(240)));
