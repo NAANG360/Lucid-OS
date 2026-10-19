@@ -22,11 +22,13 @@ class UARTDMRegisterMapTests(unittest.TestCase):
                 "    UART_DM_MISR = 0xac,\n"
                 "#define CLEAR_TX_READY 0x300\n"
                 "};\n"
+                "#define UARTDM_ISR_TX_READY_BMSK BIT(7)\n"
             )
             values = MODULE.defines(header)
             self.assertEqual(values["UART_DM_SR"], 0xA4)
             self.assertEqual(values["UART_DM_CR"], 0xA8)
             self.assertEqual(values["UART_DM_DMEN"], 0x3C)
+            self.assertEqual(values["UARTDM_ISR_TX_READY_BMSK"], 0x80)
 
     def test_parser_reads_qemu_preprocessor_constants(self):
         with tempfile.TemporaryDirectory() as temp:
