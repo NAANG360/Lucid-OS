@@ -64,7 +64,7 @@ def transfer_summary(data: bytes) -> list[str]:
 def main() -> int:
     failed = False
     for label, path in ARCHIVES.items():
-        print("\\n" + "=" * 88 + "\\n" + label + "\\n" + "=" * 88)
+        print("\n" + "=" * 88 + "\n" + label + "\n" + "=" * 88)
         if not path.is_file():
             print(f"ERROR: missing archive {path}")
             failed = True
@@ -77,7 +77,7 @@ def main() -> int:
             print("entry_count=" + str(len(names)))
             for suffix in INTERESTING:
                 matches = [n for n in names if n.endswith(suffix)]
-                print(f"\\n[{suffix}] entries={matches}")
+                print(f"\n[{suffix}] entries={matches}")
                 for name in matches:
                     data = z.read(name)
                     print(f"size={len(data)} sha256={digest_bytes(data)}")
@@ -86,10 +86,10 @@ def main() -> int:
                             if INSTALLER_RE.search(line):
                                 print(f"{i}: {line}")
                     elif suffix == "product.transfer.list":
-                        print("\\n".join(transfer_summary(data)))
+                        print("\n".join(transfer_summary(data)))
                     else:
                         print(data.decode("utf-8", "replace")[:30000])
-            print("\\n[partition/installer archive entries]")
+            print("\n[partition/installer archive entries]")
             for name in names:
                 if any(k in name.lower() for k in ("product", "dynamic_partitions", "updater-script", "metadata", "super_dummy")):
                     print(f"{z.getinfo(name).file_size:>12} {name}")
