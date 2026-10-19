@@ -56,7 +56,7 @@ struct SDM660UARTDMState {
     unsigned rx_count;
 };
 
-static bool sdm660_uartdm_can_receive(void *opaque)
+static int sdm660_uartdm_can_receive(void *opaque)
 {
     SDM660UARTDMState *s = SDM660_UARTDM(opaque);
     return s->rx_count < UARTDM_RX_FIFO_SIZE;
