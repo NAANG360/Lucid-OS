@@ -72,3 +72,9 @@ The existing LucidOS product payload writes only 123,902 of 601,750 declared fil
 - Unit tests for the preservation manifest are in `tests/test_validate_lucid_preservation.py` and are included in `.github/workflows/lightweight-rom-tooling-tests.yml`.
 - `tools/stage_lucid_overlays.py` now stages only an explicit Lucid allowlist onto an extracted base filesystem and produces per-file hashes/actions in dry-run mode. It intentionally avoids wholesale replacement of framework/Settings/SystemUI/vendor/boot files; see `docs/CLEAN_BASE_MIGRATION.md`.
 - `tests/test_stage_lucid_overlays.py` covers hash-based add/replace/unchanged classification and confirms the allowlist does not overlay Android framework, Settings, or SystemUI.
+
+### Runtime hook mode and contract checks
+
+- `lucid_desktop.sh` and `lucid_root_toggle.sh` must remain executable in Git (mode `100755`) because Android init launches them directly. The root toggle previously lacked its executable bit, which would prevent the init `exec` action from launching it.
+- Git cannot preserve a setuid bit on the `system-tree/system/xbin/su` binary. The root-toggle hook attempts to set owner `root:shell` and mode `06755` when enabling root, mode `0000` when disabling it, and checks the resulting mode. Runtime remount/SELinux behavior still needs on-device validation.
+- `tools/validate_lucid_runtime_hooks.py` checks init-referenced payload existence and executable modes, desktop archive presence, su file-context mapping, root-gate behavior, and the desktop ADB loopback guard. It is a static consistency check, not a device boot test.
