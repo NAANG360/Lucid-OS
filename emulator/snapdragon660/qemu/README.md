@@ -27,9 +27,10 @@ not a substitute for the retail lavender DTB/DTBO.
 `hw/char/sdm660_uartdm.c` implements a small polling TX/RX subset, a bounded
 256-byte RX FIFO, and a QEMU chardev. CI compares register offsets with the
 pinned lavender kernel's `msm_serial_hs_hwreg.h`. It does not yet implement
-UART interrupts, DMA/BAM, baud timing, pin mux, or clock/reset dependencies.
-For that reason, the native board currently does not advertise UART interrupts
-in its generated DTB.
+a basic TX-ready interrupt latch and GIC route; this is not yet validated against
+the full Linux UART driver. DMA/BAM, RX interrupt semantics, baud timing, pin
+mux, and clock/reset dependencies remain missing. The DT's UART interrupt
+specifier is a source-derived candidate and still needs guest-level validation.
 
 ## Important unresolved boot blockers
 
