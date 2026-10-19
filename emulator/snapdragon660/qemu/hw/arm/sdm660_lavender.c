@@ -17,7 +17,7 @@
 #include "system/system.h"
 #include "exec/address-spaces.h"
 #include "hw/arm/boot.h"
-#include "hw/core/boards.h"
+#include "hw/boards.h"
 #include "hw/core/sysbus-fdt.h"
 #include "hw/qdev-properties.h"
 #include "hw/qdev-properties-system.h"
