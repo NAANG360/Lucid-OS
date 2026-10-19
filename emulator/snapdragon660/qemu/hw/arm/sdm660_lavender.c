@@ -118,6 +118,7 @@ static void lavender_create_fdt(SDM660LavenderState *s)
 
     qemu_fdt_add_subnode(fdt, "/timer");
     qemu_fdt_setprop_string(fdt, "/timer", "compatible", "arm,armv8-timer");
+    qemu_fdt_setprop_cell(fdt, "/timer", "interrupt-parent", 1);
     qemu_fdt_setprop(fdt, "/timer", "always-on", NULL, 0);
     qemu_fdt_setprop_cells(fdt, "/timer", "interrupts",
                            1, 13, 4, 1, 14, 4, 1, 11, 4, 1, 10, 4);
@@ -146,7 +147,8 @@ static void lavender_create_fdt(SDM660LavenderState *s)
                            0, SDM660_UART_SPI, 4);
     qemu_fdt_setprop_cell(fdt, "/soc/serial@c170000", "interrupt-parent", 1);
     qemu_fdt_setprop_string(fdt, "/soc/serial@c170000", "status", "okay");
-    qemu_fdt_setprop_string(fdt, "/", "stdout-path",
+    qemu_fdt_add_subnode(fdt, "/chosen");
+    qemu_fdt_setprop_string(fdt, "/chosen", "stdout-path",
                             "/soc/serial@c170000");
 }
 
@@ -219,6 +221,7 @@ static void lavender_init(MachineState *machine)
         object_property_set_int(obj, "mp-affinity",
                                 possible->cpus[i].arch_id, &error_abort);
         object_property_set_int(obj, "cntfrq", SDM660_TIMER_HZ, &error_abort);
+        CPU(obj)->cpu_index = i;
         qdev_realize(DEVICE(obj), NULL, &error_fatal);
         object_unref(obj);
     }
