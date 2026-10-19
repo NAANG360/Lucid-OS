@@ -14,9 +14,9 @@
       "size": "0x10000",
       "kind": "interrupt-controller",
       "evidence": "confirmed-dtsi-declaration",
-      "implementation": "not-implemented",
+      "implementation": "prototype-board-mapped-unverified",
       "boot_critical": true,
-      "notes": "GICv3 distributor candidate; must be wired to QEMU CPU interfaces."
+      "notes": "Native machine maps QEMU GICv3 distributor at this source-declared candidate; physical register compatibility and retail DTB mapping remain unverified."
     },
     {
       "name": "gic-redistributor",
@@ -24,9 +24,9 @@
       "size": "0x100000",
       "kind": "interrupt-controller",
       "evidence": "confirmed-dtsi-declaration",
-      "implementation": "not-implemented",
+      "implementation": "prototype-board-mapped-unverified",
       "boot_critical": true,
-      "notes": "GICv3 redistributor region candidate."
+      "notes": "Native machine maps QEMU GICv3 redistributors with 0x20000 stride for eight CPUs; retail DTB and exact hardware geometry remain unverified."
     },
     {
       "name": "uartdm-0c170000",
@@ -34,9 +34,9 @@
       "size": "0x1000",
       "kind": "uart",
       "evidence": "confirmed-dtsi-declaration",
-      "implementation": "prototype-device-not-board-mapped",
+      "implementation": "prototype-board-mapped-unverified",
       "boot_critical": true,
-      "notes": "Common SoC DTSI marks this candidate disabled; verify final lavender DT/DTBO before selecting console."
+      "notes": "UARTDM prototype is board-mapped at this source-declared candidate; source DTSI marks this node disabled, so retail console selection remains unresolved."
     },
     {
       "name": "uartdm-0c1b0000",
