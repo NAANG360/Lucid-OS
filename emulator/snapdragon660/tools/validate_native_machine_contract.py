@@ -81,6 +81,53 @@ def validate(dtsi: str, machine: str) -> dict:
     if "32 + SDM660_UART_SPI" not in machine:
         raise ValueError("UART SPI must connect to GIC INTID 32 + SPI number")
 
+    timer_match = re.search(r"\btimer\s*\{(.*?)\n\s*\};", dtsi, re.S)
+    if not timer_match:
+        raise ValueError("pinned SDM660 DTSI has no architectural timer node")
+    timer_interrupts = re.search(r"\binterrupts\s*=\s*(.*?);", timer_match.group(1), re.S)
+    if not timer_interrupts:
+        raise ValueError("pinned SDM660 timer node has no interrupts property")
+    timer_tuples = [
+        tuple(int(value, 0) for value in values)
+        for values in re.findall(
+            r"<\s*(0x[0-9a-fA-F]+|[0-9]+)\s+"
+            r"(0x[0-9a-fA-F]+|[0-9]+)\s+"
+            r"(0x[0-9a-fA-F]+|[0-9]+)\s*>",
+            timer_interrupts.group(1),
+        )
+    ]
+    if len(timer_tuples) != 4:
+        raise ValueError(f"expected four SDM660 architectural timer PPIs, found {timer_tuples}")
+    timer_fdt_match = re.search(
+        r'qemu_fdt_add_subnode\(fdt, "/timer"\);(.*?)'
+        r'(?=qemu_fdt_add_subnode\(fdt, "/intc"\);)',
+        machine, re.S,
+    )
+    if not timer_fdt_match:
+        raise ValueError("native machine does not construct the architectural timer node")
+    timer_fdt = timer_fdt_match.group(1)
+    timer_fdt_irqs = re.search(
+        r'qemu_fdt_setprop_cells\(fdt, "/timer", "interrupts",\s*(.*?)\);',
+        timer_fdt, re.S,
+    )
+    if not timer_fdt_irqs:
+        raise ValueError("native machine timer node has no interrupts property")
+    timer_values = [
+        int(value, 0)
+        for value in re.findall(r"0x[0-9a-fA-F]+|[0-9]+", timer_fdt_irqs.group(1))
+    ]
+    expected_timer_values = [value for row in timer_tuples for value in row]
+    if timer_values != expected_timer_values:
+        raise ValueError(
+            f"timer FDT cells {timer_values} do not match pinned DTSI {expected_timer_values}"
+        )
+    for cpu_output, ppi in zip(
+        ("GTIMER_PHYS", "GTIMER_VIRT", "GTIMER_HYP", "GTIMER_SEC"),
+        (row[1] for row in timer_tuples),
+    ):
+        if not re.search(rf"\[{cpu_output}\]\s*=\s*{ppi}\b", machine):
+            raise ValueError(f"{cpu_output} must be connected to SDM660 timer PPI {ppi}")
+
     gic_match = re.search(
         r"intc:\s*interrupt-controller@17a00000\s*\{(.*?)\n\s*\};",
         dtsi, re.S,
@@ -112,6 +159,7 @@ def validate(dtsi: str, machine: str) -> dict:
 
     return {
         "gic_reg_cells": [hex(value) for value in gic_cells[:4]],
+        "timer_interrupt_cells": [[hex(value) for value in row] for row in timer_tuples],
         "compatible": compatibles,
         "mmio_base": hex(base),
         "mmio_size": hex(size),
