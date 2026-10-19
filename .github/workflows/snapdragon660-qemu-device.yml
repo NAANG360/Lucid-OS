@@ -1,4 +1,7 @@
 name: Build Snapdragon UARTDM QEMU Device
+concurrency:
+  group: sdm660-qemu-device-${{ github.ref }}
+  cancel-in-progress: true
 on:
   push:
     paths:
