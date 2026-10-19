@@ -19,7 +19,7 @@ jobs:
       - name: Install filesystem and compression tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq e2fsprogs brotli zstd zip unzip attr file
+          sudo apt-get install -y -qq e2fsprogs brotli python3-brotli zstd zip unzip attr file
 
       - name: Download source product tree, ROM archive, and theme artifacts
         shell: bash
@@ -31,37 +31,77 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
           python3 - "$RUNNER_TEMP/releases.json" "$RUNNER_TEMP/release-assets.json" <<'PY'
           import json, sys
-          release=next((r for r in json.load(open(sys.argv[1])) if r.get("tag_name")=="tobelucid-source-v1"),None)
+          releases=json.load(open(sys.argv[1]))
+          release=next((r for r in releases if r.get("tag_name")=="tobelucid-source-v1"),None)
+          original=next((r for r in releases if r.get("id")==416484135),None)
           if not release:
-              raise SystemExit("Draft release tobelucid-source-v1 not visible to workflow token.")
+              raise SystemExit("Release tobelucid-source-v1 is not visible to workflow token.")
           assets={a["name"]:a["id"] for a in release.get("assets",[])}
-          for required in ("LucidOS-unsigned.zip","product-mod-tree.tar.zst"):
-              if required not in assets:
-                  raise SystemExit(f"Missing release asset {required}; upload the complete product tree first.")
-          json.dump({"release_id":release["id"],"rom_asset_id":assets["LucidOS-unsigned.zip"],
-                     "tree_asset_id":assets["product-mod-tree.tar.zst"],
-                     "fixed_asset_id":assets.get("LucidOS-unsigned-full-product.zip")},open(sys.argv[2],"w"))
+          original_assets={a["name"]:a["id"] for a in (original or {}).get("assets",[])}
+          if "LucidOS-unsigned.zip" not in assets:
+              raise SystemExit("LucidOS-unsigned.zip is missing from tobelucid-source-v1.")
+          original_name="lineage-22.2-20251222-UNOFFICIAL-lavender.zip"
+          if original_name not in original_assets:
+              raise SystemExit(f"Original LineageOS archive {original_name} is not visible in release 416484135.")
+          json.dump({
+              "release_id":release["id"],
+              "rom_asset_id":assets["LucidOS-unsigned.zip"],
+              "tree_asset_id":assets.get("product-mod-tree.tar.zst"),
+              "original_asset_id":original_assets[original_name],
+              "fixed_asset_id":assets.get("LucidOS-unsigned-full-product.zip")
+          },open(sys.argv[2],"w"))
           PY
           ROM_ID="$(python3 -c 'import json;print(json.load(open("'"$RUNNER_TEMP/release-assets.json"'"))["rom_asset_id"])')"
-          TREE_ID="$(python3 -c 'import json;print(json.load(open("'"$RUNNER_TEMP/release-assets.json"'"))["tree_asset_id"])')"
+          TREE_ID="$(python3 -c 'import json;print(json.load(open("'"$RUNNER_TEMP/release-assets.json"'")).get("tree_asset_id") or "")')"
+          ORIGINAL_ID="$(python3 -c 'import json;print(json.load(open("'"$RUNNER_TEMP/release-assets.json"'"))["original_asset_id"])')"
           curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
             -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ROM_ID" \
             --output "$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
-          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
-            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$TREE_ID" \
-            --output "$RUNNER_TEMP/source/product-mod-tree.tar.zst"
-          zstd -t "$RUNNER_TEMP/source/product-mod-tree.tar.zst"
-          zstd -dc "$RUNNER_TEMP/source/product-mod-tree.tar.zst" | tar -xf - -C "$RUNNER_TEMP/source"
-          TREE="$(find "$RUNNER_TEMP/source" -maxdepth 5 -type d -name product_mod -print -quit)"
-          if [[ -z "$TREE" ]]; then
-            if [[ -d "$RUNNER_TEMP/source/app" && -d "$RUNNER_TEMP/source/etc" ]]; then
-              TREE="$RUNNER_TEMP/source"
-            else
-              echo "The archive must contain a complete product_mod/ filesystem tree." >&2
+          if [[ -n "$TREE_ID" ]]; then
+            echo "Using the explicitly uploaded product-mod-tree.tar.zst."
+            curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
+              -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$TREE_ID" \
+              --output "$RUNNER_TEMP/source/product-mod-tree.tar.zst"
+            zstd -t "$RUNNER_TEMP/source/product-mod-tree.tar.zst"
+            zstd -dc "$RUNNER_TEMP/source/product-mod-tree.tar.zst" | tar -xf - -C "$RUNNER_TEMP/source"
+            TREE="$(find "$RUNNER_TEMP/source" -maxdepth 5 -type d -name product_mod -print -quit)"
+            if [[ -z "$TREE" ]]; then
+              if [[ -d "$RUNNER_TEMP/source/app" && -d "$RUNNER_TEMP/source/etc" ]]; then
+                TREE="$RUNNER_TEMP/source"
+              else
+                echo "The uploaded archive must contain a complete product_mod/ filesystem tree." >&2
+                exit 1
+              fi
+            fi
+          else
+            echo "No product tree asset found; attempting a verified extraction from the original LineageOS product payload."
+            curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
+              -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ORIGINAL_ID" \
+              --output "$RUNNER_TEMP/rom/original-lineage.zip"
+            unzip -p "$RUNNER_TEMP/rom/original-lineage.zip" product.transfer.list > "$RUNNER_TEMP/source/original-product.transfer.list"
+            unzip -p "$RUNNER_TEMP/rom/original-lineage.zip" product.new.dat.br > "$RUNNER_TEMP/source/original-product.new.dat.br"
+            python3 tools/reconstruct_transfer_image.py \
+              "$RUNNER_TEMP/source/original-product.transfer.list" \
+              "$RUNNER_TEMP/source/original-product.new.dat.br" \
+              "$RUNNER_TEMP/source/original-product.img" | tee report/original-product-reconstruction.txt
+            set +e
+            e2fsck -fn "$RUNNER_TEMP/source/original-product.img" > report/original-product-e2fsck.txt 2>&1
+            ORIGINAL_FSCK_STATUS=$?
+            set -e
+            if [[ "$ORIGINAL_FSCK_STATUS" -ne 0 ]]; then
+              cat report/original-product-e2fsck.txt
+              echo "Original LineageOS product payload is not a clean standalone filesystem. Upload product-mod-tree.tar.zst; no partial image will be used as source." >&2
               exit 1
             fi
+            mkdir -p "$RUNNER_TEMP/mnt/original-product" "$RUNNER_TEMP/source/product_mod"
+            sudo mount -t ext4 -o loop,ro,noload "$RUNNER_TEMP/source/original-product.img" "$RUNNER_TEMP/mnt/original-product"
+            cp -a "$RUNNER_TEMP/mnt/original-product/." "$RUNNER_TEMP/source/product_mod/"
+            sudo umount "$RUNNER_TEMP/mnt/original-product"
+            TREE="$RUNNER_TEMP/source/product_mod"
+            echo "Recovered product source from original LineageOS archive after clean e2fsck validation."
           fi
           echo "$TREE" > "$RUNNER_TEMP/product-tree-path.txt"
           FILE_COUNT="$(find "$TREE" -type f | wc -l)"
