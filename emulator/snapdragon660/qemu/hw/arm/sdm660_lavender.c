@@ -128,6 +128,7 @@ static void lavender_create_fdt(SDM660LavenderState *s)
 
     qemu_fdt_add_subnode(fdt, "/timer");
     qemu_fdt_setprop_string(fdt, "/timer", "compatible", "arm,armv8-timer");
+    qemu_fdt_setprop_cell(fdt, "/timer", "clock-frequency", SDM660_TIMER_HZ);
     qemu_fdt_setprop_cell(fdt, "/timer", "interrupt-parent", 1);
     qemu_fdt_setprop(fdt, "/timer", "always-on", NULL, 0);
     qemu_fdt_setprop_cells(fdt, "/timer", "interrupts",
