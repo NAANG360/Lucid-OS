@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SDK="$ANDROID_HOME"
+SDK="\${ANDROID_HOME:-}"
 if [[ -z "$SDK" || ! -d "$SDK" ]]; then
   echo "Set ANDROID_HOME to an installed Android SDK." >&2
   exit 2
@@ -25,12 +25,12 @@ command -v javac >/dev/null
 command -v keytool >/dev/null
 command -v zip >/dev/null
 
-mkdir -p "$TMP/classes" "$TMP/dex" "$ROOT/setup-app/assets" "$(dirname "$OUT")"
-cp "$ROOT/theme/assets/lucid-wallpaper-dusk.jpg" "$ROOT/setup-app/assets/"
-cp "$ROOT/theme/assets/lucid-wallpaper-alpine.jpg" "$ROOT/setup-app/assets/"
+mkdir -p "$TMP/classes" "$TMP/dex" "$TMP/assets" "$(dirname "$OUT")"
+cp "$ROOT/theme/assets/lucid-wallpaper-dusk.jpg" "$TMP/assets/"
+cp "$ROOT/theme/assets/lucid-wallpaper-alpine.jpg" "$TMP/assets/"
 
 "$TOOLS/aapt2" compile --dir "$ROOT/setup-app/res" -o "$TMP/resources.zip"
-"$TOOLS/aapt2" link --manifest "$ROOT/setup-app/AndroidManifest.xml" -I "$ANDROID_JAR" -A "$ROOT/setup-app/assets" -o "$TMP/LucidSetup-unsigned.apk" "$TMP/resources.zip"
+"$TOOLS/aapt2" link --manifest "$ROOT/setup-app/AndroidManifest.xml" -I "$ANDROID_JAR" -A "$TMP/assets" -o "$TMP/LucidSetup-unsigned.apk" "$TMP/resources.zip"
 
 mapfile -t JAVA_SOURCES < <(find "$ROOT/setup-app/src" -name '*.java' -print | sort)
 if [[ -z "${JAVA_SOURCES[*]:-}" ]]; then echo "No setup-app Java sources found." >&2; exit 2; fi
