@@ -30,12 +30,36 @@ jobs:
         with:
           path: qemu-src
           key: qemu-v10.0.0-aarch64-softmmu-source-build-v1
-      - name: Fetch pinned QEMU source and register UARTDM
+      - name: Fetch pinned QEMU source and register SDM660 board plus UARTDM
         run: |
           if [ ! -d qemu-src/.git ]; then
             git clone --depth 1 --branch v10.0.0 https://github.com/qemu/qemu.git qemu-src
           fi
           cp emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c qemu-src/hw/char/
+          cp emulator/snapdragon660/qemu/hw/arm/sdm660_lavender.c qemu-src/hw/arm/
+          python3 - <<'PY'
+          from pathlib import Path
+          meson = Path("qemu-src/hw/arm/meson.build")
+          line = "arm_ss.add(when: 'CONFIG_SDM660_LAVENDER', if_true: files('sdm660_lavender.c'))"
+          s = meson.read_text()
+          if line not in s:
+              meson.write_text(s.rstrip() + "\\n" + line + "\\n")
+          kconfig = Path("qemu-src/hw/arm/Kconfig")
+          s = kconfig.read_text()
+          block = """config SDM660_LAVENDER
+              bool
+              default y
+              depends on TCG && AARCH64
+              select ARM_GIC
+              select DEVICE_TREE
+          """
+          if "config SDM660_LAVENDER" not in s:
+              marker = "config SBSA_REF\\n"
+              if s.count(marker) != 1:
+                  raise SystemExit("Could not uniquely locate ARM board Kconfig insertion point")
+              s = s.replace(marker, block + "\\n" + marker)
+              kconfig.write_text(s)
+          PY
           python3 - <<'PY'
           from pathlib import Path
           meson = Path("qemu-src/hw/char/meson.build")
@@ -103,6 +127,12 @@ jobs:
         with:
           path: qemu-src
           key: qemu-v10.0.0-aarch64-softmmu-source-build-v1
+      - name: Verify native Snapdragon machine is registered
+        working-directory: qemu-src
+        run: |
+          set -eux
+          ./build/qemu-system-aarch64 -machine help | grep -F 'sdm660-lavender'
+          ./build/qemu-system-aarch64 -machine sdm660-lavender,help
       - name: Runtime test UARTDM MMIO and TX path
         run: |
           set -eux
