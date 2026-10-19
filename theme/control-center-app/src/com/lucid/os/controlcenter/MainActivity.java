@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraCharacteristics;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -34,7 +35,13 @@ public final class MainActivity extends Activity {
         Window w=getWindow(); w.setStatusBarColor(BG); w.setNavigationBarColor(BG);
         w.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         audio=(AudioManager)getSystemService(AUDIO_SERVICE);
-        try { camera=(CameraManager)getSystemService(CAMERA_SERVICE); String[] ids=camera.getCameraIdList(); if(ids.length>0) cameraId=ids[0]; } catch(Exception ignored) {}
+        try {
+            camera=(CameraManager)getSystemService(CAMERA_SERVICE);
+            for(String id:camera.getCameraIdList()) {
+                Boolean hasFlash=camera.getCameraCharacteristics(id).get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
+                if(Boolean.TRUE.equals(hasFlash)){cameraId=id;break;}
+            }
+        } catch(Exception ignored) {}
         LinearLayout page=new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL); page.setPadding(dp(22),dp(24),dp(22),dp(26)); page.setBackgroundColor(BG);
         TextView eyebrow=label("L U C I D   /   CONTROL CENTER",11,BLUE,true); page.addView(eyebrow);
         TextView title=label("At a glance.",32,INK,true); LinearLayout.LayoutParams tp=params(-1,-2); tp.topMargin=dp(7); page.addView(title,tp);
