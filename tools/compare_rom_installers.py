@@ -31,34 +31,49 @@ def digest_file(path: Path) -> str:
     return h.hexdigest()
 
 def transfer_summary(data: bytes) -> list[str]:
+    """Summarize transfer-list commands without mis-parsing non-range operations.
+
+    Android block OTA commands such as move/bsdiff/imgdiff/patch/stash/free have
+    operation-specific arguments. Only new/zero/erase use the simple range-list
+    grammar validated here; other commands are counted but left uninterpreted.
+    """
     lines = data.decode("utf-8", "replace").splitlines()
     out = ["header=" + " | ".join(lines[:4])]
     if len(lines) < 4:
         return out + ["ERROR: transfer list has fewer than four header lines"]
     counts: dict[str, int] = {}
     ranges_by_cmd: dict[str, int] = {}
-    malformed = 0
+    malformed_ranges = 0
+    unparsed_ops: dict[str, int] = {}
     for line in lines[4:]:
         cmd, sep, arg = line.partition(" ")
         counts[cmd] = counts.get(cmd, 0) + 1
+        if cmd not in ("new", "zero", "erase"):
+            # Do not label valid operation-specific syntax as malformed merely
+            # because it does not follow the simple range-list encoding.
+            unparsed_ops[cmd] = unparsed_ops.get(cmd, 0) + 1
+            continue
         if not sep:
-            malformed += 1
+            malformed_ranges += 1
             continue
         try:
             vals = [int(x) for x in arg.split(",")]
             if not vals or vals[0] != len(vals) - 1 or (len(vals) - 1) % 2:
-                malformed += 1
+                malformed_ranges += 1
                 continue
-            for start, end in zip(vals[1::2], vals[2::2]):
-                if start < 0 or end < start:
-                    malformed += 1
-                    continue
-                ranges_by_cmd[cmd] = ranges_by_cmd.get(cmd, 0) + end - start
+            ranges = list(zip(vals[1::2], vals[2::2]))
+            if any(start < 0 or finish < start for start, finish in ranges):
+                malformed_ranges += 1
+                continue
+            ranges_by_cmd[cmd] = ranges_by_cmd.get(cmd, 0) + sum(
+                finish - start for start, finish in ranges
+            )
         except ValueError:
-            malformed += 1
+            malformed_ranges += 1
     out.append(f"command_counts={counts}")
-    out.append(f"block_counts_by_command={ranges_by_cmd}")
-    out.append(f"malformed_commands={malformed}")
+    out.append(f"range_blocks_by_command={ranges_by_cmd}")
+    out.append(f"malformed_range_commands={malformed_ranges}")
+    out.append(f"operation_specific_commands_not_interpreted={unparsed_ops}")
     return out
 
 def main() -> int:
