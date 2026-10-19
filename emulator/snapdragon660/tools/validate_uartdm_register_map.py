@@ -14,13 +14,14 @@ EXPECTED = {
     "UARTDM_RF": "UART_DM_RF",
     "UARTDM_CSR": "UART_DM_CSR",
     "UARTDM_IMR": "UART_DM_IMR",
+    "UARTDM_MISR": "UART_DM_MISR",
 }
 EXPECTED_VALUES = {
     "UARTDM_CR_CLEAR_TX_READY": "CLEAR_TX_READY",
     "UARTDM_ISR_TX_READY": "UARTDM_ISR_TX_READY_BMSK",
 }
 HEX_DEFINE = re.compile(r"^\s*#define\s+(\w+)\s+(0x[0-9a-fA-F]+|[0-9]+)\b", re.M)
-ENUM_ASSIGN = re.compile(r"^\s*(UART_DM_(?:DMEN|SR|CR|TF|RF|CSR|IMR))\s*=\s*(0x[0-9a-fA-F]+|[0-9]+)\s*,?", re.M)
+ENUM_ASSIGN = re.compile(r"^\s*(UART_DM_(?:DMEN|SR|CR|TF|RF|CSR|IMR|MISR))\s*=\s*(0x[0-9a-fA-F]+|[0-9]+)\s*,?", re.M)
 
 
 def defines(path: Path) -> dict[str, int]:
