@@ -33,7 +33,7 @@ class TransferImageReconstructionTests(unittest.TestCase):
             # exercises unique-coverage accounting with overlapping ranges.
             struct.pack_into("<I", first_block, 1028, 3)  # s_blocks_count_lo
             struct.pack_into("<I", first_block, 1048, 2)  # s_log_block_size => 4096
-            first_block[1080:1082] = b"\\x53\\xef"
+            first_block[1080:1082] = b"\x53\xef"
             raw = bytes(first_block) + (b"B" * BLOCK) + (b"C" * BLOCK)
             with open(compressed, "wb") as stream:
                 stream.write(brotli.compress(raw))
