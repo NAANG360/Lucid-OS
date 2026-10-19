@@ -147,7 +147,7 @@ static void lavender_create_fdt(SDM660LavenderState *s)
     qemu_fdt_setprop(fdt, "/soc", "ranges", NULL, 0);
     qemu_fdt_add_subnode(fdt, "/soc/serial@c170000");
     qemu_fdt_setprop_string(fdt, "/soc/serial@c170000", "compatible",
-                            "qcom,msm-uartdm");
+                            "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm");
     qemu_fdt_setprop_sized_cells(fdt, "/soc/serial@c170000", "reg",
                                  2, SDM660_UART_BASE, 2, SDM660_UART_SIZE);
     qemu_fdt_setprop_string(fdt, "/soc/serial@c170000", "status", "okay");
