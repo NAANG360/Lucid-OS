@@ -152,6 +152,10 @@ static void lavender_create_fdt(SDM660LavenderState *s)
                      uart_compatible, sizeof(uart_compatible));
     qemu_fdt_setprop_sized_cells(fdt, "/soc/serial@c170000", "reg",
                                  2, SDM660_UART_BASE, 2, SDM660_UART_SIZE);
+    /* SDM660 DTSI: <GIC_SPI 108 IRQ_TYPE_NONE>; parent is the GIC phandle. */
+    qemu_fdt_setprop_cell(fdt, "/soc/serial@c170000", "interrupt-parent", 1);
+    qemu_fdt_setprop_cells(fdt, "/soc/serial@c170000", "interrupts",
+                           0, SDM660_UART_SPI, 0);
     qemu_fdt_setprop_string(fdt, "/soc/serial@c170000", "status", "okay");
     qemu_fdt_add_subnode(fdt, "/aliases");
     qemu_fdt_setprop_string(fdt, "/aliases", "serial0",
