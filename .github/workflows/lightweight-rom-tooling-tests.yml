@@ -7,6 +7,8 @@ on:
     paths:
       - 'tools/compare_rom_installers.py'
       - 'tests/test_compare_rom_installers.py'
+      - 'tools/reconstruct_transfer_image.py'
+      - 'tests/test_reconstruct_transfer_image.py'
       - '.github/workflows/lightweight-rom-tooling-tests.yml'
 
 permissions:
@@ -14,9 +16,13 @@ permissions:
 
 jobs:
   unit-tests:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Test transfer-list parser
-        run: python3 -m unittest discover -s tests -p 'test_compare_rom_installers.py' -v
+      - name: Install reconstruction test dependency
+        run: python3 -m pip install --user brotli
+      - name: Test ROM comparison and partition reconstruction
+        run: |
+          python3 -m unittest discover -s tests -p 'test_compare_rom_installers.py' -v
+          python3 tests/test_reconstruct_transfer_image.py
