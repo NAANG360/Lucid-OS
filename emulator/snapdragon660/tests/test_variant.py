@@ -29,6 +29,12 @@ class SnapdragonVariantTests(unittest.TestCase):
         # Timer PPIs legitimately use 0xf08; they must not satisfy the UART check.
         self.assertNotIn("0, SDM660_UART_SPI, 0xf08", uart)
 
+    def test_arch_timer_uses_source_declared_frequency(self):
+        source = (ROOT / "qemu" / "hw" / "arm" / "sdm660_lavender.c").read_text()
+        timer = source.split('qemu_fdt_add_subnode(fdt, "/timer");', 1)[1].split('qemu_fdt_add_subnode(fdt, "/intc");', 1)[0]
+        self.assertIn('"clock-frequency", SDM660_TIMER_HZ', timer)
+        self.assertIn("#define SDM660_TIMER_HZ       19200000", source)
+
     def test_psci_is_advertised_for_secondary_cpu_startup(self):
         source = (ROOT / "qemu" / "hw" / "arm" / "sdm660_lavender.c").read_text()
         self.assertIn('"enable-method", "psci"', source)
