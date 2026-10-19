@@ -180,10 +180,23 @@ jobs:
           status=$?
           set -e
           if [ "$status" -ne 124 ]; then
-            echo "Native SDM660 bare-metal smoke guest exited (status=$status)"
+            echo "Native SDM660 single-core smoke guest exited (status=$status)"
             exit 1
           fi
-          echo "Native SDM660 machine loaded and executed the AArch64 smoke image"
+          # Exercise the asymmetric MPIDR map and eight-CPU GIC redistributor
+          # geometry as well; a one-core boot cannot validate those paths.
+          set +e
+          timeout 5s ./build/qemu-system-aarch64 \
+            -machine sdm660-lavender -m 4G -smp 8 \
+            -kernel /tmp/sdm660-smoke.elf -display none -serial null \
+            -monitor none -nodefaults
+          status=$?
+          set -e
+          if [ "$status" -ne 124 ]; then
+            echo "Native SDM660 eight-core smoke guest exited (status=$status)"
+            exit 1
+          fi
+          echo "Native SDM660 machine executed the AArch64 smoke image with 1 and 8 CPUs"
       - name: Runtime test UARTDM MMIO and TX path
         run: |
           set -eux
