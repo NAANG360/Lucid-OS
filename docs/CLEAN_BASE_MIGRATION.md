@@ -5,7 +5,7 @@
 Use a **vanilla Android 15 ROM for Redmi Note 7/7S (lavender)** from the Redmi Note 7/7S Updates channel, not the current LucidOS ZIP as the base. The channel has two relevant Android 15 candidates:
 
 - **LineageOS 22.2 Unofficial, vanilla/encrypted, dynamic, 4.19 kernel**, posted 24 December 2025: https://t.me/s/redminote7Updates?q=%23LineageOS
-- **LineageOS-Ext community Android 15, vanilla, dynamic, 4.19 kernel**, posted 30 March 2025: https://t.me/s/RedmiNote7Updates/7503
+- **LineageOS-Ext community Android 15, dynamic, 4.19 kernel** (the post does not explicitly label the package vanilla), posted 30 March 2025: https://t.me/s/RedmiNote7Updates/7503
 
 The repository's archived lineage-22.2-20251222-UNOFFICIAL-lavender.zip is the December 2025 LineageOS 22.2 package. For the requested different base, investigate the LineageOS-Ext Android 15 vanilla/dynamic build first; do not silently substitute the already-archived LineageOS 22.2 ZIP. Resolve its actual Download link and verify the exact file before using it. The channel post is evidence of the build label, not proof that the download is still available or safe.
 
@@ -51,4 +51,4 @@ Inspect the report, then use `--apply` to copy the allowlisted files. This only 
 
 ### Direct-download fallback identified
 
-The channel's 9 November 2024 LineageOS 22.0 / Android 15 post links to this direct SourceForge download: https://sourceforge.net/projects/test.lavender-roms.p/files/Rom/Lineage-22/enforcing-test/lineage-22.0-lavender-20241109-2232.zip/download. It is explicitly described as a test build, so it is retained as a fallback for comparison, not the preferred production base. The preferred different base remains the March 2025 LineageOS-Ext dynamic Android 15 build; resolve and verify that build's actual download rather than downgrading the foundation merely because this older link is direct.
+The channel's 9 November 2024 LineageOS 22.0 / Android 15 post links to this direct SourceForge download: https://sourceforge.net/projects/test.lavender-roms.p/files/Rom/Lineage-22/enforcing-test/lineage-22.0-lavender-20241109-2232.zip/download. It is explicitly described as a test build, so it is retained as a fallback for comparison, not the preferred production base. The preferred different base remains the March 2025 LineageOS-Ext dynamic Android 15 build if its actual download can be confirmed as vanilla; resolve and verify that build's actual download rather than downgrading the foundation merely because this older link is direct.
