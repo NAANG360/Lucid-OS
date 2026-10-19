@@ -72,7 +72,37 @@ def validate(dtsi: str, machine: str) -> dict:
     if "32 + SDM660_UART_SPI" not in machine:
         raise ValueError("UART SPI must connect to GIC INTID 32 + SPI number")
 
+    gic_match = re.search(
+        r"intc:\\s*interrupt-controller@17a00000\\s*\\{(.*?)\\n\\s*\\};",
+        dtsi, re.S,
+    )
+    if not gic_match:
+        raise ValueError("pinned SoC DTSI has no GICv3 node at 0x17a00000")
+    gic_node = gic_match.group(1)
+    if '"arm,gic-v3"' not in gic_node or '"arm,gic-v3"' not in machine:
+        raise ValueError("native machine and pinned DTSI must both identify GICv3")
+    gic_reg = re.search(r"\\breg\\s*=\\s*(.*?);", gic_node, re.S)
+    if not gic_reg:
+        raise ValueError("GICv3 node has no reg property")
+    gic_cells = [
+        int(value, 0)
+        for value in re.findall(r"0x[0-9a-fA-F]+|[0-9]+", gic_reg.group(1))
+    ]
+    if len(gic_cells) < 4:
+        raise ValueError("GICv3 reg property does not contain distributor and redistributor tuples")
+    gic_expected = {
+        "SDM660_GICD_BASE": gic_cells[0],
+        "SDM660_GICD_SIZE": gic_cells[1],
+        "SDM660_GICR_BASE": gic_cells[2],
+        "SDM660_GICR_SIZE": gic_cells[3],
+    }
+    for name, value in gic_expected.items():
+        actual = define_int(machine, name)
+        if actual != value:
+            raise ValueError(f"{name}=0x{actual:x}, pinned DTSI requires 0x{value:x}")
+
     return {
+        "gic_reg_cells": [hex(value) for value in gic_cells[:4]],
         "compatible": compatibles,
         "mmio_base": hex(base),
         "mmio_size": hex(size),
