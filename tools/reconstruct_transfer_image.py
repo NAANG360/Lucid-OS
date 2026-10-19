@@ -78,20 +78,27 @@ os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
 actual_new_blocks = 0
 with open(output_path, "wb") as out, open(new_path, "rb") as newdata:
     out.truncate(image_blocks * BLOCK)
+    zero_chunk = bytes(4 * 1024 * 1024)
     for command, pairs in commands:
-        if command != "new":
-            # An image reconstructed from scratch starts with zeroed blocks.
-            continue
         for start, end in pairs:
             remaining = (end - start) * BLOCK
             out.seek(start * BLOCK)
-            while remaining:
-                chunk = newdata.read(min(4 * 1024 * 1024, remaining))
-                if not chunk:
-                    fail("new.dat ended before transfer-list data was consumed")
-                out.write(chunk)
-                remaining -= len(chunk)
-            actual_new_blocks += end - start
+            if command == "new":
+                while remaining:
+                    chunk = newdata.read(min(4 * 1024 * 1024, remaining))
+                    if not chunk:
+                        fail("new.dat ended before transfer-list data was consumed")
+                    out.write(chunk)
+                    remaining -= len(chunk)
+                actual_new_blocks += end - start
+            else:
+                # Preserve transfer-list ordering: zero/erase can clear a range
+                # that an earlier command populated. A blank image alone does
+                # not model that when command ranges overlap.
+                while remaining:
+                    chunk = zero_chunk[:min(len(zero_chunk), remaining)]
+                    out.write(chunk)
+                    remaining -= len(chunk)
     if newdata.read(1):
         fail("unused bytes remain in new.dat after transfer-list commands")
 
