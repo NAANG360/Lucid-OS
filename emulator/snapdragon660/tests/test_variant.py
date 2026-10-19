@@ -29,6 +29,12 @@ class SnapdragonVariantTests(unittest.TestCase):
         # Timer PPIs legitimately use 0xf08; they must not satisfy the UART check.
         self.assertNotIn("0, SDM660_UART_SPI, 0xf08", uart)
 
+    def test_gicv3_maintenance_ppi_is_wired_and_described(self):
+        source = (ROOT / "qemu" / "hw" / "arm" / "sdm660_lavender.c").read_text()
+        self.assertIn('"gicv3-maintenance-interrupt"', source)
+        self.assertIn("SDM660_GIC_MAINT_IRQ", source)
+        self.assertIn('"/intc", "interrupts", 1', source)
+
     def test_cpu_topology_is_eight_unique_asymmetric_cores(self):
         p=json.loads((ROOT/"profile.json").read_text())
         clusters=p["soc"]["cpu_topology"]["clusters"]
