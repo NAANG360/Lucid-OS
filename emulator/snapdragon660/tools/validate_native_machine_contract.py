@@ -140,6 +140,40 @@ def validate(dtsi: str, machine: str) -> dict:
     gic_reg = re.search(r"\breg\s*=\s*(.*?);", gic_node, re.S)
     if not gic_reg:
         raise ValueError("GICv3 node has no reg property")
+    stride_match = re.search(
+        r"\bredistributor-stride\s*=\s*<\s*(0x[0-9a-fA-F]+|[0-9]+)\s+"
+        r"(0x[0-9a-fA-F]+|[0-9]+)\s*>",
+        gic_node,
+    )
+    if not stride_match:
+        raise ValueError("pinned GICv3 node has no two-cell redistributor-stride")
+    stride_cells = tuple(int(value, 0) for value in stride_match.groups())
+    expected_stride = (stride_cells[0] << 32) | stride_cells[1]
+    machine_stride = re.search(
+        r'"redistributor-stride",\s*2,\s*(0x[0-9a-fA-F]+|[0-9]+)',
+        machine,
+    )
+    if not machine_stride or int(machine_stride.group(1), 0) != expected_stride:
+        raise ValueError(
+            f"machine GIC redistributor stride does not match DTSI 0x{expected_stride:x}"
+        )
+    gic_interrupts = re.search(
+        r"\binterrupts\s*=\s*<\s*(0x[0-9a-fA-F]+|[0-9]+)\s+"
+        r"(0x[0-9a-fA-F]+|[0-9]+)\s+"
+        r"(0x[0-9a-fA-F]+|[0-9]+)\s*>",
+        gic_node,
+    )
+    if not gic_interrupts:
+        raise ValueError("pinned GICv3 node has no maintenance interrupt tuple")
+    maintenance_cells = tuple(int(value, 0) for value in gic_interrupts.groups())
+    if define_int(machine, "SDM660_GIC_MAINT_IRQ") != maintenance_cells[1]:
+        raise ValueError("native GICv3 maintenance PPI does not match pinned DTSI")
+    if not re.search(
+        r' qemu_fdt_setprop_cells\(fdt, "/intc", "interrupts",\s*'
+        r'1,\s*SDM660_GIC_MAINT_IRQ,\s*4\)',
+        machine,
+    ):
+        raise ValueError("native GICv3 FDT node does not describe its maintenance PPI")
     gic_cells = [
         int(value, 0)
         for value in re.findall(r"0x[0-9a-fA-F]+|[0-9]+", gic_reg.group(1))
