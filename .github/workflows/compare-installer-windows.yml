@@ -1,0 +1,79 @@
+name: Windows ROM installer comparison fallback
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/compare-installer-windows.yml'
+      - 'tools/compare_rom_installers.py'
+      - 'tests/test_compare_rom_installers.py'
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Resolve exact release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $originalAssets = @(gh api "repos/$env:GITHUB_REPOSITORY/releases/416484135/assets?per_page=100" | ConvertFrom-Json)
+          $lucidAssets = @(gh api "repos/$env:GITHUB_REPOSITORY/releases/416305078/assets?per_page=100" | ConvertFrom-Json)
+          $original = @($originalAssets | Where-Object { $_.name -eq "lineage-22.2-20251222-UNOFFICIAL-lavender.zip" -and $_.state -eq "uploaded" })
+          $lucid = @($lucidAssets | Where-Object { $_.name -eq "LucidOS-unsigned.zip" -and $_.state -eq "uploaded" })
+          if ($original.Count -ne 1) { throw "Expected exactly one original LineageOS ZIP asset; found $($original.Count)." }
+          if ($lucid.Count -ne 1) { throw "Expected exactly one LUCID OS ZIP asset; found $($lucid.Count)." }
+          "ORIGINAL_ASSET_ID=$($original[0].id)" >> $env:GITHUB_ENV
+          "LUCID_ASSET_ID=$($lucid[0].id)" >> $env:GITHUB_ENV
+          "ORIGINAL_EXPECTED_SHA=$($original[0].digest -replace '^sha256:', '')" >> $env:GITHUB_ENV
+          "LUCID_EXPECTED_SHA=$($lucid[0].digest -replace '^sha256:', '')" >> $env:GITHUB_ENV
+
+      - name: Download and verify exact ROM archives
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path work/original, work/lucid, report | Out-Null
+          curl.exe --fail --location --retry 3 --retry-all-errors --connect-timeout 20 -H "Authorization: Bearer $env:GH_TOKEN" -H "Accept: application/octet-stream" "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/assets/$env:ORIGINAL_ASSET_ID" --output work/original/rom.zip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          curl.exe --fail --location --retry 3 --retry-all-errors --connect-timeout 20 -H "Authorization: Bearer $env:GH_TOKEN" -H "Accept: application/octet-stream" "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/assets/$env:LUCID_ASSET_ID" --output work/lucid/rom.zip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $originalHash = (Get-FileHash work/original/rom.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $lucidHash = (Get-FileHash work/lucid/rom.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "original_sha256=$originalHash" | Tee-Object -FilePath report/archive-sha256.txt
+          "lucid_sha256=$lucidHash" | Tee-Object -FilePath report/archive-sha256.txt -Append
+          if ($originalHash -ne $env:ORIGINAL_EXPECTED_SHA) { throw "Original ROM SHA-256 mismatch." }
+          if ($lucidHash -ne $env:LUCID_EXPECTED_SHA) { throw "LUCID ROM SHA-256 mismatch." }
+
+      - name: Run regression tests
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p 'test_compare_rom_installers.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Compare installer scripts, transfer lists, boot images and payload hashes
+        shell: pwsh
+        run: |
+          python tools/compare_rom_installers.py 2>&1 | Tee-Object -FilePath report/installer-and-transfer-comparison.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-vs-lucid-installer-comparison-windows
+          path: report/
+          if-no-files-found: warn
+          retention-days: 14
