@@ -128,6 +128,8 @@ jobs:
           sleep 3
           adb shell uiautomator dump /sdcard/lucid-control-center.xml >/dev/null
           adb pull /sdcard/lucid-control-center.xml report/emulator/control-center-window.xml
+          adb shell screencap -p /sdcard/lucid-control-center.png
+          adb pull /sdcard/lucid-control-center.png report/emulator/lucid-control-center.png
           grep -q 'At a glance' report/emulator/control-center-window.xml
           grep -q 'Brightness' report/emulator/control-center-window.xml
           grep -q 'Volume' report/emulator/control-center-window.xml
@@ -137,6 +139,8 @@ jobs:
           sleep 3
           adb shell uiautomator dump /sdcard/lucid-settings.xml >/dev/null
           adb pull /sdcard/lucid-settings.xml report/emulator/settings-window.xml
+          adb shell screencap -p /sdcard/lucid-settings.png
+          adb pull /sdcard/lucid-settings.png report/emulator/lucid-settings.png
           grep -q 'PERSONALIZATION' report/emulator/settings-window.xml
           grep -q 'Control Center' report/emulator/settings-window.xml
           adb shell dumpsys activity activities > report/emulator/lucid-app-activities.txt
