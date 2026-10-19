@@ -33,11 +33,21 @@ jobs:
           sudo apt-get install -y -qq python3-brotli
       - name: Test ROM comparison and partition reconstruction
         run: |
+          mkdir -p report
           python3 -m unittest discover -s tests -p 'test_compare_rom_installers.py' -v
           python3 tests/test_validate_lucid_preservation.py -v
           python3 tests/test_stage_lucid_overlays.py -v
           python3 tests/test_reconstruct_transfer_image.py
-          python3 tools/validate_lucid_runtime_hooks.py --output "$RUNNER_TEMP/lucid-runtime-hooks.json"
+          python3 tools/validate_lucid_runtime_hooks.py --output report/lucid-runtime-hooks.json
           sh -n system-tree/system/bin/lucid_root_toggle.sh
           sh -n system-tree/system/bin/lucid_firstboot.sh
           sh -n system-tree/system/bin/lucid_desktop.sh
+
+      - name: Upload ROM tooling validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-runtime-hook-validation
+          path: report/lucid-runtime-hooks.json
+          if-no-files-found: warn
+          retention-days: 7
