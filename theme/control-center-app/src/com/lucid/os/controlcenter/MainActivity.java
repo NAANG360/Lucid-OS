@@ -3,6 +3,7 @@ package com.lucid.os.controlcenter;
 import android.app.Activity;
 import android.app.WallpaperManager;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -26,6 +27,7 @@ public final class MainActivity extends Activity {
     private CameraManager camera;
     private String cameraId;
     private boolean torchOn;
+    private static final int CAMERA_PERMISSION_REQUEST = 41;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -94,7 +96,16 @@ public final class MainActivity extends Activity {
     private void open(String action){try{startActivity(new Intent(action));}catch(Exception e){Toast.makeText(this,"This setting is unavailable on this Android build.",Toast.LENGTH_SHORT).show();}}
     private void toggleTorch(){
         if(camera==null||cameraId==null){Toast.makeText(this,"No flashlight camera is available.",Toast.LENGTH_SHORT).show();return;}
+        if(android.os.Build.VERSION.SDK_INT>=23 && checkSelfPermission(android.Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED){
+            requestPermissions(new String[]{android.Manifest.permission.CAMERA},CAMERA_PERMISSION_REQUEST);
+            return;
+        }
         try{torchOn=!torchOn;camera.setTorchMode(cameraId,torchOn);Toast.makeText(this,torchOn?"Flashlight on":"Flashlight off",Toast.LENGTH_SHORT).show();}
         catch(Exception e){torchOn=!torchOn;Toast.makeText(this,"Flashlight could not be changed: "+e.getClass().getSimpleName(),Toast.LENGTH_SHORT).show();}
+    }
+    @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
+        super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+        if(requestCode==CAMERA_PERMISSION_REQUEST && grantResults.length>0 && grantResults[0]==PackageManager.PERMISSION_GRANTED) toggleTorch();
+        else if(requestCode==CAMERA_PERMISSION_REQUEST) Toast.makeText(this,"Camera permission is needed to control the flashlight.",Toast.LENGTH_SHORT).show();
     }
 }
