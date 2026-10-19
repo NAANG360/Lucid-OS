@@ -16,7 +16,10 @@ EXPECTED = {
     "UARTDM_IMR": "UART_DM_IMR",
     "UARTDM_ISR": "UART_DM_ISR",
 }
-EXPECTED_VALUES = {\n    "UARTDM_CR_CLEAR_TX_READY": "CLEAR_TX_READY",\n    "UARTDM_ISR_TX_READY": "UARTDM_ISR_TX_READY_BMSK",\n}
+EXPECTED_VALUES = {
+    "UARTDM_CR_CLEAR_TX_READY": "CLEAR_TX_READY",
+    "UARTDM_ISR_TX_READY": "UARTDM_ISR_TX_READY_BMSK",
+}
 HEX_DEFINE = re.compile(r"^\s*#define\s+(\w+)\s+(0x[0-9a-fA-F]+|[0-9]+)\b", re.M)
 ENUM_ASSIGN = re.compile(r"^\s*(UART_DM_(?:DMEN|SR|CR|TF|RF|CSR|IMR))\s*=\s*(0x[0-9a-fA-F]+|[0-9]+)\s*,?", re.M)
 
@@ -60,7 +63,8 @@ def main() -> int:
             )
     dtsi = args.kernel_dtsi.read_text()
     node = re.search(
-        r"uartblsp1dm1:\s*serial@0c170000\s*\{(.*?)\n\s*\};",
+        r"uartblsp1dm1:\s*serial@0c170000\s*\{(.*?)
+\s*\};",
         dtsi, re.S
     )
     if not node:
@@ -88,7 +92,8 @@ def main() -> int:
                     f"but pinned DTSI declares window 0x{window:x}"
                 )
     if errors:
-        print("\n".join(errors))
+        print("
+".join(errors))
         return 1
     print(
         f"validated {len(EXPECTED)} UARTDM register offsets, clear command, and MMIO window "
