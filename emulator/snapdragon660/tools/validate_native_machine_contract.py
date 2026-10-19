@@ -65,9 +65,18 @@ def validate(dtsi: str, machine: str) -> dict:
 
     if irq_type != 0:
         raise ValueError(f"UART interrupt type cell {irq_type} is not an SPI (0)")
-    if f"0, SDM660_UART_SPI, {irq_flags}" not in machine:
+    uart_fdt_match = re.search(
+        r'qemu_fdt_add_subnode\(fdt, "/soc/serial@c170000"\);(.*?)(?=qemu_fdt_add_subnode\(fdt, "/aliases"\);)',
+        machine, re.S,
+    )
+    if not uart_fdt_match:
+        raise ValueError("native machine does not construct the UART FDT node")
+    uart_fdt = uart_fdt_match.group(1)
+    if '"interrupt-parent"' not in uart_fdt or '"interrupts"' not in uart_fdt:
+        raise ValueError("UART FDT node is missing its interrupt-parent/interrupts properties")
+    if f"0, SDM660_UART_SPI, {irq_flags}" not in uart_fdt:
         raise ValueError(
-            f"native machine must preserve DTSI UART interrupt flags cell {irq_flags}"
+            f"UART FDT interrupt tuple must preserve DTSI cells <{irq_type} {irq_number} {irq_flags}>"
         )
     if "32 + SDM660_UART_SPI" not in machine:
         raise ValueError("UART SPI must connect to GIC INTID 32 + SPI number")
