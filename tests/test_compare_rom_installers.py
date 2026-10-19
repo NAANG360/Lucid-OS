@@ -21,7 +21,7 @@ class TransferSummaryTests(unittest.TestCase):
         result = "\n".join(MODULE.transfer_summary(data))
         self.assertIn("command_counts={'new': 1, 'zero': 1, 'erase': 1}", result)
         self.assertIn("range_blocks_by_command={'new': 5, 'zero': 2, 'erase': 2}", result)
-        self.assertIn("malformed_range_commands=0", result)
+        self.assertIn("malformed_range_commands=0", result)\n        self.assertIn("write_block_count_matches_header=True", result)
 
     def test_rejects_malformed_range_count(self):
         data = b"4\n1\n0\n0\nnew 4,0,3\n"
