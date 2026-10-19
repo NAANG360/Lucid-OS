@@ -1,0 +1,22 @@
+name: Lightweight ROM tooling tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/compare_rom_installers.py'
+      - 'tests/test_compare_rom_installers.py'
+      - '.github/workflows/lightweight-rom-tooling-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test transfer-list parser
+        run: python3 -m unittest discover -s tests -p 'test_compare_rom_installers.py' -v
