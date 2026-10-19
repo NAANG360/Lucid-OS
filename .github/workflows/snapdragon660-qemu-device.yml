@@ -166,7 +166,7 @@ jobs:
           ./build/qemu-system-aarch64 -machine sdm660-lavender,help
           set +e
           timeout 5s ./build/qemu-system-aarch64 \
-            -machine sdm660-lavender -cpu cortex-a53 -m 4G -smp 1 \
+            -machine sdm660-lavender -m 4G -smp 1 \
             -kernel /tmp/sdm660-smoke.elf -display none -serial null \
             -monitor none -nodefaults
           status=$?
