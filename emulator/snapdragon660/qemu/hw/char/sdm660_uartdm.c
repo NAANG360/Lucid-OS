@@ -28,6 +28,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(SDM660UARTDMState, SDM660_UARTDM)
 #define UARTDM_TF              0x100
 #define UARTDM_RF              0x140
 #define UARTDM_CSR             0x0a0
+#define UARTDM_MISR            0x0ac
 #define UARTDM_IMR             0x0b0
 #define UARTDM_ISR             0x0b4
 #define UARTDM_ISR_TX_READY    0x80
@@ -107,6 +108,7 @@ static uint64_t sdm660_uartdm_read(void *opaque, hwaddr offset,
     case 0x000: return s->mr1;
     case 0x004: return s->mr2;
     case UARTDM_CSR: return s->csr;
+    case UARTDM_MISR: return s->isr & s->imr;
     case UARTDM_IMR: return s->imr;
     case UARTDM_ISR: return s->isr;
     case UARTDM_RF:
