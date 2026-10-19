@@ -61,3 +61,12 @@ The existing LucidOS product payload writes only 123,902 of 601,750 declared fil
 ### Core runtime hardening
 - `system-tree/system/etc/init/init.lucid.rc` now resets `service.adb.tcp.port` to `-1` and restarts `adbd` when `sys.lucid.casting` becomes `0`, before clearing the persistent Lucid root toggle. This limits the desktop bridge's ADB-over-TCP exposure to the active casting session rather than leaving port 5555 enabled after casting stops.
 - This is a source-level init change only. It has not yet been boot-tested on lavender; verify USB ADB recovery, cast start/stop behavior, and init action ordering in a device or emulator log before including it in a release.
+
+
+## Clean-base migration tooling (2026-10-19)
+
+- `docs/CLEAN_BASE_MIGRATION.md` records the Android 15 vanilla/dynamic base-selection criteria and merge contract. The intended alternative candidate is the LineageOS-Ext Android 15 dynamic/vanilla build posted on 30 March 2025 in RedmiNote7Updates; its exact downloadable file must be resolved and hashed before use. Do not silently substitute the archived December 2025 LineageOS 22.2 ZIP.
+- `tools/validate_lucid_preservation.py` creates a SHA-256/mode/size manifest for required Lucid runtime assets and all files under the Lucid theme, setup-app and Ubuntu base roots. It fails if required source files are missing and searches available extracted trees for `init.lucid.rd` / `init.lucid.rc`.
+- `.github/workflows/clean-base-android15-audit.yml` accepts a direct HTTPS URL for the selected vanilla base, verifies ZIP integrity, inventories base and Lucid archive entries, and uploads an intake artifact without modifying the existing release archives.
+- `tools/inspect_boot_image.py` now emits `ramdisk-lucid-preservation-scan.txt` from the actual unpacked CPIO file entries when the boot ramdisk format is supported. This is the next evidence source for locating `init.lucid.rd`; the tracked source-tree search alone is not conclusive.
+- Unit tests for the preservation manifest are in `tests/test_validate_lucid_preservation.py` and are included in `.github/workflows/lightweight-rom-tooling-tests.yml`.
