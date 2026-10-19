@@ -41,7 +41,7 @@ jobs:
           source_line = "system_ss.add(files('sdm660_uartdm.c'))"
           contents = meson.read_text()
           if source_line not in contents:
-              meson.write_text(contents.rstrip() + "\\n" + source_line + "\\n")
+              meson.write_text(contents.rstrip() + "\n" + source_line + "\n")
           PY
           # Allow only this concrete UARTDM device as a dynamic SysBus device.
           # QEMU's virt machine emits FDT nodes for dynamic SysBus devices; add a
