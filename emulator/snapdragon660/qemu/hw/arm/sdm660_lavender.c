@@ -173,6 +173,8 @@ static void lavender_create_gic(SDM660LavenderState *s)
     qdev_prop_set_uint32(s->gic, "num-cpu", ms->smp.cpus);
     qdev_prop_set_uint32(s->gic, "num-irq", SDM660_NUM_IRQS + 32);
     qdev_prop_set_bit(s->gic, "has-security-extensions", true);
+    object_property_set_link(OBJECT(s->gic), "sysmem",
+                             OBJECT(get_system_memory()), &error_fatal);
     qlist_append_int(redist_region_count, ms->smp.cpus);
     qdev_prop_set_array(s->gic, "redist-region-count", redist_region_count);
     gicbus = SYS_BUS_DEVICE(s->gic);
@@ -224,6 +226,8 @@ static void lavender_init(MachineState *machine)
         object_property_set_int(obj, "mp-affinity",
                                 possible->cpus[i].arch_id, &error_abort);
         object_property_set_int(obj, "cntfrq", SDM660_TIMER_HZ, &error_abort);
+        object_property_set_link(obj, "memory",
+                                 OBJECT(get_system_memory()), &error_abort);
         CPU(obj)->cpu_index = i;
         qdev_realize(DEVICE(obj), NULL, &error_fatal);
         object_unref(obj);
