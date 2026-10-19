@@ -7,7 +7,7 @@ concurrency:
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, lucid-ui-foundation]
     paths:
       - theme/rro/**
       - theme/assets/**
