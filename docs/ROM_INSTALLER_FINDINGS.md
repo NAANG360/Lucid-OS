@@ -77,3 +77,9 @@ The ZIP does not attempt to create or flash `cust`. That alone does **not** prov
 5. Verify the target's retrofit-dynamic-partition configuration and boot image compatibility before modifying anything.
 
 **Do not flash a replacement image based on this preliminary report.** The ZIP's integrity test passing only verifies the archive's compressed data, not Android bootability.
+
+## Lucid root-toggle implementation defect found during overlay review
+
+The tracked `system-tree/system/bin/lucid_root_toggle.sh` previously set `/system/xbin/su` to mode `0755` when enabling root. That removes the setuid/setgid bits and does not, by itself, allow an ordinary app UID to elevate. The updated hook requests mode `06755` with owner `root:shell`, attempts to remount `/system` read-write for the change, then always attempts to restore read-only and logs failure rather than silently reporting success.
+
+This is still a device-dependent mechanism, not a verified root solution: Android may refuse the remount, the target `su` binary may have additional policy requirements, and runtime writes to a system partition are not the preferred design for a production verified-boot build. The behavior must be confirmed on the selected Android 15 base and tested with SELinux enforcing before packaging. CI can syntax-check the shell script but cannot prove the runtime permission transition works.
