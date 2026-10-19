@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       base_rom_url:
-        description: Direct download URL for the selected vanilla Android 15 lavender ROM from RedmiNote7Updates
+        description: Direct HTTPS download URL for the chosen vanilla Android 15 lavender ROM from RedmiNote7Updates
         required: true
         type: string
       expected_filename:
-        description: Expected ROM ZIP filename
+        description: Expected ROM ZIP filename (letters, digits, dots, underscores, hyphens only)
         required: true
         default: lineage-ext-lavender-android15.zip
         type: string
@@ -19,7 +19,7 @@ permissions:
 jobs:
   audit-clean-base:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,77 +29,74 @@ jobs:
         env:
           BASE_ROM_URL: ${{ inputs.base_rom_url }}
           EXPECTED_FILENAME: ${{ inputs.expected_filename }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p clean-base/audit
-          case "$BASE_ROM_URL" in
-            https://*) ;;
-            *) echo 'Only HTTPS download URLs are accepted.' >&2; exit 2 ;;
-          esac
-          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 \
-            --max-time 2400 "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME"
+          [[ "$EXPECTED_FILENAME" =~ ^[A-Za-z0-9._-]+\.zip$ ]] || { echo 'Invalid ZIP filename.' >&2; exit 2; }
+          case "$BASE_ROM_URL" in https://*) ;; *) echo 'Only HTTPS URLs are accepted.' >&2; exit 2 ;; esac
+          mkdir -p clean-base/audit "$RUNNER_TEMP/lucid"
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 4800 \
+            "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME"
           test -s "clean-base/$EXPECTED_FILENAME"
           sha256sum "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-sha256.txt
-          stat -c 'filename=%n\nbytes=%s' "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-file.txt
+          stat -c 'filename=%n%nbytes=%s' "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-file.txt
           unzip -tq "clean-base/$EXPECTED_FILENAME"
-          unzip -Z1 "clean-base/$EXPECTED_FILENAME" > clean-base/audit/zip-entry-list.txt
+          unzip -Z1 "clean-base/$EXPECTED_FILENAME" > clean-base/audit/base-zip-entry-list.txt
+
+          # Fetch the existing Lucid archive by immutable release/asset ID. It is only read for comparison.
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/652845990" \
+            --output "$RUNNER_TEMP/lucid/LucidOS-unsigned.zip"
+          echo '6e9fa4bc2c7dffee9671a02f45bf3b4b7f881b33546cde33b2ea2c9f8ca953b1  '"$RUNNER_TEMP/lucid/LucidOS-unsigned.zip" | sha256sum --check -
+          unzip -tq "$RUNNER_TEMP/lucid/LucidOS-unsigned.zip"
+          unzip -Z1 "$RUNNER_TEMP/lucid/LucidOS-unsigned.zip" > clean-base/audit/lucid-zip-entry-list.txt
+
           python3 - "$EXPECTED_FILENAME" <<'PY'
-          import pathlib, sys, zipfile
-          p = pathlib.Path('clean-base') / sys.argv[1]
-          report = pathlib.Path('clean-base/audit/base-structure.txt')
-          with zipfile.ZipFile(p) as z:
-              names = z.namelist()
-              wanted = [n for n in names if n.endswith((
-                  'META-INF/com/android/metadata',
-                  'META-INF/com/google/android/updater-script',
-                  'dynamic_partitions_op_list',
-                  'payload_properties.txt',
-                  'boot.img', 'dtbo.img', 'vbmeta.img', 'super_dummy.img',
-                  'system.transfer.list', 'vendor.transfer.list',
-                  'product.transfer.list', 'system_ext.transfer.list', 'odm.transfer.list',
-                  'system.new.dat.br', 'vendor.new.dat.br', 'product.new.dat.br',
-                  'system_ext.new.dat.br', 'odm.new.dat.br', 'payload.bin'))]
-              with report.open('w') as f:
-                  f.write(f'archive_entries={len(names)}\\n')
-                  f.write(f'has_lavender_name={any("lavender" in n.lower() for n in names)}\\n')
-                  f.write(f'has_boot_img={"boot.img" in names}\\n')
-                  f.write(f'has_dtbo_img={"dtbo.img" in names}\\n')
-                  f.write(f'has_vbmeta_img={"vbmeta.img" in names}\\n')
-                  f.write('\\n'.join(wanted) + '\\n')
-                  for n in wanted:
-                      info = z.getinfo(n)
-                      f.write(f'entry_size[{n}]={info.file_size}\\n')
-                  for n in wanted:
+          import json, pathlib, sys, zipfile
+          base = pathlib.Path('clean-base') / sys.argv[1]
+          lucid = pathlib.Path('/tmp/lucid/LucidOS-unsigned.zip')
+          # GitHub runner temp path is supplied by the environment in a later rewrite if it differs.
+          if not lucid.exists():
+              import os
+              lucid = pathlib.Path(os.environ.get('RUNNER_TEMP', '/tmp')) / 'lucid' / 'LucidOS-unsigned.zip'
+          report = pathlib.Path('clean-base/audit')
+          with zipfile.ZipFile(base) as bz, zipfile.ZipFile(lucid) as lz:
+              bn, ln = set(bz.namelist()), set(lz.namelist())
+              def exact_or_suffix(names, suffix):
+                  return sorted(n for n in names if n == suffix or n.endswith('/' + suffix))
+              summary = {
+                  'base_archive_entries': len(bn), 'lucid_archive_entries': len(ln),
+                  'base_has_boot_img': bool(exact_or_suffix(bn, 'boot.img')),
+                  'base_has_dtbo_img': bool(exact_or_suffix(bn, 'dtbo.img')),
+                  'base_has_vbmeta_img': bool(exact_or_suffix(bn, 'vbmeta.img')),
+                  'base_has_transfer_lists': any(n.endswith('.transfer.list') for n in bn),
+                  'base_has_payload_bin': 'payload.bin' in bn,
+                  'lucid_has_init_scripts_in_zip': any('lucid' in n.lower() and ('init' in n.lower() or n.endswith('.sh')) for n in ln),
+                  'lucid_zip_entries_not_in_base_zip': sorted(ln - bn),
+                  'base_zip_entries_not_in_lucid_zip': sorted(bn - ln),
+              }
+              (report / 'zip-entry-comparison.json').write_text(json.dumps(summary, indent=2) + '\n')
+              for label, z, names in [('base', bz, bn), ('lucid', lz, ln)]:
+                  wanted = [n for n in names if n.endswith((
+                      'META-INF/com/android/metadata', 'META-INF/com/google/android/updater-script',
+                      'dynamic_partitions_op_list', 'payload_properties.txt', 'boot.img', 'dtbo.img',
+                      'vbmeta.img', 'super_dummy.img', 'system.transfer.list', 'vendor.transfer.list',
+                      'product.transfer.list', 'system_ext.transfer.list', 'odm.transfer.list',
+                      'system.new.dat.br', 'vendor.new.dat.br', 'product.new.dat.br',
+                      'system_ext.new.dat.br', 'odm.new.dat.br', 'payload.bin'))]
+                  lines = [f'archive_entries={len(names)}']
+                  for n in sorted(wanted):
+                      lines.append(f'{n}\t{z.getinfo(n).file_size}')
                       if n.endswith(('META-INF/com/android/metadata', 'META-INF/com/google/android/updater-script', 'dynamic_partitions_op_list')):
-                          try:
-                              data = z.read(n).decode('utf-8', 'replace')
-                          except Exception as e:
-                              data = f'<read error: {e}>'
-                          out = report.parent / (n.replace('/', '_') + '.txt')
-                          out.write_text(data)
+                          out = report / f'{label}-{n.replace("/", "_")}.txt'
+                          out.write_text(z.read(n).decode('utf-8', 'replace'))
+                  (report / f'{label}-structure.txt').write_text('\n'.join(lines) + '\n')
+          print((report / 'zip-entry-comparison.json').read_text())
           PY
 
-      - name: Check target and Android-version evidence
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('clean-base/audit/base-structure.txt').read_text()
-          checks = {
-            'boot image present': 'has_boot_img=True' in p,
-            'device-related filename evidence': 'has_lavender_name=True' in p,
-            'Android OTA metadata or updater script present': any(x in p for x in ('META-INF_com_android_metadata.txt', 'META-INF_com_google_android_updater-script.txt')),
-            'partition/OTA payload evidence present': any(x in p for x in ('system.transfer.list', 'payload.bin')),
-          }
-          with Path('clean-base/audit/gate-summary.txt').open('w') as f:
-            for k, v in checks.items(): f.write(f'{k}={v}\\n')
-          print(Path('clean-base/audit/gate-summary.txt').read_text())
-          # This is an intake audit, not a flashability verdict. Missing evidence is reported for review.
-          PY
-
-      - name: Upload immutable base intake evidence
+      - name: Publish intake evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
