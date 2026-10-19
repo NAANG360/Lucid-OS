@@ -7,14 +7,18 @@ service lucid_desktop /system/bin/lucid_desktop.sh
     disabled
     oneshot
 
-# Start the environment when casting is detected
+# Start the environment when casting is detected.
+# The desktop bridge enables local ADB-over-TCP only while this feature is active.
 on property:sys.lucid.casting=1
-    start lucid_desktop
     setprop persist.lucid.root 1
+    start lucid_desktop
 
-# Kill it when casting stops
+# Tear down the desktop daemon and disable ADB-over-TCP when casting stops.
 on property:sys.lucid.casting=0
     stop lucid_desktop
+    setprop service.adb.tcp.port -1
+    stop adbd
+    start adbd
     setprop persist.lucid.root 0
 
 # Stealth Root Gatekeeper Listener
