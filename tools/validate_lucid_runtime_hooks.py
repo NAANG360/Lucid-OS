@@ -46,7 +46,7 @@ def validate(root: Path) -> dict:
             errors.append(f"desktop archive missing: {archive_match.group(1)}")
     if "INIT_MARKER=" not in desktop:
         errors.append("desktop provisioning completion marker missing")
-    if "start_local_adbd()" not in desktop or "iptables -I INPUT 1" not in desktop or "ip6tables" not in desktop:
+    if "start_local_adbd()" not in desktop or "-I INPUT 1 -p tcp --dport 5555 ! -i lo -j DROP" not in desktop or "ip6tables" not in desktop:
         errors.append("desktop ADB bridge lacks IPv4/IPv6 loopback-only protection")
     if "bind_once /dev" not in desktop or "bind_once /proc" not in desktop or "bind_once /sys" not in desktop:
         errors.append("desktop bind-mount idempotency contract incomplete")
