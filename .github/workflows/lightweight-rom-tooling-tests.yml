@@ -12,6 +12,7 @@ on:
       - 'tools/validate_lucid_preservation.py'
       - 'tests/test_validate_lucid_preservation.py'
       - 'tools/stage_lucid_overlays.py'
+      - 'tools/validate_lucid_runtime_hooks.py'
       - 'tests/test_stage_lucid_overlays.py'
       - 'system-tree/system/bin/lucid_*.sh'
       - 'system-tree/system/etc/init/init.lucid.rc'
@@ -36,6 +37,7 @@ jobs:
           python3 tests/test_validate_lucid_preservation.py -v
           python3 tests/test_stage_lucid_overlays.py -v
           python3 tests/test_reconstruct_transfer_image.py
+          python3 tools/validate_lucid_runtime_hooks.py --output "$RUNNER_TEMP/lucid-runtime-hooks.json"
           sh -n system-tree/system/bin/lucid_root_toggle.sh
           sh -n system-tree/system/bin/lucid_firstboot.sh
           sh -n system-tree/system/bin/lucid_desktop.sh
