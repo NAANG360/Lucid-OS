@@ -56,15 +56,15 @@
     }
   },
   "implementation": {
-    "status": "hardware-model-prototype",
+    "status": "native-machine-unvalidated-prototype",
     "qemu_machine_type": "sdm660-lavender",
-    "cpu_execution": "QEMU AArch64 CPU backend; Kryo 260 microarchitecture and performance are NOT reproduced",
-    "board_base": "QEMU ARM virt reference platform used only as a temporary execution substrate",
-    "real_sdm660_machine_model": false,
+    "cpu_execution": "QEMU Cortex-A53/A72 architectural approximations with SDM660 DTSI MPIDR affinity layout; not Kryo 260 microarchitecture",
+    "board_base": "Native QEMU machine source; no generic virt board inheritance",
+    "real_sdm660_machine_model": true,
     "device_tree_is_silicon_accurate": false,
     "bootable_stock_android": false,
     "peripherals": {
-      "gic_timer_uart_psci": "reference-substrate only",
+      "gic_timer_uart_psci": "GICv3 and architectural timer wiring started; UARTDM mapped at source-declared candidate address; PSCI still not implemented/validated",
       "ufs_emmc": "not modeled as Qualcomm controller",
       "adreno512": "not modeled",
       "hexagon680": "not modeled",
@@ -74,10 +74,10 @@
     }
   },
   "next_milestones": [
-    "replace temporary ARM virt substrate with a native QEMU SDM660 machine",
-    "derive memory map and compatible strings from public lavender kernel sources",
-    "implement SDM660-specific interrupt, clock, reset and storage models",
-    "validate Linux kernel bring-up against a matching device tree",
-    "incrementally implement Android-required Qualcomm interfaces"
+    "compile and instantiate native sdm660-lavender machine in pinned QEMU",
+    "validate CPU MPIDR affinity, guest DTB, GICv3 redistributor geometry and UARTDM IRQ",
+    "implement PSCI and clock/reset behavior required by the lavender kernel",
+    "derive retail UART console and boot handoff from matching lavender DTB/DTBO",
+    "implement Qualcomm eMMC and firmware services required for Android boot"
   ]
 }
