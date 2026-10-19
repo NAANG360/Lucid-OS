@@ -41,6 +41,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(SDM660LavenderState, SDM660_LAVENDER)
 #define SDM660_UART_BASE      0x0c170000ULL
 #define SDM660_UART_SIZE      0x1000
 #define SDM660_UART_SPI       108
+#define SDM660_GIC_MAINT_IRQ  9
 #define SDM660_NUM_IRQS       256
 #define SDM660_TIMER_HZ       19200000
 
@@ -142,6 +143,9 @@ static void lavender_create_fdt(SDM660LavenderState *s)
                                  2, SDM660_GICD_BASE, 2, SDM660_GICD_SIZE,
                                  2, SDM660_GICR_BASE, 2, SDM660_GICR_SIZE);
     qemu_fdt_setprop_cell(fdt, "/intc", "phandle", 1);
+    /* GICv3 maintenance PPI, matching the SDM660 SoC DTSI. */
+    qemu_fdt_setprop_cells(fdt, "/intc", "interrupts", 1,
+                           SDM660_GIC_MAINT_IRQ, 4);
 
     qemu_fdt_add_subnode(fdt, "/soc");
     qemu_fdt_setprop_cell(fdt, "/soc", "#address-cells", 2);
@@ -215,6 +219,10 @@ static void lavender_create_gic(SDM660LavenderState *s)
                            qdev_get_gpio_in(cpu, ARM_CPU_VIRQ));
         sysbus_connect_irq(gicbus, i + 3 * ms->smp.cpus,
                            qdev_get_gpio_in(cpu, ARM_CPU_VFIQ));
+        /* GICv3 maintenance output is a per-CPU PPI, not an SPI output. */
+        qdev_connect_gpio_out_named(cpu, "gicv3-maintenance-interrupt", 0,
+            qdev_get_gpio_in(s->gic, SDM660_NUM_IRQS + i * GIC_INTERNAL
+                             + SDM660_GIC_MAINT_IRQ));
     }
 }
 
