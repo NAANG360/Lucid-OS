@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   compare:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
