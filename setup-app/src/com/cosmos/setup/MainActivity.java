@@ -73,13 +73,13 @@ public final class MainActivity extends Activity {
         shell(LAVENDER, true);
         screen = 0;
         root.setPadding(dp(24), dp(28), dp(24), dp(26));
-        root.addView(new ArtView(this, ArtView.WELCOME), new LinearLayout.LayoutParams(-1, 0, 1f));
-        TextView title = label("Let's set up your device", 26, INK, true);
-        root.addView(title, margins(-1, -2, 0, 4, 0, 6));
+        TextView title = label("Let's set up your device", 25, INK, true);
+        root.addView(title, margins(-1, -2, 0, 0, 0, 4));
         root.addView(label("Running LucidOS", 14, Color.rgb(70, 59, 101), false),
-            margins(-1, -2, 0, 0, 0, 22));
+            margins(-1, -2, 0, 0, 0, 4));
+        root.addView(new ArtView(this, ArtView.WELCOME), new LinearLayout.LayoutParams(-1, 0, 1f));
         Button start = pill("Let's start!", PINK, WHITE, v -> showWifi());
-        root.addView(start, margins(-1, 54, 0, 0, 0, 12));
+        root.addView(start, margins(-1, 54, 0, 0, 0, 10));
         root.addView(label("Your phone. Your pace.", 12, Color.rgb(92, 77, 130), false),
             centeredMargins(-1, -2, 0, 0, 0, 0));
     }
@@ -88,10 +88,10 @@ public final class MainActivity extends Activity {
         shell(LAVENDER, true);
         screen = 1;
         root.setPadding(dp(0), dp(0), dp(0), dp(20));
-        root.addView(new ArtView(this, ArtView.WIFI), new LinearLayout.LayoutParams(-1, 0, 1f));
         TextView title = label("Connect to Wi-Fi", 23, Color.BLACK, true);
         title.setGravity(Gravity.CENTER);
-        root.addView(title, margins(-1, -2, 22, 0, 22, 22));
+        root.addView(title, margins(-1, -2, 22, 22, 22, 8));
+        root.addView(new ArtView(this, ArtView.WIFI), new LinearLayout.LayoutParams(-1, 0, 1f));
         Button wifi = pill("◉    Open Wi-Fi settings", PINK, WHITE, v -> openWifiSettings());
         root.addView(wifi, margins(-1, 54, 30, 0, 30, 12));
         Button skip = pill("Set up offline", Color.TRANSPARENT, Color.BLACK, v -> showAccount());
