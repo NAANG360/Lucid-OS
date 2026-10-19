@@ -166,6 +166,66 @@ jobs:
           LD
           aarch64-linux-gnu-as -o /tmp/sdm660-smoke.o /tmp/sdm660-smoke.S
           aarch64-linux-gnu-ld -T /tmp/sdm660-smoke.ld -o /tmp/sdm660-smoke.elf /tmp/sdm660-smoke.o
+          cat > /tmp/sdm660-psci-smoke.S <<'ASM'
+          .section .text
+          .global _start
+          _start:
+              movz x6, #0x2000
+              movk x6, #0x8000, lsl #16
+              str wzr, [x6]
+              /* PSCI 0.2 CPU_ON 64-bit, target CPU affinity 0x001. */
+              movz x0, #3
+              movk x0, #0xc400, lsl #16
+              mov x1, #1
+              adr x2, secondary_entry
+              mov x3, #0
+              smc #0
+              cbnz x0, fail
+              mov x4, #1000000
+          1:  ldr w5, [x6]
+              cmp w5, #0x660
+              b.eq success
+              subs x4, x4, #1
+              b.ne 1b
+              b fail
+          secondary_entry:
+              movz x6, #0x2000
+              movk x6, #0x8000, lsl #16
+              mov w5, #0x660
+              str w5, [x6]
+              dsb sy
+          2:  wfe
+              b 2b
+          success:
+              movz x6, #0x3000
+              movk x6, #0x8000, lsl #16
+              movz x5, #0x0026
+              movk x5, #0x2, lsl #16
+              str x5, [x6]
+              str xzr, [x6, #8]
+              mov x0, #0x20
+              mov x1, x6
+              hlt #0xf000
+              b .
+          fail:
+              movz x6, #0x3000
+              movk x6, #0x8000, lsl #16
+              movz x5, #0x0026
+              movk x5, #0x2, lsl #16
+              str x5, [x6]
+              mov x5, #1
+              str x5, [x6, #8]
+              mov x0, #0x20
+              mov x1, x6
+              hlt #0xf000
+              b .
+          ASM
+          cat > /tmp/sdm660-psci-smoke.ld <<'LD'
+          ENTRY(_start)
+          SECTIONS { . = 0x80000000; .text : { *(.text*) } }
+          LD
+          aarch64-linux-gnu-as -o /tmp/sdm660-psci-smoke.o /tmp/sdm660-psci-smoke.S
+          aarch64-linux-gnu-ld -T /tmp/sdm660-psci-smoke.ld -o /tmp/sdm660-psci-smoke.elf /tmp/sdm660-psci-smoke.o
       - name: Verify and execute native Snapdragon machine
         working-directory: qemu-src
         run: |
@@ -197,6 +257,16 @@ jobs:
             exit 1
           fi
           echo "Native SDM660 machine executed the AArch64 smoke image with 1 and 8 CPUs"
+      - name: Verify PSCI CPU_ON starts a secondary SDM660 CPU
+        working-directory: qemu-src
+        run: |
+          set -eux
+          timeout 10s ./build/qemu-system-aarch64 \
+            -machine sdm660-lavender -m 4G -smp 8 \
+            -kernel /tmp/sdm660-psci-smoke.elf \
+            -display none -serial null -monitor none -nodefaults \
+            -semihosting-config enable=on,target=native
+          echo "PASS: PSCI CPU_ON started CPU affinity 0x001"
       - name: Runtime test UARTDM MMIO and TX path
         run: |
           set -eux
