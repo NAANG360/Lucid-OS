@@ -89,7 +89,6 @@ static void lavender_add_cpu_nodes(SDM660LavenderState *s)
         qemu_fdt_add_subnode(s->fdt, name);
         qemu_fdt_setprop_string(s->fdt, name, "device_type", "cpu");
         qemu_fdt_setprop_string(s->fdt, name, "compatible", "arm,armv8");
-        qemu_fdt_setprop_string(s->fdt, name, "enable-method", "psci");
         qemu_fdt_setprop_sized_cells(s->fdt, name, "reg", 2,
                                      lavender_mpidr(i));
         if (i >= ms->smp.cpus) {
@@ -144,9 +143,6 @@ static void lavender_create_fdt(SDM660LavenderState *s)
                             "qcom,msm-uartdm");
     qemu_fdt_setprop_sized_cells(fdt, "/soc/serial@c170000", "reg",
                                  2, SDM660_UART_BASE, 2, SDM660_UART_SIZE);
-    qemu_fdt_setprop_cells(fdt, "/soc/serial@c170000", "interrupts",
-                           0, SDM660_UART_SPI, 4);
-    qemu_fdt_setprop_cell(fdt, "/soc/serial@c170000", "interrupt-parent", 1);
     qemu_fdt_setprop_string(fdt, "/soc/serial@c170000", "status", "okay");
     qemu_fdt_add_subnode(fdt, "/chosen");
     qemu_fdt_setprop_string(fdt, "/chosen", "stdout-path",
@@ -233,8 +229,6 @@ static void lavender_init(MachineState *machine)
     uartbus = SYS_BUS_DEVICE(uart);
     sysbus_realize_and_unref(uartbus, &error_fatal);
     sysbus_mmio_map(uartbus, 0, SDM660_UART_BASE);
-    sysbus_connect_irq(uartbus, 0,
-                       qdev_get_gpio_in(s->gic, 32 + SDM660_UART_SPI));
 
     lavender_create_fdt(s);
     s->bootinfo.ram_size = machine->ram_size;
