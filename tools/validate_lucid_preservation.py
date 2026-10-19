@@ -22,6 +22,21 @@ REQUIRED = [
     "theme/privapp-permissions-lucid.xml",
     "tools/generate_bootanimation.py",
     "docs/LUCIDOS_PRESERVATION_MANIFEST.md",
+    "design/LUCIDOS_VISUAL_SYSTEM.md",
+    "setup-app/AndroidManifest.xml",
+    "setup-app/src/com/cosmos/setup/MainActivity.java",
+    "tools/build_lucid_setup.sh",
+    "system-tree/system/etc/selinux/plat_file_contexts",
+]
+TRACKED_CUSTOM_ROOTS = ["theme", "setup-app", "system-tree/system/usr/lucid"]
+TRACKED_CUSTOM_PATHS = [
+    "system-tree/system/etc/init/init.lucid.rc",
+    "system-tree/system/bin/lucid_desktop.sh",
+    "system-tree/system/bin/lucid_firstboot.sh",
+    "system-tree/system/bin/lucid_root_toggle.sh",
+    "system-tree/system/etc/permissions/lucid-privapp-permissions.xml",
+    "system-tree/system/priv-app/LucidSetup/LucidSetup.apk",
+    "system-tree/system/usr/lucid/ubuntu-base-arm64.tar.gz",
 ]
 OPTIONAL_SEARCH_NAMES = {"init.lucid.rd", "init.lucid.rc"}
 
@@ -44,6 +59,25 @@ def build_manifest(root: Path) -> dict:
             continue
         mode = stat.S_IMODE(path.stat().st_mode)
         files.append({"path": rel, "bytes": path.stat().st_size, "sha256": sha256(path), "mode": f"{mode:04o}"})
+    # Hash every file in explicitly Lucid-owned roots, not just sentinel files.
+    tracked_custom = []
+    seen = {item["path"] for item in files}
+    for rel in TRACKED_CUSTOM_PATHS:
+        path = root / rel
+        if path.is_file() and rel not in seen:
+            tracked_custom.append({"path": rel, "bytes": path.stat().st_size, "sha256": sha256(path), "mode": f"{stat.S_IMODE(path.stat().st_mode):04o}"})
+            seen.add(rel)
+    for relroot in TRACKED_CUSTOM_ROOTS:
+        base = root / relroot
+        if base.exists():
+            for path in sorted(base.rglob("*")):
+                if not path.is_file():
+                    continue
+                rel = str(path.relative_to(root))
+                if rel in seen:
+                    continue
+                tracked_custom.append({"path": rel, "bytes": path.stat().st_size, "sha256": sha256(path), "mode": f"{stat.S_IMODE(path.stat().st_mode):04o}"})
+                seen.add(rel)
     init_matches = []
     for base in (root / "system-tree", root / "boot-ramdisk", root / "release-extracted"):
         if base.exists():
@@ -57,6 +91,9 @@ def build_manifest(root: Path) -> dict:
         "present_required_count": len(files),
         "missing_required": missing,
         "required_files": files,
+        "tracked_custom_roots": TRACKED_CUSTOM_ROOTS,
+        "tracked_custom_file_count": len(tracked_custom),
+        "tracked_custom_files": tracked_custom,
         "init_file_search": {"names": sorted(OPTIONAL_SEARCH_NAMES), "matches": sorted(set(init_matches)), "init_lucid_rd_found": any(Path(x).name == "init.lucid.rd" for x in init_matches)},
         "pass": not missing and all(x["bytes"] > 0 for x in files),
     }
