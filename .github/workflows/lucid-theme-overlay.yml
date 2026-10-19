@@ -202,6 +202,8 @@ jobs:
           path: |
             out/LucidOS-Framework-Theme-Overlay.apk
             out/LucidWallpapers.apk
+            out/LucidControlCenter/LucidControlCenter.apk
+            out/LucidSettings/LucidSettings.apk
             out/LucidOS-bootanimation.zip
             report/
           if-no-files-found: error
