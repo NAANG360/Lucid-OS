@@ -21,12 +21,14 @@ EXPECTED_VALUES = {
     "UARTDM_ISR_TX_READY": "UARTDM_ISR_TX_READY_BMSK",
 }
 HEX_DEFINE = re.compile(r"^\s*#define\s+(\w+)\s+(0x[0-9a-fA-F]+|[0-9]+)\b", re.M)
+BIT_DEFINE = re.compile(r"^\s*#define\s+(\w+)\s+BIT\((\d+)\)\s*$", re.M)
 ENUM_ASSIGN = re.compile(r"^\s*(UART_DM_(?:DMEN|SR|CR|TF|RF|CSR|IMR|MISR))\s*=\s*(0x[0-9a-fA-F]+|[0-9]+)\s*,?", re.M)
 
 
 def defines(path: Path) -> dict[str, int]:
     content = path.read_text()
     values = {name: int(value, 0) for name, value in HEX_DEFINE.findall(content)}
+    values.update({name: 1 << int(bit) for name, bit in BIT_DEFINE.findall(content)})
     values.update({name: int(value, 0) for name, value in ENUM_ASSIGN.findall(content)})
     return values
 
