@@ -15,6 +15,10 @@ class SnapdragonVariantTests(unittest.TestCase):
         self.assertIn('MACHINE_TYPE_NAME("sdm660-lavender")', source)
         self.assertIn("SDM660_GICD_BASE", source)
         self.assertIn("SDM660_UART_BASE", source)
+        self.assertIn("lavender_mpidr", source)
+        self.assertIn("CPU(obj)->cpu_index = i", source)
+        self.assertIn("gicv3_class_name()", source)
+        self.assertIn("arm_load_kernel", source)
         self.assertNotIn("TYPE_VIRT_MACHINE", source)
     def test_cpu_topology_is_eight_unique_asymmetric_cores(self):
         p=json.loads((ROOT/"profile.json").read_text())
