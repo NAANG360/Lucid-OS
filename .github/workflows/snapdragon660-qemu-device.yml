@@ -109,6 +109,11 @@ jobs:
             --kernel-header /tmp/msm_serial_hs_hwreg.h \
             --kernel-dtsi /tmp/sdm660.dtsi \
             --qemu-source emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c
+      - name: Validate native machine UART mapping against SoC DTSI
+        run: |
+          python3 emulator/snapdragon660/tools/validate_native_machine_contract.py \
+            --kernel-dtsi /tmp/sdm660.dtsi \
+            --machine-source emulator/snapdragon660/qemu/hw/arm/sdm660_lavender.c
       - name: Validate source-derived SDM660 memory map
         run: python3 emulator/snapdragon660/tools/validate_board_memory_map.py
       - name: Configure AArch64 system emulator on cache miss
