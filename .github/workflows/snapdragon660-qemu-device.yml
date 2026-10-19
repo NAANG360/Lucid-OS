@@ -24,11 +24,25 @@ jobs:
             git python3 python3-venv python3-pip ninja-build meson \
             build-essential pkg-config libglib2.0-dev libpixman-1-dev \
             libfdt-dev zlib1g-dev
-      - name: Fetch pinned QEMU source
+      - name: Restore QEMU source and build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: qemu-src
+          key: qemu-v10.0.0-aarch64-softmmu-source-build-v1
+      - name: Fetch pinned QEMU source and register UARTDM
         run: |
-          git clone --depth 1 --branch v10.0.0 https://github.com/qemu/qemu.git qemu-src
+          if [ ! -d qemu-src/.git ]; then
+            git clone --depth 1 --branch v10.0.0 https://github.com/qemu/qemu.git qemu-src
+          fi
           cp emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c qemu-src/hw/char/
-          printf "\\nsystem_ss.add(files('sdm660_uartdm.c'))\\n" >> qemu-src/hw/char/meson.build
+          python3 - <<'PY'
+          from pathlib import Path
+          meson = Path("qemu-src/hw/char/meson.build")
+          source_line = "system_ss.add(files('sdm660_uartdm.c'))"
+          contents = meson.read_text()
+          if source_line not in contents:
+              meson.write_text(contents.rstrip() + "\\n" + source_line + "\\n")
+          PY
           # Allow only this concrete UARTDM device as a dynamic SysBus device.
           # QEMU's virt machine emits FDT nodes for dynamic SysBus devices; add a
           # no-op FDT binding too, otherwise startup aborts in sysbus-fdt.c.
@@ -42,7 +56,7 @@ jobs:
               raise SystemExit("Could not uniquely locate virt SysBus allowlist")
           if added not in s:
               s = s.replace(needle, needle + chr(10) + added)
-          virt.write_text(s)
+              virt.write_text(s)
           if added not in virt.read_text():
               raise SystemExit("UARTDM SysBus allowlist insertion failed")
 
@@ -54,7 +68,9 @@ jobs:
               raise SystemExit("Could not uniquely locate dynamic SysBus FDT bindings")
           if added not in s:
               s = s.replace(needle, added + chr(10) + needle)
-          fdt.write_text(s)
+          if added not in s:
+              s = s.replace(needle, added + chr(10) + needle)
+              fdt.write_text(s)
           if added not in fdt.read_text():
               raise SystemExit("UARTDM no-op FDT binding insertion failed")
           PY
@@ -66,23 +82,18 @@ jobs:
           python3 emulator/snapdragon660/tools/validate_uartdm_register_map.py \
             --kernel-header /tmp/msm_serial_hs_hwreg.h \
             --qemu-source emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c
-      - name: Restore QEMU build cache
-        uses: actions/cache/restore@v4
-        with:
-          path: qemu-src/build
-          key: qemu-v10.0.0-aarch64-softmmu-build-v5
       - name: Configure and compile AArch64 system emulator
         working-directory: qemu-src
         run: |
           ./configure --target-list=aarch64-softmmu --disable-werror --disable-docs
           ninja -C build qemu-system-aarch64
 
-      - name: Save compiled QEMU build cache
+      - name: Save QEMU source and build cache
         if: success()
         uses: actions/cache/save@v4
         with:
-          path: qemu-src/build
-          key: qemu-v10.0.0-aarch64-softmmu-build-v5
+          path: qemu-src
+          key: qemu-v10.0.0-aarch64-softmmu-source-build-v1
       - name: Runtime test UARTDM MMIO and TX path
         run: |
           set -eux
