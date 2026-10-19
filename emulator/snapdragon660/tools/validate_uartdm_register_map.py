@@ -14,7 +14,9 @@ EXPECTED = {
     "UARTDM_RF": "UART_DM_RF",
     "UARTDM_CSR": "UART_DM_CSR",
     "UARTDM_IMR": "UART_DM_IMR",
+    "UARTDM_ISR": "UART_DM_ISR",
 }
+EXPECTED_VALUES = {"UARTDM_CR_CLEAR_TX_READY": "CLEAR_TX_READY"}
 HEX_DEFINE = re.compile(r"^\s*#define\s+(\w+)\s+(0x[0-9a-fA-F]+|[0-9]+)\b", re.M)
 ENUM_ASSIGN = re.compile(r"^\s*(UART_DM_(?:DMEN|SR|CR|TF|RF|CSR|IMR))\s*=\s*(0x[0-9a-fA-F]+|[0-9]+)\s*,?", re.M)
 
@@ -37,6 +39,16 @@ def main() -> int:
     implementation = defines(args.qemu_source)
     errors = []
     for qemu_name, kernel_name in EXPECTED.items():
+        if kernel_name not in reference:
+            errors.append(f"reference header is missing {kernel_name}")
+        elif qemu_name not in implementation:
+            errors.append(f"QEMU model is missing {qemu_name}")
+        elif reference[kernel_name] != implementation[qemu_name]:
+            errors.append(
+                f"{qemu_name}=0x{implementation[qemu_name]:x}, "
+                f"but pinned kernel says {kernel_name}=0x{reference[kernel_name]:x}"
+            )
+    for qemu_name, kernel_name in EXPECTED_VALUES.items():
         if kernel_name not in reference:
             errors.append(f"reference header is missing {kernel_name}")
         elif qemu_name not in implementation:
@@ -79,7 +91,7 @@ def main() -> int:
         print("\n".join(errors))
         return 1
     print(
-        f"validated {len(EXPECTED)} UARTDM register offsets and MMIO window "
+        f"validated {len(EXPECTED)} UARTDM register offsets, clear command, and MMIO window "
         "against pinned lavender kernel source"
     )
     return 0
