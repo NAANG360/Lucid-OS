@@ -208,12 +208,18 @@ def main() -> int:
         })
         for name in binary_names:
             print(f"\n--- BINARY {name} ---")
+            signatures: dict[str, tuple[int, str]] = {}
             for label, (z, names) in loaded.items():
                 if name not in names:
                     print(f"{label}: MISSING")
                     continue
                 info = z.getinfo(name)
-                print(f"{label}: size={info.file_size} sha256={digest_zip_entry(z, name)}")
+                sha256 = digest_zip_entry(z, name)
+                signatures[label] = (info.file_size, sha256)
+                print(f"{label}: size={info.file_size} sha256={sha256}")
+            if len(signatures) == 2:
+                identical = signatures["ORIGINAL LINEAGEOS"] == signatures["LUCID OS"]
+                print("content=" + ("IDENTICAL" if identical else "DIFFERENT"))
 
         for label, (z, names) in loaded.items():
             for suffix in ("product.transfer.list", "product.new.dat.br"):
