@@ -30,7 +30,7 @@ def validate(dtsi: str, machine: str) -> dict:
     if not compatible_match:
         raise ValueError("uartblsp1dm1 has no compatible string list")
     compatibles = re.findall(r'"([^"]+)"', compatible_match.group(1))
-    if not any(f'"{value}"' in machine for value in compatibles):
+    if not any(value in machine for value in compatibles):
         raise ValueError(
             "native machine UART compatible does not match pinned DTSI: "
             + ", ".join(compatibles)
