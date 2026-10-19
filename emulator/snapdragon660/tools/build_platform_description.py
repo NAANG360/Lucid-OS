@@ -23,9 +23,9 @@ def build():
         "schema_version": 1,
         "profile": profile,
         "device_tree_scaffold": str(DTS.relative_to(ROOT)),
-        "device_tree_scaffold_status": "disabled-incomplete-not-bootable",
+        "device_tree_scaffold_status": "native-machine-prototype-unvalidated",
         "qemu_machine_type": "sdm660-lavender",
-        "warning": "This is not yet a native SDM660 QEMU machine and cannot boot stock lavender Android.",
+        "warning": "Native SDM660 machine source exists but is not yet compile/runtime validated and cannot boot stock lavender Android.",
         "evidence_policy": "No unverified Qualcomm MMIO addresses or IRQs are claimed.",
     }
 
