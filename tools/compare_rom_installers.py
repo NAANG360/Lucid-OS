@@ -3,7 +3,6 @@
 from __future__ import annotations
 import hashlib
 import re
-import sys
 import zipfile
 from pathlib import Path
 
@@ -20,8 +19,16 @@ INSTALLER_RE = re.compile(
     r"super_dummy|dynamic_partitions|product|vendor|system|cust|metadata", re.I
 )
 
-def digest(data: bytes) -> str:
+def digest_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+def digest_file(path: Path) -> str:
+    """Hash large ROM archives in bounded memory rather than reading a 1+ GB ZIP at once."""
+    h = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 def transfer_summary(data: bytes) -> list[str]:
     lines = data.decode("utf-8", "replace").splitlines()
@@ -31,7 +38,7 @@ def transfer_summary(data: bytes) -> list[str]:
     counts: dict[str, int] = {}
     ranges_by_cmd: dict[str, int] = {}
     malformed = 0
-    for lineno, line in enumerate(lines[4:], 5):
+    for line in lines[4:]:
         cmd, sep, arg = line.partition(" ")
         counts[cmd] = counts.get(cmd, 0) + 1
         if not sep:
@@ -57,37 +64,36 @@ def transfer_summary(data: bytes) -> list[str]:
 def main() -> int:
     failed = False
     for label, path in ARCHIVES.items():
-        print("\n" + "=" * 88 + "\n" + label + "\n" + "=" * 88)
+        print("\\n" + "=" * 88 + "\\n" + label + "\\n" + "=" * 88)
         if not path.is_file():
             print(f"ERROR: missing archive {path}")
             failed = True
             continue
         with zipfile.ZipFile(path) as z:
             bad = z.testzip()
-            print(f"archive_bytes={path.stat().st_size} archive_sha256={digest(path.read_bytes())}")
+            print(f"archive_bytes={path.stat().st_size} archive_sha256={digest_file(path)}")
             print(f"zip_test={'PASS' if bad is None else 'FAIL:' + bad}")
             names = z.namelist()
             print("entry_count=" + str(len(names)))
             for suffix in INTERESTING:
                 matches = [n for n in names if n.endswith(suffix)]
-                print(f"\n[{suffix}] entries={matches}")
+                print(f"\\n[{suffix}] entries={matches}")
                 for name in matches:
                     data = z.read(name)
-                    print(f"size={len(data)} sha256={digest(data)}")
+                    print(f"size={len(data)} sha256={digest_bytes(data)}")
                     if suffix.endswith("updater-script"):
                         for i, line in enumerate(data.decode("utf-8", "replace").splitlines(), 1):
                             if INSTALLER_RE.search(line):
                                 print(f"{i}: {line}")
                     elif suffix == "product.transfer.list":
-                        print("\n".join(transfer_summary(data)))
+                        print("\\n".join(transfer_summary(data)))
                     else:
                         print(data.decode("utf-8", "replace")[:30000])
-            print("\n[partition/installer archive entries]")
+            print("\\n[partition/installer archive entries]")
             for name in names:
                 if any(k in name.lower() for k in ("product", "dynamic_partitions", "updater-script", "metadata", "super_dummy")):
                     print(f"{z.getinfo(name).file_size:>12} {name}")
-            required = ["product.transfer.list", "product.new.dat.br"]
-            for suffix in required:
+            for suffix in ("product.transfer.list", "product.new.dat.br"):
                 matches = [n for n in names if n.endswith(suffix)]
                 if len(matches) != 1:
                     print(f"WARNING: expected exactly one {suffix}, found {len(matches)}")
