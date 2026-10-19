@@ -306,12 +306,6 @@ public final class MainActivity extends Activity {
             path.moveTo(w,h*.47f); path.cubicTo(w*.72f,h*.49f,w*.79f,h*.62f,w*.61f,h*.72f);
             path.cubicTo(w*.43f,h*.83f,w*.66f,h*.9f,w*.78f,h*.95f); path.lineTo(w,h); path.close();
             c.drawPath(path,p); p.setShader(null);
-            if (kind == WELCOME) {
-                p.setColor(WHITE); p.setTextSize(dp(12)); p.setTypeface(Typeface.DEFAULT_BOLD);
-                c.drawText("L U C I D   /   A N D R O I D", dp(2), dp(18), p);
-                p.setColor(Color.rgb(76,60,115)); p.setTextSize(dp(15));
-                c.drawText("A fresh start.", dp(2), h*.28f, p);
-            }
         }
     }
 }
