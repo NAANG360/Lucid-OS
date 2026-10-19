@@ -64,7 +64,7 @@
     "device_tree_is_silicon_accurate": false,
     "bootable_stock_android": false,
     "peripherals": {
-      "gic_timer_uart_psci": "GICv3 and architectural timer wiring started; UARTDM mapped at source-declared candidate address; PSCI still not implemented/validated",
+      "gic_timer_uart_psci": "GICv3, architectural timers, UARTDM IRQ, and GICv3 maintenance PPI are wired; native DTB advertises PSCI and arm_load_kernel is configured for QEMU SMC PSCI; runtime CPU_ON/OFF remains unvalidated",
       "ufs_emmc": "not modeled as Qualcomm controller",
       "adreno512": "not modeled",
       "hexagon680": "not modeled",
@@ -76,7 +76,7 @@
   "next_milestones": [
     "compile and instantiate native sdm660-lavender machine in pinned QEMU",
     "validate CPU MPIDR affinity, guest DTB, GICv3 redistributor geometry and UARTDM IRQ",
-    "implement PSCI and clock/reset behavior required by the lavender kernel",
+    "runtime-test PSCI CPU_ON/OFF and implement clock/reset behavior required by the lavender kernel",
     "derive retail UART console and boot handoff from matching lavender DTB/DTBO",
     "implement Qualcomm eMMC and firmware services required for Android boot"
   ]
