@@ -32,7 +32,7 @@ class SnapdragonVariantTests(unittest.TestCase):
     def test_gicv3_redistributor_stride_matches_eight_cpu_layout(self):
         source = (ROOT / "qemu" / "hw" / "arm" / "sdm660_lavender.c").read_text()
         self.assertIn('"redistributor-stride", 2', source)
-        self.assertIn("0, 0x20000", source)
+        self.assertIn('"redistributor-stride", 2, 0x20000', source)
         self.assertIn("#define SDM660_GICR_SIZE      0x100000", source)
 
     def test_arch_timer_uses_source_declared_frequency(self):
