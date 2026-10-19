@@ -133,6 +133,17 @@ jobs:
           set -eux
           ./build/qemu-system-aarch64 -machine help | grep -F 'sdm660-lavender'
           ./build/qemu-system-aarch64 -machine sdm660-lavender,help
+          set +e
+          timeout 5s ./build/qemu-system-aarch64 \
+            -machine sdm660-lavender -cpu cortex-a53 -m 4G -smp 1 \
+            -display none -serial null -monitor none -nodefaults -S
+          status=$?
+          set -e
+          if [ "$status" -ne 124 ]; then
+            echo "Native SDM660 machine exited before timeout (status=$status)"
+            exit 1
+          fi
+          echo "Native SDM660 machine initialized and remained alive while paused"
       - name: Runtime test UARTDM MMIO and TX path
         run: |
           set -eux
