@@ -21,7 +21,7 @@
 #define TYPE_SDM660_UARTDM "sdm660-uartdm"
 OBJECT_DECLARE_SIMPLE_TYPE(SDM660UARTDMState, SDM660_UARTDM)
 
-#define UARTDM_MMIO_SIZE       0x2000
+#define UARTDM_MMIO_SIZE       0x1000
 #define UARTDM_DMEN            0x03c
 #define UARTDM_SR              0x0a4
 #define UARTDM_CR              0x0a8
