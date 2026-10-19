@@ -160,6 +160,7 @@ static void sdm660_uartdm_write(void *opaque, hwaddr offset,
         if (v == UARTDM_CR_RESET_TX) {
             s->tf = 0;
             s->tx_enabled = false;
+            s->isr &= ~UARTDM_ISR_TX_READY;
         } else if (v == UARTDM_CR_TX_ENABLE) {
             s->tx_enabled = true;
         } else if (v == UARTDM_CR_TX_DISABLE) {
