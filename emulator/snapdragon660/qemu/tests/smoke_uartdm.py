@@ -90,20 +90,23 @@ def main() -> int:
                     raise RuntimeError(f"Unexpected QMP greeting: {greeting}")
                 qmp_command(qmp, "qmp_capabilities")
                 tree = qmp_command(qmp, "human-monitor-command",
-                                   {"command-line": "info qtree"})
+                                   {"command-line": "info mtree"})
                 if not isinstance(tree, str):
-                    raise RuntimeError("QMP did not return the QEMU device tree")
-                device_block = re.search(
-                    r"(?ms)^\\s*dev: sdm660-uartdm[^\\n]*\\n(.*?)(?=^\\s*dev: |\\Z)",
+                    raise RuntimeError("QMP did not return the QEMU memory tree")
+                # The platform bus maps the device's region as a subregion, while
+                # SysBusDevice's own mmio.addr may remain unset. Inspect the guest
+                # physical memory tree rather than relying on "info qtree".
+                match = re.search(
+                    r"(?m)^\\s*([0-9a-fA-F]{8,16})-([0-9a-fA-F]{8,16})"
+                    r"[^\\n]*: sdm660-uartdm\\s*$",
                     tree,
                 )
-                match = re.search(
-                    r"mmio\\s+(?:0x)?([0-9a-fA-F]+)/(?:(?:0x)?)(?:0*2000)\\b",
-                    device_block.group(1) if device_block else "",
-                )
                 if not match:
-                    raise RuntimeError("Could not find the UARTDM 0x2000 MMIO window in 'info qtree':\\n" + tree)
+                    raise RuntimeError("Could not find UARTDM in QEMU's guest physical memory map:\\n" + tree)
                 base = int(match.group(1), 16)
+                end_addr = int(match.group(2), 16)
+                if end_addr - base + 1 != 0x2000:
+                    raise RuntimeError(f"Unexpected UARTDM MMIO range: 0x{base:x}-0x{end_addr:x}")
                 print(f"UARTDM MMIO base discovered from QEMU device tree: 0x{base:x}")
 
                 qtest = connect_unix(qtest_path, proc)
