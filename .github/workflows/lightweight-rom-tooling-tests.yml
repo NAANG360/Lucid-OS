@@ -34,3 +34,7 @@ jobs:
           python3 tests/test_validate_lucid_preservation.py -v
           python3 tests/test_stage_lucid_overlays.py -v
           python3 tests/test_reconstruct_transfer_image.py
+          sh -n system-tree/system/bin/lucid_root_toggle.sh
+          sh -n system-tree/system/bin/lucid_firstboot.sh
+          sh -n system-tree/system/bin/lucid_desktop.sh
+          sh -n system-tree/system/etc/init/init.lucid.rc
