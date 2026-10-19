@@ -29,6 +29,9 @@ OBJECT_DECLARE_SIMPLE_TYPE(SDM660UARTDMState, SDM660_UARTDM)
 #define UARTDM_RF              0x140
 #define UARTDM_CSR             0x0a0
 #define UARTDM_IMR             0x0b0
+#define UARTDM_ISR             0x0b4
+#define UARTDM_ISR_TX_READY    (1u << 7)
+#define UARTDM_CR_CLEAR_TX_READY 0x300
 #define UARTDM_TX_READY        (1u << 2)
 #define UARTDM_RX_READY        (1u << 0)
 #define UARTDM_RX_FIFO_SIZE    256
@@ -41,12 +44,14 @@ OBJECT_DECLARE_SIMPLE_TYPE(SDM660UARTDMState, SDM660_UARTDM)
 struct SDM660UARTDMState {
     SysBusDevice parent_obj;
     MemoryRegion iomem;
+    qemu_irq irq;
     CharBackend chr;
     uint32_t dmen;
     uint32_t cr;
     uint32_t mr1;
     uint32_t mr2;
     uint32_t imr;
+    uint32_t isr;
     uint32_t csr;
     uint32_t tf;
     uint64_t tx_bytes;
@@ -55,6 +60,11 @@ struct SDM660UARTDMState {
     unsigned rx_head;
     unsigned rx_count;
 };
+
+static void sdm660_uartdm_update_irq(SDM660UARTDMState *s)
+{
+    qemu_set_irq(s->irq, (s->isr & s->imr) != 0);
+}
 
 static int sdm660_uartdm_can_receive(void *opaque)
 {
@@ -137,6 +147,8 @@ static void sdm660_uartdm_write(void *opaque, hwaddr offset,
         }
         s->tf = v;
         s->tx_bytes++;
+        s->isr |= UARTDM_ISR_TX_READY;
+        sdm660_uartdm_update_irq(s);
         break;
     }
     case UARTDM_DMEN:
@@ -152,12 +164,18 @@ static void sdm660_uartdm_write(void *opaque, hwaddr offset,
             s->tx_enabled = true;
         } else if (v == UARTDM_CR_TX_DISABLE) {
             s->tx_enabled = false;
+        } else if (v == UARTDM_CR_CLEAR_TX_READY) {
+            s->isr &= ~UARTDM_ISR_TX_READY;
         }
+        sdm660_uartdm_update_irq(s);
         break;
     case 0x000: s->mr1 = v; break;
     case 0x004: s->mr2 = v; break;
     case UARTDM_CSR: s->csr = v; break;
-    case UARTDM_IMR: s->imr = v; break;
+    case UARTDM_IMR:
+        s->imr = v;
+        sdm660_uartdm_update_irq(s);
+        break;
     default:
         /* Ignore unknown writes; log only to avoid drowning early boot. */
         break;
@@ -189,7 +207,9 @@ static void sdm660_uartdm_reset(DeviceState *dev)
     s->mr1 = 0;
     s->mr2 = 0;
     s->imr = 0;
+    s->isr = 0;
     s->csr = 0;
+    sdm660_uartdm_update_irq(s);
     s->tf = 0;
     s->tx_bytes = 0;
     s->tx_enabled = false;
@@ -216,6 +236,7 @@ static void sdm660_uartdm_init(Object *obj)
     memory_region_init_io(&s->iomem, obj, &sdm660_uartdm_ops, s,
                           TYPE_SDM660_UARTDM, UARTDM_MMIO_SIZE);
     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
+    sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->irq);
 }
 
 static const Property sdm660_uartdm_properties[] = {
