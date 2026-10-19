@@ -1,6 +1,6 @@
 # Native QEMU device work: Qualcomm UARTDM
 
-This directory starts the native-QEMU path; it is not a bootable machine yet.
+This directory now contains the first native `sdm660-lavender` QEMU machine implementation. It is a bring-up prototype, not yet a validated guest-boot platform and not an Android-capable emulator.
 
 ## Current device
 
@@ -10,6 +10,31 @@ register behavior. Offsets are checked against the pinned lavender kernel's
 `msm_serial_hs_hwreg.h` by CI. This remains a bring-up stub: it does **not**
 implement interrupts, DMA/BAM, baud timing, pin mux, clock/reset controllers,
 the GIC, PSCI, storage, or Qualcomm secure firmware.
+
+## Native machine prototype
+
+`hw/arm/sdm660_lavender.c` registers a distinct `sdm660-lavender` machine
+without inheriting QEMU's generic `virt` board. It starts implementing the
+lavender board contract:
+
+- 4 GiB RAM at the current 0x80000000 boot-memory candidate;
+- CPU MPIDR affinity values 0x0–0x3 and 0x100–0x103, with QEMU Cortex-A53/A72
+  architectural models as explicit Kryo 260 approximations;
+- GICv3 distributor/redistributor at the source-declared SDM660 addresses;
+- architectural timer wiring and a generated minimal guest DTB;
+- the existing UARTDM device mapped at 0x0c170000, with IRQ routing.
+
+These are initial code paths, **not yet compile/runtime-verified**. The CPU
+models do not reproduce Kryo 260 microarchitecture; the UART's retail console
+enablement still needs confirmation from the exact lavender DTB/DTBO; PSCI,
+Qualcomm clocks/resets, eMMC, secure firmware, and Android boot remain
+unimplemented. The generated DTB is a bring-up scaffold, not a replacement for
+the retail device tree.
+
+The CI workflow patches pinned QEMU v10.0.0 to compile the board as a separate
+machine and checks that `sdm660-lavender` appears in QEMU's machine registry.
+A machine-registration check alone is not evidence that a kernel or Android
+boots.
 
 ## Integrating into a QEMU source checkout
 
