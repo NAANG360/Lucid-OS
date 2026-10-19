@@ -35,10 +35,16 @@ jobs:
           $lucid = @($lucidAssets | Where-Object { $_.name -eq "LucidOS-unsigned.zip" -and $_.state -eq "uploaded" })
           if ($original.Count -ne 1) { throw "Expected exactly one original LineageOS ZIP asset; found $($original.Count)." }
           if ($lucid.Count -ne 1) { throw "Expected exactly one LUCID OS ZIP asset; found $($lucid.Count)." }
+          $originalPinned = "b8029d7dd1d5496c31910bb05861ff7114d166e8397827ca51a163bacea6e6b7"
+          $lucidPinned = "6e9fa4bc2c7dffee9671a02f45bf3b4b7f881b33546cde33b2ea2c9f8ca953b1"
+          $originalApiDigest = ($original[0].digest -replace '^sha256:', '')
+          $lucidApiDigest = ($lucid[0].digest -replace '^sha256:', '')
+          if ($originalApiDigest -and $originalApiDigest -ne $originalPinned) { throw "Original asset API digest disagrees with pinned SHA-256." }
+          if ($lucidApiDigest -and $lucidApiDigest -ne $lucidPinned) { throw "LUCID asset API digest disagrees with pinned SHA-256." }
           "ORIGINAL_ASSET_ID=$($original[0].id)" >> $env:GITHUB_ENV
           "LUCID_ASSET_ID=$($lucid[0].id)" >> $env:GITHUB_ENV
-          "ORIGINAL_EXPECTED_SHA=$($original[0].digest -replace '^sha256:', '')" >> $env:GITHUB_ENV
-          "LUCID_EXPECTED_SHA=$($lucid[0].digest -replace '^sha256:', '')" >> $env:GITHUB_ENV
+          "ORIGINAL_EXPECTED_SHA=$originalPinned" >> $env:GITHUB_ENV
+          "LUCID_EXPECTED_SHA=$lucidPinned" >> $env:GITHUB_ENV
 
       - name: Download and verify exact ROM archives
         shell: pwsh
