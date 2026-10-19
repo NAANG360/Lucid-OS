@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - tools/reconstruct_transfer_image.py
+      - tests/test_reconstruct_transfer_image.py
       - .github/workflows/rom-reconstruct-partitions.yml
 
 permissions:
