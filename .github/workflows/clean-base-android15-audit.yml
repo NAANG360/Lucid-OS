@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       base_rom_url:
-        description: Direct HTTPS download URL for the June 2025 pix106 LineageOS 22.2 lavender candidate; verify vanilla/dynamic metadata in the report
+        description: Direct HTTPS download URL for the March 2025 Rising-Revived vanilla Android 15 dynamic lavender candidate; verify vanilla/dynamic metadata in the report
         required: true
-        default: https://sourceforge.net/projects/lavender-roms/files/Rom/4.19/Lineage-22.2/lineage-22.2-lavender-20250612-1450.zip/download
+        default: https://sourceforge.net/projects/termux-lavender/files/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip/download
         type: string
       expected_filename:
         description: Expected ROM ZIP filename (letters, digits, dots, underscores, hyphens only)
         required: true
-        default: lineage-22.2-lavender-20250612-1450.zip
+        default: RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip
         type: string
 
 permissions:
