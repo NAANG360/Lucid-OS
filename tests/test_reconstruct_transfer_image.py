@@ -54,6 +54,22 @@ class TransferImageReconstructionTests(unittest.TestCase):
             self.assertEqual(image[BLOCK:2 * BLOCK], bytes(BLOCK))
             self.assertEqual(image[2 * BLOCK:], b"C" * BLOCK)
 
+    def test_rejects_empty_range_fields(self):
+        with tempfile.TemporaryDirectory() as temp:
+            transfer = os.path.join(temp, "product.transfer.list")
+            compressed = os.path.join(temp, "product.new.dat.br")
+            output = os.path.join(temp, "product.img")
+            with open(transfer, "w", encoding="utf-8") as stream:
+                stream.write("4\\n1\\n0\\n0\\nnew 2,0,,1\\n")
+            with open(compressed, "wb") as stream:
+                stream.write(b"not-needed")
+            result = subprocess.run(
+                [sys.executable, SCRIPT, transfer, compressed, output],
+                capture_output=True, text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("invalid range command", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
