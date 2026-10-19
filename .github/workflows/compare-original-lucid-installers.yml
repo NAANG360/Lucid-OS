@@ -1,11 +1,12 @@
 name: Compare original and LUCID installers
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - .github/workflows/compare-original-lucid-installers.yml
-  workflow_dispatch:
+      - '.github/workflows/compare-original-lucid-installers.yml'
+      - 'tools/compare_rom_installers.py'
 
 permissions:
   contents: read
@@ -19,93 +20,77 @@ jobs:
 
       - name: Install analysis tools
         run: |
+          set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq brotli e2fsprogs unzip python3 python3-brotli
+          python3 --version
+          unzip -v | head -n 2
 
-      - name: Download the exact original and LUCID ROM assets
+      - name: Resolve release asset IDs by exact names
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/416484135/assets?per_page=100" > /tmp/original-assets.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/416305078/assets?per_page=100" > /tmp/lucid-assets.json
+          python3 - <<'PY' > /tmp/asset-ids.env
+          import json
+          def find(path, name):
+              rows=json.load(open(path))
+              matches=[x for x in rows if x.get("name")==name and x.get("state")=="uploaded"]
+              if len(matches)!=1:
+                  raise SystemExit(f"Expected one uploaded asset named {name!r} in {path}; found {len(matches)}")
+              return matches[0]
+          original=find("/tmp/original-assets.json","lineage-22.2-20251222-UNOFFICIAL-lavender.zip")
+          lucid=find("/tmp/lucid-assets.json","LucidOS-unsigned.zip")
+          print("ORIGINAL_ASSET_ID="+str(original["id"]))
+          print("LUCID_ASSET_ID="+str(lucid["id"]))
+          print("ORIGINAL_EXPECTED_SHA="+original.get("digest","").removeprefix("sha256:"))
+          print("LUCID_EXPECTED_SHA="+lucid.get("digest","").removeprefix("sha256:"))
+          PY
+          cat /tmp/asset-ids.env >> "$GITHUB_ENV"
+          cat /tmp/asset-ids.env
+
+      - name: Download and verify the exact ROM archives
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p work/original work/lucid report
-          # These IDs correspond to the two ZIP assets already uploaded to this repository's releases.
-          curl --fail --location --retry 3 --retry-all-errors \
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
             -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/655336656" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ORIGINAL_ASSET_ID" \
             --output work/original/rom.zip
-          curl --fail --location --retry 3 --retry-all-errors \
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
             -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/652845990" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$LUCID_ASSET_ID" \
             --output work/lucid/rom.zip
+          echo "$ORIGINAL_EXPECTED_SHA  work/original/rom.zip" | sha256sum --check -
+          echo "$LUCID_EXPECTED_SHA  work/lucid/rom.zip" | sha256sum --check -
           unzip -tq work/original/rom.zip
           unzip -tq work/lucid/rom.zip
           sha256sum work/original/rom.zip work/lucid/rom.zip | tee report/archive-sha256.txt
 
-      - name: Compare installer scripts, dynamic partition operations and product transfer semantics
+      - name: Compare installer scripts and transfer-list semantics
         run: |
           set -euo pipefail
-          python3 - <<'PY' | tee report/installer-and-transfer-comparison.txt
-          import zipfile, re, hashlib, os
-          from pathlib import Path
+          python3 tools/compare_rom_installers.py | tee report/installer-and-transfer-comparison.txt
 
-          archives = {
-              "ORIGINAL LINEAGEOS": "work/original/rom.zip",
-              "LUCID OS": "work/lucid/rom.zip",
-          }
-          wanted = ("updater-script", "dynamic_partitions_op_list", "product.transfer.list",
-                    "META-INF/com/android/metadata", "payload_properties.txt")
-          for label, path in archives.items():
-              print("\\n" + "="*88 + "\\n" + label + "\\n" + "="*88)
-              with zipfile.ZipFile(path) as z:
-                  names = z.namelist()
-                  for suffix in wanted:
-                      matches = [n for n in names if n.endswith(suffix)]
-                      print(f"\\n[{suffix}] entries={matches}")
-                      for name in matches:
-                          data = z.read(name)
-                          print(f"size={len(data)} sha256={hashlib.sha256(data).hexdigest()}")
-                          if suffix.endswith("updater-script") or suffix == "dynamic_partitions_op_list" or suffix.endswith("metadata") or suffix == "payload_properties.txt":
-                              text = data.decode("utf-8", "replace")
-                              if suffix.endswith("updater-script"):
-                                  for i, line in enumerate(text.splitlines(), 1):
-                                      if re.search(r"format|wipe|delete|block_image_update|block_image_verify|package_extract|super_dummy|dynamic_partitions|product|vendor|system", line, re.I):
-                                          print(f"{i}: {line}")
-                              else:
-                                  print(text[:30000])
-                          elif suffix == "product.transfer.list":
-                              lines = data.decode("utf-8", "replace").splitlines()
-                              print("header=" + " | ".join(lines[:4]))
-                              counts = {}
-                              total_blocks = 0
-                              for line in lines[4:]:
-                                  cmd, _, args = line.partition(" ")
-                                  counts[cmd] = counts.get(cmd, 0) + 1
-                                  if cmd in ("new", "zero", "erase"):
-                                      try:
-                                          fields = [int(x) for x in args.split(",") if x]
-                                          for a,b in zip(fields[1::2], fields[2::2]): total_blocks += b-a
-                                      except Exception: pass
-                              print(f"command_counts={counts}; sum_of_command_blocks={total_blocks}")
-                  print("\\n[archive entries of interest]")
-                  for n in names:
-                      if any(k in n.lower() for k in ("product", "dynamic_partitions", "updater-script", "metadata")):
-                          info = z.getinfo(n)
-                          print(f"{info.file_size:>12} {n}")
-          PY
-
-      - name: Extract product payloads and reconstruct each from a blank image
+      - name: Extract product payloads for read-only reconstruction diagnostics
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import zipfile
-          for label, path in (("original","work/original/rom.zip"),("lucid","work/lucid/rom.zip")):
-              with zipfile.ZipFile(path) as z:
+          from pathlib import Path
+          for label, archive in (("original","work/original/rom.zip"),("lucid","work/lucid/rom.zip")):
+              target=Path("work")/label
+              with zipfile.ZipFile(archive) as z:
                   for suffix in ("product.new.dat.br","product.transfer.list"):
                       found=[n for n in z.namelist() if n.endswith(suffix)]
                       if len(found)!=1:
-                          print(f"{label}: expected one {suffix}; found {found}")
+                          print(f"{label}: expected exactly one {suffix}; found {found}")
                           continue
-                      with z.open(found[0]) as src, open(f"work/{label}/{suffix}","wb") as dst:
+                      with z.open(found[0]) as src, (target/suffix).open("wb") as dst:
                           while True:
                               chunk=src.read(1024*1024)
                               if not chunk: break
@@ -113,17 +98,23 @@ jobs:
           PY
           for rom in original lucid; do
             if [[ -s "work/$rom/product.new.dat.br" && -s "work/$rom/product.transfer.list" ]]; then
+              set +e
               python3 tools/reconstruct_transfer_image.py \
                 "work/$rom/product.transfer.list" "work/$rom/product.new.dat.br" \
-                "work/$rom/product-reconstructed.img" > "report/$rom-product-reconstruction.txt" 2>&1 || true
-              e2fsck -fn "work/$rom/product-reconstructed.img" > "report/$rom-product-e2fsck.txt" 2>&1 || true
-              dumpe2fs -h "work/$rom/product-reconstructed.img" > "report/$rom-product-superblock.txt" 2>&1 || true
+                "work/$rom/product-reconstructed-from-empty.img" > "report/$rom-product-reconstruction.txt" 2>&1
+              RECON_STATUS=$?
+              e2fsck -fn "work/$rom/product-reconstructed-from-empty.img" > "report/$rom-product-e2fsck.txt" 2>&1
+              FSCK_STATUS=$?
+              dumpe2fs -h "work/$rom/product-reconstructed-from-empty.img" > "report/$rom-product-superblock.txt" 2>&1
+              DUMP_STATUS=$?
+              set -e
+              printf 'reconstruction_exit=%s\ne2fsck_exit=%s\ndumpe2fs_exit=%s\n' "$RECON_STATUS" "$FSCK_STATUS" "$DUMP_STATUS" >> "report/$rom-product-reconstruction.txt"
             else
-              echo "Product payload missing from archive." > "report/$rom-product-reconstruction.txt"
+              echo "Product payload missing or ambiguous in archive." > "report/$rom-product-reconstruction.txt"
             fi
           done
 
-      - name: Upload comparison evidence
+      - name: Upload comparison evidence even when diagnostics find corruption
         if: always()
         uses: actions/upload-artifact@v4
         with:
