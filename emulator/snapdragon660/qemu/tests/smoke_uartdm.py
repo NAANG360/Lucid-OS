@@ -129,10 +129,16 @@ def main() -> int:
                 isr = qtest_command(qtest, f"readl 0x{base + 0x0b4:x}")
                 if int(isr.split()[-1], 0) & 0x80 == 0:
                     raise RuntimeError(f"UARTDM TX-ready ISR bit was not latched: {isr}")
+                misr = qtest_command(qtest, f"readl 0x{base + 0x0ac:x}")
+                if int(misr.split()[-1], 0) & 0x80 == 0:
+                    raise RuntimeError(f"UARTDM masked ISR bit was not asserted: {misr}")
                 qtest_command(qtest, f"writel 0x{base + 0x0a8:x} 0x300")
                 isr = qtest_command(qtest, f"readl 0x{base + 0x0b4:x}")
                 if int(isr.split()[-1], 0) & 0x80:
                     raise RuntimeError(f"UARTDM TX-ready ISR bit did not clear: {isr}")
+                misr = qtest_command(qtest, f"readl 0x{base + 0x0ac:x}")
+                if int(misr.split()[-1], 0) & 0x80:
+                    raise RuntimeError(f"UARTDM masked ISR bit did not clear: {misr}")
                 qtest_command(qtest, f"writel 0x{base + 0x0b0:x} 0x0")
                 print("PASS: UARTDM TX-ready ISR latch and clear command")
 
