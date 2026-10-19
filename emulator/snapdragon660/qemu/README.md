@@ -25,12 +25,13 @@ not a substitute for the retail lavender DTB/DTBO.
 ## UARTDM device status
 
 `hw/char/sdm660_uartdm.c` implements a small polling TX/RX subset, a bounded
-256-byte RX FIFO, and a QEMU chardev. CI compares register offsets with the
-pinned lavender kernel's `msm_serial_hs_hwreg.h`. It does not yet implement
-a basic TX-ready interrupt latch and GIC route; this is not yet validated against
-the full Linux UART driver. DMA/BAM, RX interrupt semantics, baud timing, pin
-mux, and clock/reset dependencies remain missing. The DT's UART interrupt
-specifier is a source-derived candidate and still needs guest-level validation.
+256-byte RX FIFO, a QEMU chardev, and an initial TX-ready interrupt latch routed
+to the GIC. CI checks register offsets against the pinned lavender kernel header
+and validates the ISR offset against the pinned BLSP UART driver's register map.
+The interrupt model is not yet validated against the full Linux UART driver.
+DMA/BAM, RX interrupt semantics, baud timing, pin mux, and clock/reset
+dependencies remain missing. The DT UART interrupt specifier is source-derived
+but still needs guest-level validation.
 
 ## Important unresolved boot blockers
 
