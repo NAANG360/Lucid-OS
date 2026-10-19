@@ -83,10 +83,21 @@ jobs:
               --output "$RUNNER_TEMP/rom/original-lineage.zip"
             unzip -p "$RUNNER_TEMP/rom/original-lineage.zip" product.transfer.list > "$RUNNER_TEMP/source/original-product.transfer.list"
             unzip -p "$RUNNER_TEMP/rom/original-lineage.zip" product.new.dat.br > "$RUNNER_TEMP/source/original-product.new.dat.br"
+            set +e
             python3 tools/reconstruct_transfer_image.py \
               "$RUNNER_TEMP/source/original-product.transfer.list" \
               "$RUNNER_TEMP/source/original-product.new.dat.br" \
-              "$RUNNER_TEMP/source/original-product.img" | tee report/original-product-reconstruction.txt
+              "$RUNNER_TEMP/source/original-product.img" 2>&1 | tee report/original-product-reconstruction.txt
+            RECON_STATUS=${PIPESTATUS[0]}
+            set -e
+            if [[ "$RECON_STATUS" -ne 0 ]]; then
+              echo "Original product OTA cannot be reconstructed from a blank image; upload product-mod-tree.tar.zst." >&2
+              exit 1
+            fi
+            if ! grep -q 'transfer_covers_full_filesystem_by_operations=True' report/original-product-reconstruction.txt; then
+              echo "Original product transfer list leaves filesystem blocks untouched; refusing to treat this partial reconstruction as a source tree. Upload product-mod-tree.tar.zst." >&2
+              exit 1
+            fi
             set +e
             e2fsck -fn "$RUNNER_TEMP/source/original-product.img" > report/original-product-e2fsck.txt 2>&1
             ORIGINAL_FSCK_STATUS=$?
