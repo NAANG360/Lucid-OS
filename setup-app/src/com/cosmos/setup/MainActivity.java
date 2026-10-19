@@ -31,6 +31,7 @@ public final class MainActivity extends Activity {
     private final Handler handler = new Handler();
     private LinearLayout root;
     private int screen = 0;
+    private Runnable activationFinish;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -42,6 +43,7 @@ public final class MainActivity extends Activity {
     }
 
     @Override public void onBackPressed() {
+        if (activationFinish != null) { handler.removeCallbacks(activationFinish); activationFinish = null; }
         if (screen == 1) showWelcome();
         else if (screen == 2) showWifi();
         else if (screen == 3) showAccount();
@@ -170,7 +172,8 @@ public final class MainActivity extends Activity {
         root.addView(label("Making it yours", 25, INK, true), centeredMargins(-1, -2, 0, 24, 0, 8));
         TextView status = label("Getting LucidOS ready…", 14, Color.rgb(80, 67, 117), false);
         root.addView(status, centeredMargins(-1, -2, 0, 0, 0, 0));
-        handler.postDelayed(() -> finishSetup(), 1800);
+        activationFinish = () -> { activationFinish = null; finishSetup(); };
+        handler.postDelayed(activationFinish, 1800);
     }
 
     private void finishSetup() {
