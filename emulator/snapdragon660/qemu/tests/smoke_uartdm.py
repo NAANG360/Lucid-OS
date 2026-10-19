@@ -105,7 +105,7 @@ def main() -> int:
                     raise RuntimeError("Could not find UARTDM in QEMU's guest physical memory map:\n" + tree)
                 base = int(match.group(1), 16)
                 end_addr = int(match.group(2), 16)
-                if end_addr - base + 1 != 0x2000:
+                if end_addr - base + 1 != 0x1000:
                     raise RuntimeError(f"Unexpected UARTDM MMIO range: 0x{base:x}-0x{end_addr:x}")
                 print(f"UARTDM MMIO base discovered from QEMU device tree: 0x{base:x}")
 
