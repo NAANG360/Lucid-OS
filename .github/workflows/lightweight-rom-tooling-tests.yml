@@ -39,4 +39,3 @@ jobs:
           sh -n system-tree/system/bin/lucid_root_toggle.sh
           sh -n system-tree/system/bin/lucid_firstboot.sh
           sh -n system-tree/system/bin/lucid_desktop.sh
-          sh -n system-tree/system/etc/init/init.lucid.rc
