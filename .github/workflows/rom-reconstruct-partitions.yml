@@ -84,6 +84,7 @@ jobs:
           set -euo pipefail
           python3 -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install --quiet brotli
+          "$RUNNER_TEMP/venv/bin/python" tests/test_reconstruct_transfer_image.py
           mkdir -p "$RUNNER_TEMP/images"
           : > report/partition-reconstruction.txt
           for part in system vendor product system_ext odm; do
