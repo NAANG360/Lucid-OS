@@ -46,8 +46,18 @@ jobs:
           lucid=find("/tmp/lucid-assets.json","LucidOS-unsigned.zip")
           print("ORIGINAL_ASSET_ID="+str(original["id"]))
           print("LUCID_ASSET_ID="+str(lucid["id"]))
-          print("ORIGINAL_EXPECTED_SHA="+original.get("digest","").removeprefix("sha256:"))
-          print("LUCID_EXPECTED_SHA="+lucid.get("digest","").removeprefix("sha256:"))
+          # Pin known archive hashes even when GitHub omits the asset digest.
+          pinned = {
+              "lineage-22.2-20251222-UNOFFICIAL-lavender.zip": "b8029d7dd1d5496c31910bb05861ff7114d166e8397827ca51a163bacea6e6b7",
+              "LucidOS-unsigned.zip": "6e9fa4bc2c7dffee9671a02f45bf3b4b7f881b33546cde33b2ea2c9f8ca953b1",
+          }
+          for asset in (original, lucid):
+              api_digest = asset.get("digest", "").removeprefix("sha256:")
+              expected = pinned[asset["name"]]
+              if api_digest and api_digest != expected:
+                  raise SystemExit(f"API digest mismatch for {asset['name']}: {api_digest}")
+          print("ORIGINAL_EXPECTED_SHA="+pinned[original["name"]])
+          print("LUCID_EXPECTED_SHA="+pinned[lucid["name"]])
           PY
           cat /tmp/asset-ids.env >> "$GITHUB_ENV"
           cat /tmp/asset-ids.env
