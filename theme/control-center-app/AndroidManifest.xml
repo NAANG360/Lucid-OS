@@ -3,6 +3,7 @@
     <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="35" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.CAMERA" />
     <application android:allowBackup="false" android:label="Lucid Control Center" android:icon="@drawable/ic_lucid" android:theme="@style/LucidTheme">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
