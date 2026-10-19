@@ -43,7 +43,7 @@ jobs:
           line = "arm_ss.add(when: 'CONFIG_SDM660_LAVENDER', if_true: files('sdm660_lavender.c'))"
           s = meson.read_text()
           if line not in s:
-              meson.write_text(s.rstrip() + "\\n" + line + "\\n")
+              meson.write_text(s.rstrip() + "\n" + line + "\n")
           kconfig = Path("qemu-src/hw/arm/Kconfig")
           s = kconfig.read_text()
           block = """config SDM660_LAVENDER
@@ -54,10 +54,10 @@ jobs:
               select DEVICE_TREE
           """
           if "config SDM660_LAVENDER" not in s:
-              marker = "config SBSA_REF\\n"
+              marker = "config SBSA_REF\n"
               if s.count(marker) != 1:
                   raise SystemExit("Could not uniquely locate ARM board Kconfig insertion point")
-              s = s.replace(marker, block + "\\n" + marker)
+              s = s.replace(marker, block + "\n" + marker)
               kconfig.write_text(s)
           PY
           python3 - <<'PY'
