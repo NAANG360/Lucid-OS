@@ -50,7 +50,7 @@ jobs:
             "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME"
           test -s "clean-base/$EXPECTED_FILENAME"
           sha256sum "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-sha256.txt
-          stat -c 'filename=%n\\nbytes=%s' "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-file.txt
+          stat -c 'filename=%n bytes=%s' "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-file.txt
           unzip -tq "clean-base/$EXPECTED_FILENAME"
           unzip -Z1 "clean-base/$EXPECTED_FILENAME" > clean-base/audit/base-zip-entry-list.txt
 
@@ -66,16 +66,20 @@ jobs:
           python3 - "$EXPECTED_FILENAME" <<'PY'
           import json, pathlib, sys, zipfile
           base = pathlib.Path('clean-base') / sys.argv[1]
-          lucid = pathlib.Path('/tmp/lucid/LucidOS-unsigned.zip')
-          # GitHub runner temp path is supplied by the environment in a later rewrite if it differs.
-          if not lucid.exists():
-              import os
-              lucid = pathlib.Path(os.environ.get('RUNNER_TEMP', '/tmp')) / 'lucid' / 'LucidOS-unsigned.zip'
+          import os
+          lucid = pathlib.Path(os.environ['RUNNER_TEMP']) / 'lucid' / 'LucidOS-unsigned.zip'
           report = pathlib.Path('clean-base/audit')
           with zipfile.ZipFile(base) as bz, zipfile.ZipFile(lucid) as lz:
               bn, ln = set(bz.namelist()), set(lz.namelist())
               def exact_or_suffix(names, suffix):
                   return sorted(n for n in names if n == suffix or n.endswith('/' + suffix))
+              def read_first(z, names, suffix):
+                  hits = exact_or_suffix(names, suffix)
+                  return z.read(hits[0]).decode('utf-8', 'replace') if hits else ''
+              base_metadata = read_first(bz, bn, 'META-INF/com/android/metadata')
+              base_updater = read_first(bz, bn, 'META-INF/com/google/android/updater-script')
+              base_dyn = read_first(bz, bn, 'dynamic_partitions_op_list')
+              base_signals = (base_metadata + '\\n' + base_updater + '\\n' + base_dyn).lower()
               summary = {
                   'base_archive_entries': len(bn), 'lucid_archive_entries': len(ln),
                   'base_has_boot_img': bool(exact_or_suffix(bn, 'boot.img')),
@@ -83,6 +87,16 @@ jobs:
                   'base_has_vbmeta_img': bool(exact_or_suffix(bn, 'vbmeta.img')),
                   'base_has_transfer_lists': any(n.endswith('.transfer.list') for n in bn),
                   'base_has_payload_bin': 'payload.bin' in bn,
+                  'base_has_dynamic_partition_op_list': bool(exact_or_suffix(bn, 'dynamic_partitions_op_list')),
+                  'base_has_system_dat_br': bool(exact_or_suffix(bn, 'system.new.dat.br')),
+                  'base_has_vendor_dat_br': bool(exact_or_suffix(bn, 'vendor.new.dat.br')),
+                  'base_has_product_dat_br': bool(exact_or_suffix(bn, 'product.new.dat.br')),
+                  'metadata_mentions_android_15': '15' in base_metadata and ('post-build=' in base_metadata or 'pre-device=' in base_metadata),
+                  'metadata': base_metadata,
+                  'updater_mentions_lavender': 'lavender' in base_updater.lower(),
+                  'updater_mentions_dynamic_partition_layout': any(x in base_signals for x in ('super_dummy.img', 'dynamic_partitions_op_list', 'retrofit_dynamic_partitions')),
+                  'vanilla_status': 'not provable from archive entry names; inspect metadata and package contents before selecting this base',
+                  'base_has_lucid_custom_files': any('lucid' in n.lower() for n in bn),
                   'lucid_has_init_scripts_in_zip': any('lucid' in n.lower() and ('init' in n.lower() or n.endswith('.sh')) for n in ln),
                   'lucid_zip_entries_not_in_base_zip': sorted(ln - bn),
                   'base_zip_entries_not_in_lucid_zip': sorted(bn - ln),
