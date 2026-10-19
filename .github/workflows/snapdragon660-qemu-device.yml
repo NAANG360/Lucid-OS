@@ -21,6 +21,14 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+      - name: Syntax-check native machine validators and tests
+        run: |
+          python3 -m py_compile \
+            emulator/snapdragon660/tools/validate_uartdm_register_map.py \
+            emulator/snapdragon660/tools/validate_native_machine_contract.py \
+            emulator/snapdragon660/tests/test_uartdm_register_map.py \
+            emulator/snapdragon660/tests/test_variant.py \
+            emulator/snapdragon660/qemu/tests/smoke_uartdm.py
       - name: Install QEMU build dependencies
         run: |
           sudo apt-get update
