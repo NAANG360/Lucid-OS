@@ -80,7 +80,10 @@ def parse_extra_overlay(value: str) -> tuple[Path, str]:
             f"extra overlay destination is not approved: {normalized}; "
             f"allowed destinations: {', '.join(sorted(EXTRA_DESTINATIONS))}"
         )
-    return safe_source_path(source_text), normalized
+    source = safe_source_path(source_text)
+    if source.exists() and not source.is_file():
+        raise ValueError(f"generated overlay source must be a regular file: {source}")
+    return source, normalized
 
 
 def source_files(src: Path) -> list[Path]:
