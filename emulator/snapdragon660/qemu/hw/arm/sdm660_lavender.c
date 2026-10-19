@@ -131,8 +131,9 @@ static void lavender_create_fdt(SDM660LavenderState *s)
     qemu_fdt_setprop_cell(fdt, "/timer", "clock-frequency", SDM660_TIMER_HZ);
     qemu_fdt_setprop_cell(fdt, "/timer", "interrupt-parent", 1);
     qemu_fdt_setprop(fdt, "/timer", "always-on", NULL, 0);
+    /* SDM660's published DT uses PPI IDs 1, 2, 3, 0 in this order. */
     qemu_fdt_setprop_cells(fdt, "/timer", "interrupts",
-                           1, 13, 0xf08, 1, 14, 0xf08, 1, 11, 0xf08, 1, 10, 0xf08);
+                           1, 1, 0xf08, 1, 2, 0xf08, 1, 3, 0xf08, 1, 0, 0xf08);
 
     qemu_fdt_add_subnode(fdt, "/intc");
     qemu_fdt_setprop_string(fdt, "/intc", "compatible", "arm,gic-v3");
@@ -202,12 +203,12 @@ static void lavender_create_gic(SDM660LavenderState *s)
 
     for (i = 0; i < ms->smp.cpus; i++) {
         DeviceState *cpu = DEVICE(qemu_get_cpu(i));
+        /* Match the four PPIs exposed by the SDM660 timer DT node. */
         const int timer_irq[] = {
-            [GTIMER_PHYS] = ARCH_TIMER_NS_EL1_IRQ,
-            [GTIMER_VIRT] = ARCH_TIMER_VIRT_IRQ,
-            [GTIMER_HYP] = ARCH_TIMER_NS_EL2_IRQ,
-            [GTIMER_SEC] = ARCH_TIMER_S_EL1_IRQ,
-            [GTIMER_HYPVIRT] = ARCH_TIMER_NS_EL2_VIRT_IRQ,
+            [GTIMER_PHYS] = 1,
+            [GTIMER_VIRT] = 2,
+            [GTIMER_HYP] = 3,
+            [GTIMER_SEC] = 0,
         };
         int irq;
         for (irq = 0; irq < ARRAY_SIZE(timer_irq); irq++) {
