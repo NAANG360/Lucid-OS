@@ -58,6 +58,7 @@ jobs:
             -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ROM_ID" \
             --output "$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
+          echo "6e9fa4bc2c7dffee9671a02f45bf3b4b7f881b33546cde33b2ea2c9f8ca953b1  $RUNNER_TEMP/rom/LucidOS-unsigned.zip" | sha256sum --check -
           if [[ -n "$TREE_ID" ]]; then
             echo "Using the explicitly uploaded product-mod-tree.tar.zst."
             curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 \
@@ -81,6 +82,7 @@ jobs:
               -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
               "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ORIGINAL_ID" \
               --output "$RUNNER_TEMP/rom/original-lineage.zip"
+            echo "b8029d7dd1d5496c31910bb05861ff7114d166e8397827ca51a163bacea6e6b7  $RUNNER_TEMP/rom/original-lineage.zip" | sha256sum --check -
             unzip -p "$RUNNER_TEMP/rom/original-lineage.zip" product.transfer.list > "$RUNNER_TEMP/source/original-product.transfer.list"
             unzip -p "$RUNNER_TEMP/rom/original-lineage.zip" product.new.dat.br > "$RUNNER_TEMP/source/original-product.new.dat.br"
             set +e
