@@ -58,7 +58,7 @@ for line_no, line in enumerate(lines[4:], start=5):
     if command not in ("new", "zero", "erase"):
         fail(f"unsupported command on line {line_no}: {command}")
     try:
-        fields = [int(x) for x in argtext.split(",") if x]
+        fields = [int(x) for x in argtext.split(",")]
         range_count = fields[0]
         ranges = fields[1:]
     except Exception:
