@@ -16,6 +16,28 @@ bind_once() {
     mount -o bind,nosuid,nodev "$source_path" "$target_path"
 }
 
+start_local_adbd() {
+    # adbd's TCP listener may bind to every interface. Protect both stacks before
+    # enabling it; fail closed if the firewall cannot enforce loopback-only access.
+    for firewall in iptables ip6tables; do
+        if ! command -v "$firewall" >/dev/null 2>&1; then
+            log -t "$TAG" "$firewall is unavailable; refusing to expose ADB TCP."
+            return 1
+        fi
+        if ! "$firewall" -C INPUT -p tcp --dport 5555 ! -i lo -j DROP >/dev/null 2>&1; then
+            if ! "$firewall" -I INPUT 1 -p tcp --dport 5555 ! -i lo -j DROP; then
+                log -t "$TAG" "Could not install $firewall loopback-only guard; refusing to expose ADB TCP."
+                return 1
+            fi
+        fi
+    done
+    setprop service.adb.tcp.port 5555
+    stop adbd
+    start adbd
+    sleep 3
+    return 0
+}
+
 cleanup_mounts() {
     for target in "$CHROOT_DIR/sys" "$CHROOT_DIR/proc" "$CHROOT_DIR/dev"; do
         if awk -v target="$target" '$2 == target { found=1 } END { exit !found }' /proc/mounts; then
@@ -52,11 +74,8 @@ if [ ! -f "$INIT_MARKER" ]; then
     bind_once /sys "$CHROOT_DIR/sys"
     echo "nameserver 8.8.8.8" > "$CHROOT_DIR/etc/resolv.conf"
 
-    # Ensure internal ADB is running for the bridge
-    setprop service.adb.tcp.port 5555
-    stop adbd
-    start adbd
-    sleep 3 # Give ADB a second to wake up
+    # Keep the chroot bridge local-only; do not expose the ADB listener on Wi-Fi.
+    start_local_adbd || log -t "$TAG" "Desktop can start, but Android app bridging is disabled until local-only ADB protection is available."
 
     # 2. The Automated Installer & Shortcut Generator
     chroot "$CHROOT_DIR" /bin/bash << 'EOF'
@@ -143,9 +162,7 @@ else
     bind_once /proc "$CHROOT_DIR/proc"
     bind_once /sys "$CHROOT_DIR/sys"
     
-    setprop service.adb.tcp.port 5555
-    stop adbd
-    start adbd
+    start_local_adbd || log -t "$TAG" "Desktop can start, but Android app bridging is disabled until local-only ADB protection is available."
 fi
 
 # 3. Auto-Launch the ecosystem
