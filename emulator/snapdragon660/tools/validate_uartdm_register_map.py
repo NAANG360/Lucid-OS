@@ -85,8 +85,7 @@ def main() -> int:
             )
     dtsi = args.kernel_dtsi.read_text()
     node = re.search(
-        r"uartblsp1dm1:\s*serial@0c170000\s*\{(.*?)
-\s*\};",
+        r"uartblsp1dm1:\s*serial@0c170000\s*\{(.*?)\n\s*\};",
         dtsi, re.S
     )
     if not node:
