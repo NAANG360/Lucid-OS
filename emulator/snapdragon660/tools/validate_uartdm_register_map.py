@@ -14,7 +14,6 @@ EXPECTED = {
     "UARTDM_RF": "UART_DM_RF",
     "UARTDM_CSR": "UART_DM_CSR",
     "UARTDM_IMR": "UART_DM_IMR",
-    "UARTDM_ISR": "UART_DM_ISR",
 }
 EXPECTED_VALUES = {
     "UARTDM_CR_CLEAR_TX_READY": "CLEAR_TX_READY",
@@ -35,6 +34,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--kernel-header", required=True, type=Path)
     parser.add_argument("--qemu-source", required=True, type=Path)
+    parser.add_argument("--kernel-driver", required=True, type=Path,
+                        help="Pinned msm_serial_hs.c containing the BLSP UART register map")
     parser.add_argument("--kernel-dtsi", required=True, type=Path,
                         help="Pinned SDM660 SoC DTSI containing the UARTDM reg tuple")
     args = parser.parse_args()
@@ -60,6 +61,24 @@ def main() -> int:
             errors.append(
                 f"{qemu_name}=0x{implementation[qemu_name]:x}, "
                 f"but pinned kernel says {kernel_name}=0x{reference[kernel_name]:x}"
+            )
+    driver = args.kernel_driver.read_text()
+    regmap = re.search(r"regmap_blsp\s*\[[^]]+\]\s*=\s*\{(.*?)\};", driver, re.S)
+    if not regmap:
+        errors.append("pinned UART driver is missing regmap_blsp")
+    else:
+        isr_offset = re.search(
+            r"\[\s*UART_DM_ISR\s*\]\s*=\s*(0x[0-9a-fA-F]+|[0-9]+)",
+            regmap.group(1),
+        )
+        if not isr_offset:
+            errors.append("pinned BLSP UART driver is missing UART_DM_ISR offset")
+        elif "UARTDM_ISR" not in implementation:
+            errors.append("QEMU model is missing UARTDM_ISR")
+        elif int(isr_offset.group(1), 0) != implementation["UARTDM_ISR"]:
+            errors.append(
+                f"UARTDM_ISR=0x{implementation['UARTDM_ISR']:x}, "
+                f"but pinned driver says 0x{int(isr_offset.group(1), 0):x}"
             )
     dtsi = args.kernel_dtsi.read_text()
     node = re.search(
