@@ -28,9 +28,6 @@ trap 'cleanup_mounts; exit 143' TERM
 trap 'cleanup_mounts; exit 130' INT
 
 
-CHROOT_DIR="/data/local/lucid_desktop"
-TAR_PATH="/system/usr/lucid/ubuntu-base-arm64.tar.gz"
-
 # Force enable Android Freeform Windows at the system level
 settings put global enable_freeform_support 1
 settings put global force_resizable_activities 1
@@ -53,7 +50,7 @@ if [ ! -f "$INIT_MARKER" ]; then
     bind_once /dev "$CHROOT_DIR/dev"
     bind_once /proc "$CHROOT_DIR/proc"
     bind_once /sys "$CHROOT_DIR/sys"
-    echo "nameserver 8.8.8.8" > $CHROOT_DIR/etc/resolv.conf
+    echo "nameserver 8.8.8.8" > "$CHROOT_DIR/etc/resolv.conf"
 
     # Ensure internal ADB is running for the bridge
     setprop service.adb.tcp.port 5555
@@ -69,9 +66,13 @@ apt-get update
 apt-get install -y xfce4 xfce4-goodies plank git dbus-x11 adb wget
 
 # Theme Installations
-git clone https://github.com/vinceliuice/WhiteSur-gtk-theme.git /tmp/theme
+if [ ! -d /tmp/theme/.git ]; then
+    git clone https://github.com/vinceliuice/WhiteSur-gtk-theme.git /tmp/theme
+fi
 /tmp/theme/install.sh -c Dark -t all -N glassy
-git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git /tmp/icons
+if [ ! -d /tmp/icons/.git ]; then
+    git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git /tmp/icons
+fi
 /tmp/icons/install.sh
 
 # Build the Advanced Freeform ADB Bridge
@@ -105,7 +106,7 @@ Exec=android-app $PKG
 Terminal=false
 APP
 done
-chmod +x /root/Desktop/*.desktop
+chmod +x /root/Desktop/*.desktop 2>/dev/null || true
 
 # ---------------------------------------------------------
 # AUTO-APPLY THE MACOS THEME ON FIRST BOOT
