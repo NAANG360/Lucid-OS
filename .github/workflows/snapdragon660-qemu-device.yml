@@ -68,8 +68,6 @@ jobs:
               raise SystemExit("Could not uniquely locate dynamic SysBus FDT bindings")
           if added not in s:
               s = s.replace(needle, added + chr(10) + needle)
-          if added not in s:
-              s = s.replace(needle, added + chr(10) + needle)
               fdt.write_text(s)
           if added not in fdt.read_text():
               raise SystemExit("UARTDM no-op FDT binding insertion failed")
