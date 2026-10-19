@@ -1,0 +1,109 @@
+name: Clean Android 15 Base Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_rom_url:
+        description: Direct download URL for the selected vanilla Android 15 lavender ROM from RedmiNote7Updates
+        required: true
+        type: string
+      expected_filename:
+        description: Expected ROM ZIP filename
+        required: true
+        default: lineage-ext-lavender-android15.zip
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  audit-clean-base:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download selected base without modifying existing ROM assets
+        env:
+          BASE_ROM_URL: ${{ inputs.base_rom_url }}
+          EXPECTED_FILENAME: ${{ inputs.expected_filename }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p clean-base/audit
+          case "$BASE_ROM_URL" in
+            https://*) ;;
+            *) echo 'Only HTTPS download URLs are accepted.' >&2; exit 2 ;;
+          esac
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 \
+            --max-time 2400 "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME"
+          test -s "clean-base/$EXPECTED_FILENAME"
+          sha256sum "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-sha256.txt
+          stat -c 'filename=%n\nbytes=%s' "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-file.txt
+          unzip -tq "clean-base/$EXPECTED_FILENAME"
+          unzip -Z1 "clean-base/$EXPECTED_FILENAME" > clean-base/audit/zip-entry-list.txt
+          python3 - "$EXPECTED_FILENAME" <<'PY'
+          import pathlib, sys, zipfile
+          p = pathlib.Path('clean-base') / sys.argv[1]
+          report = pathlib.Path('clean-base/audit/base-structure.txt')
+          with zipfile.ZipFile(p) as z:
+              names = z.namelist()
+              wanted = [n for n in names if n.endswith((
+                  'META-INF/com/android/metadata',
+                  'META-INF/com/google/android/updater-script',
+                  'dynamic_partitions_op_list',
+                  'payload_properties.txt',
+                  'boot.img', 'dtbo.img', 'vbmeta.img', 'super_dummy.img',
+                  'system.transfer.list', 'vendor.transfer.list',
+                  'product.transfer.list', 'system_ext.transfer.list', 'odm.transfer.list',
+                  'system.new.dat.br', 'vendor.new.dat.br', 'product.new.dat.br',
+                  'system_ext.new.dat.br', 'odm.new.dat.br', 'payload.bin'))]
+              with report.open('w') as f:
+                  f.write(f'archive_entries={len(names)}\\n')
+                  f.write(f'has_lavender_name={any("lavender" in n.lower() for n in names)}\\n')
+                  f.write(f'has_boot_img={"boot.img" in names}\\n')
+                  f.write(f'has_dtbo_img={"dtbo.img" in names}\\n')
+                  f.write(f'has_vbmeta_img={"vbmeta.img" in names}\\n')
+                  f.write('\\n'.join(wanted) + '\\n')
+                  for n in wanted:
+                      info = z.getinfo(n)
+                      f.write(f'entry_size[{n}]={info.file_size}\\n')
+                  for n in wanted:
+                      if n.endswith(('META-INF/com/android/metadata', 'META-INF/com/google/android/updater-script', 'dynamic_partitions_op_list')):
+                          try:
+                              data = z.read(n).decode('utf-8', 'replace')
+                          except Exception as e:
+                              data = f'<read error: {e}>'
+                          out = report.parent / (n.replace('/', '_') + '.txt')
+                          out.write_text(data)
+          PY
+
+      - name: Check target and Android-version evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('clean-base/audit/base-structure.txt').read_text()
+          checks = {
+            'boot image present': 'has_boot_img=True' in p,
+            'device-related filename evidence': 'has_lavender_name=True' in p,
+            'Android OTA metadata or updater script present': any(x in p for x in ('META-INF_com_android_metadata.txt', 'META-INF_com_google_android_updater-script.txt')),
+            'partition/OTA payload evidence present': any(x in p for x in ('system.transfer.list', 'payload.bin')),
+          }
+          with Path('clean-base/audit/gate-summary.txt').open('w') as f:
+            for k, v in checks.items(): f.write(f'{k}={v}\\n')
+          print(Path('clean-base/audit/gate-summary.txt').read_text())
+          # This is an intake audit, not a flashability verdict. Missing evidence is reported for review.
+          PY
+
+      - name: Upload immutable base intake evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-clean-base-intake
+          path: clean-base/audit/
+          if-no-files-found: warn
+          retention-days: 30
