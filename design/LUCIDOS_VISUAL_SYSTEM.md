@@ -40,7 +40,7 @@ These are the strongest directly relevant screen candidates identified from the 
 - **Confirmed install blocker:** the unsigned OTA's product transfer list writes only 123,902 blocks, while the product filesystem spans 601,750 blocks. Reconstructing it from an empty super image produces invalid ext4 extents and a corrupt root directory. The current ZIP must not be treated as a bootable full install. See `docs/ROM_INSTALLER_FINDINGS.md` and `docs/PRODUCT_REBUILD_INPUT.md`.
 - **Required source input:** a complete extracted `product_mod` tree is needed to rebuild a full ext4 product image, apply Android file contexts, add the Lucid assets, validate with `e2fsck`, and replace the partial OTA payload with a full-block payload.
 
-The Control Center and Settings Figma frames remain design targets for later SystemUI/Settings-specific work. This repository currently has extracted system files and APK resources, not the matching Android source tree; a real Quick Settings layout rewrite cannot be honestly claimed from a wallpaper or color overlay alone.
+The Control Center and Settings Figma frames now have native app-level implementation candidates under `theme/control-center-app/` and `theme/settings-app/`. The Control Center includes real brightness/media-volume controls, flashlight behavior, Android Settings shortcuts, and a Quick Settings tile entry point; the Settings dashboard routes categories to real Android destinations. These candidates have **not yet passed compilation or device validation** because GitHub Actions jobs are failing before any steps execute. The Quick Settings tile is only an entry point: the stock notification shade is not replaced. A true Lucid SystemUI shade rewrite still requires the matching Android source/build tree; see `theme/systemui/INTEGRATION_PLAN.md`.
 
 ## Selected visual direction
 
@@ -59,3 +59,5 @@ The Control Center and Settings Figma frames remain design targets for later Sys
 - [ ] Produce a cloud build artifact and automated validation report.
 - [ ] Check that the overlay installs and can be disabled/reverted from recovery before any device test.
 - [ ] Extend the same token system to Settings, SystemUI/Quick Settings, lock screen, boot animation and wallpaper only where the target ROM supports each change.
+- [x] Add source candidates for the Lucid Control Center and Settings dashboard (build/runtime validation pending).
+- [ ] Replace the actual SystemUI Quick Settings layout using the matching ROM source tree.
