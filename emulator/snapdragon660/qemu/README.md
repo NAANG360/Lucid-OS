@@ -22,7 +22,7 @@ lavender board contract:
   architectural models as explicit Kryo 260 approximations;
 - GICv3 distributor/redistributor at the source-declared SDM660 addresses;
 - architectural timer wiring and a generated minimal guest DTB;
-- the existing UARTDM device mapped at 0x0c170000, with IRQ routing.
+- the existing UARTDM device mapped at 0x0c170000; UARTDM interrupt support is deliberately not advertised yet because the device model still lacks an IRQ output.
 
 These are initial code paths, **not yet compile/runtime-verified**. The CPU
 models do not reproduce Kryo 260 microarchitecture; the UART's retail console
