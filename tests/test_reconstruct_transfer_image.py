@@ -60,7 +60,7 @@ class TransferImageReconstructionTests(unittest.TestCase):
             compressed = os.path.join(temp, "product.new.dat.br")
             output = os.path.join(temp, "product.img")
             with open(transfer, "w", encoding="utf-8") as stream:
-                stream.write("4\\n1\\n0\\n0\\nnew 2,0,,1\\n")
+                stream.write("4\n1\n0\n0\nnew 2,0,,1\n")
             with open(compressed, "wb") as stream:
                 stream.write(b"not-needed")
             result = subprocess.run(
