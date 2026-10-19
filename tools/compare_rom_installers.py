@@ -18,6 +18,11 @@ TEXT_SUFFIXES = (
     "META-INF/com/android/metadata",
     "payload_properties.txt",
 )
+BINARY_SUFFIXES = (
+    "boot.img", "dtbo.img", "vbmeta.img", "super_dummy.img",
+    "system.new.dat.br", "vendor.new.dat.br", "product.new.dat.br",
+    "system_ext.new.dat.br", "odm.new.dat.br",
+)
 INSTALLER_RE = re.compile(
     r"format|wipe|delete|block_image_update|block_image_verify|package_extract|"
     r"super_dummy|dynamic_partitions|product|vendor|system|cust|metadata", re.I
@@ -32,6 +37,15 @@ def digest_file(path: Path) -> str:
     """Hash large ROM archives in bounded memory rather than reading a 1+ GB ZIP at once."""
     h = hashlib.sha256()
     with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def digest_zip_entry(z: zipfile.ZipFile, name: str) -> str:
+    """Hash a potentially large ZIP member in bounded memory."""
+    h = hashlib.sha256()
+    with z.open(name) as stream:
         for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
@@ -140,6 +154,12 @@ def main() -> int:
             bad = z.testzip()
             print(f"archive_bytes={path.stat().st_size} archive_sha256={digest_file(path)}")
             print(f"zip_test={'PASS' if bad is None else 'FAIL:' + bad}")
+            if bad is not None:
+                failed = True
+            duplicate_names = sorted({name for name in z.namelist() if z.namelist().count(name) > 1})
+            if duplicate_names:
+                print("ERROR: duplicate ZIP entry names=" + repr(duplicate_names))
+                failed = True
             print(f"entry_count={len(z.namelist())}")
             for info in sorted(z.infolist(), key=lambda x: x.filename):
                 if any(key in info.filename.lower() for key in
@@ -194,6 +214,20 @@ def main() -> int:
                 )
                 for line in diff:
                     print(line)
+
+        print("\\n" + "=" * 88 + "\\nCRITICAL IMAGE AND PAYLOAD HASHES\\n" + "=" * 88)
+        binary_names = sorted({
+            name for _, names in loaded.values() for name in names
+            if name.endswith(BINARY_SUFFIXES)
+        })
+        for name in binary_names:
+            print(f"\\n--- BINARY {name} ---")
+            for label, (z, names) in loaded.items():
+                if name not in names:
+                    print(f"{label}: MISSING")
+                    continue
+                info = z.getinfo(name)
+                print(f"{label}: size={info.file_size} sha256={digest_zip_entry(z, name)}")
 
         for label, (z, names) in loaded.items():
             for suffix in ("product.transfer.list", "product.new.dat.br"):
