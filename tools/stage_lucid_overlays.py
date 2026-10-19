@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -48,6 +49,16 @@ def reject_symlink_components(path: Path, stop: Path) -> None:
         current = current / part
         if current.is_symlink():
             raise ValueError(f"symlink paths are not supported: {current}")
+
+
+def safe_source_path(value: str) -> Path:
+    """Resolve an extra source path only after rejecting symlink components."""
+    raw = Path(value).expanduser()
+    if not raw.is_absolute():
+        raw = Path.cwd() / raw
+    raw = Path(os.path.abspath(raw))
+    reject_symlink_components(raw, Path(raw.anchor))
+    return raw.resolve()
 
 
 def source_files(src: Path) -> list[Path]:
@@ -108,7 +119,7 @@ def main() -> int:
             if "=" not in mapping:
                 raise ValueError(f"invalid --extra-overlay {mapping!r}; expected SOURCE=DEST")
             source_text, dest_text = mapping.split("=", 1)
-            source = Path(source_text).expanduser().resolve()
+            source = safe_source_path(source_text)
             destination_rel = Path(dest_text)
             if destination_rel.is_absolute() or ".." in destination_rel.parts:
                 raise ValueError(f"extra overlay destination must be relative and confined: {dest_text}")
@@ -159,7 +170,7 @@ def main() -> int:
                 destination_rel = Path(dest_text)
                 if destination_rel.is_absolute() or ".." in destination_rel.parts:
                     raise ValueError(f"extra overlay destination must be relative and confined: {dest_text}")
-                mappings.append((Path(source_text).expanduser().resolve(), destination_rel.as_posix(), True))
+                mappings.append((safe_source_path(source_text), destination_rel.as_posix(), True))
             for source, dest_rel, required in mappings:
                 if not source.exists():
                     continue
