@@ -181,7 +181,8 @@ jobs:
               mov x3, #0
               smc #0
               cbnz x0, fail
-              mov x4, #1000000
+              movz x4, #0x4240
+              movk x4, #0xf, lsl #16
           1:  ldr w5, [x6]
               cmp w5, #0x660
               b.eq success
