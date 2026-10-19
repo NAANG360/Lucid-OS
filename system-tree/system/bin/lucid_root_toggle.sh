@@ -41,5 +41,13 @@ if [ "$RESULT" -ne 0 ]; then
 fi
 
 MODE="$(stat -c '%a' "$SU_PATH" 2>/dev/null)"
+if [ "$STATUS" = "1" ] && [ "$MODE" != "6755" ]; then
+    log -t "$TAG" "Expected su mode 6755 after enabling root, got '$MODE'."
+    exit 1
+fi
+if [ "$STATUS" != "1" ] && [ "$MODE" != "0" ]; then
+    log -t "$TAG" "Expected su mode 0 after disabling root, got '$MODE'."
+    exit 1
+fi
 log -t "$TAG" "Root gate updated; su mode=$MODE (requested state=$STATUS)."
 exit 0
