@@ -19,6 +19,7 @@ class UARTDMRegisterMapTests(unittest.TestCase):
                 "    UART_DM_CR = 0xa8,\n"
                 "    UART_DM_DMEN = 0x3c,\n"
                 "    UART_DM_ISR = 0xb4,\n"
+                "    UART_DM_MISR = 0xac,\n"
                 "#define CLEAR_TX_READY 0x300\n"
                 "};\n"
             )
@@ -35,6 +36,7 @@ class UARTDMRegisterMapTests(unittest.TestCase):
                 "#define UARTDM_SR 0x0a4\n"
                 "#define UARTDM_CR 0x0a8\n"
                 "#define UARTDM_ISR 0x0b4\n"
+                "#define UARTDM_MISR 0x0ac\n"
                 "#define UARTDM_CR_CLEAR_TX_READY 0x300\n"
             )
             values = MODULE.defines(source)
