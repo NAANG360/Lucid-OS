@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SDK="\${ANDROID_HOME:-}"
+SDK="${ANDROID_HOME:-}"
 if [[ -z "$SDK" || ! -d "$SDK" ]]; then
   echo "Set ANDROID_HOME to an installed Android SDK." >&2
   exit 2
