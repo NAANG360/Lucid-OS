@@ -57,6 +57,16 @@ class OverlayInventoryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "symlink"):
                 MODULE.reject_symlink_components(base / "system" / "etc", base)
 
+    def test_external_source_symlink_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "target"
+            target.write_text("artifact")
+            link = root / "artifact-link"
+            link.symlink_to(target)
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                MODULE.safe_source_path(str(link))
+
     def test_path_outside_root_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
