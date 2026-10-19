@@ -14,5 +14,8 @@ The QS tile is a real Android Quick Settings entry point, but Android's stock sh
 ## Build and integration
 The Android API 35 CI workflow is extended to compile, sign, and validate both apps as development artifacts. Their ephemeral CI signing key is not the ROM platform key. Do not sideload them as privileged/system apps or include them in a flashable ROM until their install model, permissions, target framework, and runtime behavior are verified against the actual base ZIP.
 
+## Actual SystemUI path
+The upstream LineageOS 22.2 integration touchpoints are mapped in `theme/systemui/INTEGRATION_PLAN.md`. This is a source-patch task, not something an ordinary app or a framework color overlay can complete.
+
 ## Figma reference
 The exact Figma node inventory and Android adaptation rules are recorded in `design/LUCIDOS_VISUAL_SYSTEM.md`. The Figma MCP integration currently reports its Starter-plan call limit, so this implementation follows the repository's recorded node-level audit rather than pretending a fresh visual comparison was performed.
