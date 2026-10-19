@@ -25,6 +25,7 @@ jobs:
             build-essential pkg-config libglib2.0-dev libpixman-1-dev \
             libfdt-dev zlib1g-dev
       - name: Restore QEMU source and build cache
+        id: qemu-cache
         uses: actions/cache/restore@v4
         with:
           path: qemu-src
@@ -80,10 +81,14 @@ jobs:
           python3 emulator/snapdragon660/tools/validate_uartdm_register_map.py \
             --kernel-header /tmp/msm_serial_hs_hwreg.h \
             --qemu-source emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c
-      - name: Configure and compile AArch64 system emulator
+      - name: Configure AArch64 system emulator on cache miss
+        if: steps.qemu-cache.outputs.cache-hit != 'true'
         working-directory: qemu-src
         run: |
           ./configure --target-list=aarch64-softmmu --disable-werror --disable-docs
+      - name: Compile AArch64 system emulator
+        working-directory: qemu-src
+        run: |
           ninja -C build qemu-system-aarch64
 
       - name: Save QEMU source and build cache
