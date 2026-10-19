@@ -113,8 +113,7 @@ def main() -> int:
                     f"but pinned DTSI declares window 0x{window:x}"
                 )
     if errors:
-        print("
-".join(errors))
+        print("\n".join(errors))
         return 1
     print(
         f"validated {len(EXPECTED)} UARTDM register offsets, clear command, and MMIO window "
