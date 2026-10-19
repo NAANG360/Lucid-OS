@@ -35,20 +35,12 @@ jobs:
           p = Path("qemu-src/hw/arm/virt.c")
           s = p.read_text()
           needle = "    machine_class_allow_dynamic_sysbus_dev(mc, TYPE_VFIO_CALXEDA_XGMAC);"
-          added = "    machine_class_allow_dynamic_sysbus_dev(mc, TYPE_DEVICE);"
+          added = '    machine_class_allow_dynamic_sysbus_dev(mc, "sdm660-uartdm");'
           if s.count(needle) != 1:
               raise SystemExit("Could not uniquely locate virt SysBus allowlist")
           s = s.replace(needle, needle + chr(10) + added)
           if added not in s:
               raise SystemExit("UARTDM allowlist insertion failed")
-          p.write_text(s)
-          # Make the smoke-test harness explicitly recognize this prototype type.
-          p = Path("qemu-src/hw/core/machine.c")
-          s = p.read_text()
-          needle = "        allowed |= !!object_class_dynamic_cast(klass, wl->value);"
-          if s.count(needle) != 1:
-              raise SystemExit("Could not uniquely locate dynamic SysBus type check")
-          s = s.replace(needle, needle + chr(10) + '        allowed |= g_str_equal(type, "sdm660-uartdm");')
           p.write_text(s)
           PY
       - name: Verify UARTDM offsets against pinned lavender kernel source
@@ -63,7 +55,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: qemu-src/build
-          key: qemu-v10.0.0-aarch64-softmmu-build-v1
+          key: qemu-v10.0.0-aarch64-softmmu-build-v2
       - name: Configure and compile AArch64 system emulator
         working-directory: qemu-src
         run: |
