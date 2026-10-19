@@ -6,10 +6,14 @@ on:
   push:
     paths:
       - 'emulator/snapdragon660/qemu/**'
+      - 'emulator/snapdragon660/tools/**'
+      - 'emulator/snapdragon660/tests/**'
       - '.github/workflows/snapdragon660-qemu-device.yml'
   pull_request:
     paths:
       - 'emulator/snapdragon660/qemu/**'
+      - 'emulator/snapdragon660/tools/**'
+      - 'emulator/snapdragon660/tests/**'
       - '.github/workflows/snapdragon660-qemu-device.yml'
   workflow_dispatch:
 permissions:
