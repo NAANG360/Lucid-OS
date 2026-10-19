@@ -35,6 +35,7 @@ This **does not prove the kernel/ramdisk is compatible with lavender or that AVB
 - The boot image has a valid `ANDROID!` legacy header, a 4,096-byte page size, a 16.5 MB gzip-compressed kernel, and a 1.8 MB gzip-compressed ramdisk. Its OS-version word encodes Android 15.0.0 / December 2025.
 - The kernel identifies itself as `4.19.325-st-San-Kernel-Kurotsuki-R1.1.107`. The upstream release page identifies that kernel build as intended for the Redmi Note 7 (`lavender`), so the version number alone is not evidence of a wrong-device kernel. See the [San-Kernel Kurotsuki release notes](https://san-kernel.vercel.app/Release/kurotsuki-r1.1.107).
 - The ramdisk's `fstab.qcom` declares `system`, `vendor`, `product`, `system_ext`, and `odm` as logical, first-stage-mounted ext4 partitions. It contains no `cust` mount.
+- The same fstab declares `/data` as **F2FS**, with file-based encryption and inline-crypto options. The installer does not format `userdata`; if recovery formatted it as ext4, that filesystem mismatch is an independent boot blocker to check.
 - `dtbo.img` has the expected DTBO magic. `vbmeta.img` has an `AVB0` header and flags value `3`, meaning hashtree and verification are disabled in that vbmeta image.
 
 These checks make a malformed boot header, a missing `cust` fstab entry, and ordinary AVB verification failure less likely as the immediate cause. They do not prove the kernel successfully boots on the physical device.
