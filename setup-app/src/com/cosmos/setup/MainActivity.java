@@ -133,7 +133,7 @@ public final class MainActivity extends Activity {
         LinearLayout providers = new LinearLayout(this);
         providers.setOrientation(LinearLayout.HORIZONTAL);
         Button google = pill("G", NIGHT, WHITE, v -> comingSoon("Google sign-in"));
-        Button apple = pill("●", NIGHT, WHITE, v -> comingSoon("Apple sign-in"));
+        Button apple = pill("Apple", NIGHT, WHITE, v -> comingSoon("Apple sign-in"));
         providers.addView(google, new LinearLayout.LayoutParams(0, dp(48), 1f));
         providers.addView(apple, margins(0, 48, 8, 0, 0, 0, 1f));
         panel.addView(providers, margins(-1, 48, 0, 0, 0, 24));
@@ -150,7 +150,7 @@ public final class MainActivity extends Activity {
         TextView back = label("‹", 32, WHITE, false);
         back.setOnClickListener(v -> showAccount());
         root.addView(back, margins(-1, dp(48), 0, 0, 0, 28));
-        root.addView(label("♧", 28, Color.LTGRAY, false), margins(-1, -2, 0, 0, 0, 8));
+        root.addView(label("☎", 28, Color.LTGRAY, false), margins(-1, -2, 0, 0, 0, 8));
         root.addView(label("Your phone number", 20, WHITE, true), margins(-1, -2, 0, 0, 0, 8));
         root.addView(label("Phone verification will be available in a future update. No number is needed right now.",
             14, Color.LTGRAY, false), margins(-1, -2, 0, 0, 0, 24));
