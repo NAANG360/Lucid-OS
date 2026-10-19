@@ -8,7 +8,14 @@ class SnapdragonVariantTests(unittest.TestCase):
         self.assertEqual(p["soc"]["part"], "SDM660")
         self.assertEqual(p["device"]["codename"], "lavender")
         self.assertEqual(p["implementation"]["qemu_machine_type"], "sdm660-lavender")
-        self.assertFalse(p["implementation"]["real_sdm660_machine_model"])
+        self.assertTrue(p["implementation"]["real_sdm660_machine_model"])
+        machine = ROOT / "qemu" / "hw" / "arm" / "sdm660_lavender.c"
+        self.assertTrue(machine.is_file())
+        source = machine.read_text()
+        self.assertIn('MACHINE_TYPE_NAME("sdm660-lavender")', source)
+        self.assertIn("SDM660_GICD_BASE", source)
+        self.assertIn("SDM660_UART_BASE", source)
+        self.assertNotIn("TYPE_VIRT_MACHINE", source)
     def test_cpu_topology_is_eight_unique_asymmetric_cores(self):
         p=json.loads((ROOT/"profile.json").read_text())
         clusters=p["soc"]["cpu_topology"]["clusters"]
@@ -28,7 +35,7 @@ class SnapdragonVariantTests(unittest.TestCase):
         self.assertEqual(p.returncode, 0, p.stderr)
         d=json.loads(p.stdout)
         self.assertEqual(d["qemu_machine_type"], "sdm660-lavender")
-        self.assertEqual(d["device_tree_scaffold_status"], "disabled-incomplete-not-bootable")
+        self.assertEqual(d["device_tree_scaffold_status"], "native-machine-prototype-unvalidated")
     def test_dts_does_not_claim_verified_silicon_map(self):
         dts=(ROOT/"device-tree/sdm660-lavender.dts").read_text()
         self.assertIn("does not invent Qualcomm MMIO addresses", dts)
