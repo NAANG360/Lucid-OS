@@ -12,6 +12,10 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.format.DateFormat;
+import java.util.Date;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
@@ -29,6 +33,16 @@ public final class MainActivity extends Activity {
     private String cameraId;
     private boolean torchOn;
     private static final int CAMERA_PERMISSION_REQUEST = 41;
+    private final Handler clockHandler = new Handler(Looper.getMainLooper());
+    private TextView clockText;
+    private final Runnable clockTick = new Runnable() {
+        @Override public void run() {
+            if (clockText != null) {
+                clockText.setText(DateFormat.getTimeFormat(MainActivity.this).format(new Date()));
+                clockHandler.postDelayed(this, 30_000L);
+            }
+        }
+    };
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -44,7 +58,12 @@ public final class MainActivity extends Activity {
         } catch(Exception ignored) {}
         LinearLayout page=new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL); page.setPadding(dp(22),dp(24),dp(22),dp(26)); page.setBackgroundColor(BG);
         TextView eyebrow=label("L U C I D   /   CONTROL CENTER",11,BLUE,true); page.addView(eyebrow);
-        TextView title=label("At a glance.",32,INK,true); LinearLayout.LayoutParams tp=params(-1,-2); tp.topMargin=dp(7); page.addView(title,tp);
+        clockText=label(DateFormat.getTimeFormat(this).format(new Date()),42,INK,true);
+        LinearLayout.LayoutParams clockParams=params(-1,-2); clockParams.topMargin=dp(7); page.addView(clockText,clockParams);
+        TextView date=label(DateFormat.getMediumDateFormat(this).format(new Date()),14,MUTED,false);
+        LinearLayout.LayoutParams dateParams=params(-1,-2); dateParams.topMargin=dp(1); page.addView(date,dateParams);
+        TextView title=label("At a glance.",24,INK,true); LinearLayout.LayoutParams tp=params(-1,-2); tp.topMargin=dp(14); page.addView(title,tp);
+        clockHandler.post(clockTick);
         TextView sub=label("Your device, one calm surface.",14,MUTED,false); LinearLayout.LayoutParams sp=params(-1,-2); sp.topMargin=dp(3); sp.bottomMargin=dp(18); page.addView(sub,sp);
         LinearLayout pair=new LinearLayout(this); pair.setOrientation(LinearLayout.HORIZONTAL);
         pair.addView(action("Wi-Fi","Manage network",Settings.ACTION_WIFI_SETTINGS),new LinearLayout.LayoutParams(0,dp(100),1));
@@ -64,6 +83,7 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams fp=params(-1,-2); fp.topMargin=dp(20); page.addView(foot,fp);
         android.widget.ScrollView scroll=new android.widget.ScrollView(this); scroll.setFillViewport(true); scroll.addView(page); setContentView(scroll);
     }
+    @Override protected void onDestroy(){ clockHandler.removeCallbacks(clockTick); clockText=null; super.onDestroy(); }
     private View sliderCard(String title,String desc,boolean brightness) {
         LinearLayout c=card(); c.setOrientation(LinearLayout.VERTICAL);
         TextView h=label(title,18,INK,true); c.addView(h);
