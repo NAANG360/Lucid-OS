@@ -48,3 +48,7 @@ python3 tools/stage_lucid_overlays.py --base-root /path/to/extracted-base --repo
 ```
 
 Inspect the report, then use `--apply` to copy the allowlisted files. This only stages source files; image creation still needs correct Android ownership, SELinux labels/file contexts, product overlay integration, and filesystem validation. It does not itself create a flashable ROM.
+
+### Direct-download fallback identified
+
+The channel's 9 November 2024 LineageOS 22.0 / Android 15 post links to this direct SourceForge download: https://sourceforge.net/projects/test.lavender-roms.p/files/Rom/Lineage-22/enforcing-test/lineage-22.0-lavender-20241109-2232.zip/download. It is explicitly described as a test build, so it is retained as a fallback for comparison, not the preferred production base. The preferred different base remains the March 2025 LineageOS-Ext dynamic Android 15 build; resolve and verify that build's actual download rather than downgrading the foundation merely because this older link is direct.
