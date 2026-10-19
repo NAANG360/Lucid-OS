@@ -93,7 +93,8 @@ static void lavender_add_cpu_nodes(SDM660LavenderState *s)
                  (unsigned long long)lavender_mpidr(i));
         qemu_fdt_add_subnode(s->fdt, name);
         qemu_fdt_setprop_string(s->fdt, name, "device_type", "cpu");
-        qemu_fdt_setprop_string(s->fdt, name, "compatible", "arm,armv8");
+        qemu_fdt_setprop_string(s->fdt, name, "compatible",
+                                i < 4 ? "arm,cortex-a53" : "arm,cortex-a72");
         qemu_fdt_setprop_sized_cells(s->fdt, name, "reg", 2,
                                      lavender_mpidr(i));
         if (i >= ms->smp.cpus) {
@@ -132,6 +133,7 @@ static void lavender_create_fdt(SDM660LavenderState *s)
     qemu_fdt_setprop_string(fdt, "/intc", "compatible", "arm,gic-v3");
     qemu_fdt_setprop(fdt, "/intc", "interrupt-controller", NULL, 0);
     qemu_fdt_setprop_cell(fdt, "/intc", "#interrupt-cells", 3);
+    qemu_fdt_setprop_cell(fdt, "/intc", "#redistributor-regions", 1);
     qemu_fdt_setprop_cell(fdt, "/intc", "#address-cells", 2);
     qemu_fdt_setprop(fdt, "/intc", "ranges", NULL, 0);
     qemu_fdt_setprop_sized_cells(fdt, "/intc", "reg",
