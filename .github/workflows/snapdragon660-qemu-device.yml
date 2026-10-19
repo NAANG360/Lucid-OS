@@ -29,7 +29,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: qemu-src
-          key: qemu-v10.0.0-aarch64-softmmu-source-build-v1
+          key: qemu-v10.0.0-aarch64-softmmu-source-build-sdm660-v2
       - name: Fetch pinned QEMU source and register SDM660 board plus UARTDM
         run: |
           if [ ! -d qemu-src/.git ]; then
@@ -126,7 +126,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: qemu-src
-          key: qemu-v10.0.0-aarch64-softmmu-source-build-v1
+          key: qemu-v10.0.0-aarch64-softmmu-source-build-sdm660-v2
       - name: Verify native Snapdragon machine is registered
         working-directory: qemu-src
         run: |
