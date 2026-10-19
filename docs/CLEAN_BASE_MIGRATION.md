@@ -37,3 +37,14 @@ The clean ROM is the foundation, not the finished product. Keep the existing Luc
 - Existing Lucid product payload writes only 123,902 of 601,750 filesystem blocks and fails ext4 validation when reconstructed from an empty image. The base migration must build product from a complete base filesystem/tree or a full image.
 - The old installer resets retrofit dynamic-partition groups and flashes boot/dtbo/vbmeta. Reusing it without reconciling the selected base's partition metadata is not acceptable.
 - The exact string init.lucid.rd was not found in the tracked tree. It must still be searched in the original Lucid release and boot ramdisk and preserved if found.
+
+
+## Explicit overlay staging tool
+
+`tools/stage_lucid_overlays.py` is the first controlled merge primitive. It stages only an allowlist of Lucid-owned init hooks, scripts, permissions, the existing setup APK, and the Ubuntu base directory. It deliberately does not copy the old system tree wholesale or replace Android framework, Settings, SystemUI, vendor, boot, DTBO, or vbmeta. It defaults to a dry-run inventory and records each file's SHA-256, size, mode, and whether it would add/replace/leave unchanged. Once a complete base filesystem has been extracted to a directory containing `system/`, run:
+
+```bash
+python3 tools/stage_lucid_overlays.py --base-root /path/to/extracted-base --report lucid-overlay-plan.json
+```
+
+Inspect the report, then use `--apply` to copy the allowlisted files. This only stages source files; image creation still needs correct Android ownership, SELinux labels/file contexts, product overlay integration, and filesystem validation. It does not itself create a flashable ROM.
