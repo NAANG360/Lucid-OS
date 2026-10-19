@@ -108,6 +108,7 @@ static uint64_t sdm660_uartdm_read(void *opaque, hwaddr offset,
     case 0x004: return s->mr2;
     case UARTDM_CSR: return s->csr;
     case UARTDM_IMR: return s->imr;
+    case UARTDM_ISR: return s->isr;
     case UARTDM_RF:
         if (s->rx_count) {
             uint8_t byte = s->rx_fifo[s->rx_head];
