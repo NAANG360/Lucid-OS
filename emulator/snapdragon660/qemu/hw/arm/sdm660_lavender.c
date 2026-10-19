@@ -12,6 +12,7 @@
 #include "qemu/units.h"
 #include "qapi/error.h"
 #include "qemu/error-report.h"
+#include "qobject/qlist.h"
 #include "system/device_tree.h"
 #include "hw/arm/boot.h"
 #include "hw/core/boards.h"
@@ -165,13 +166,14 @@ static void lavender_create_gic(SDM660LavenderState *s)
     MachineState *ms = MACHINE(s);
     SysBusDevice *gicbus;
     unsigned int i;
+    QList *redist_region_count = qlist_new();
     s->gic = qdev_new(gicv3_class_name());
     qdev_prop_set_uint32(s->gic, "revision", 3);
     qdev_prop_set_uint32(s->gic, "num-cpu", ms->smp.cpus);
     qdev_prop_set_uint32(s->gic, "num-irq", SDM660_NUM_IRQS + 32);
     qdev_prop_set_bit(s->gic, "has-security-extensions", true);
-    qdev_prop_set_uint32(s->gic, "len-redist-region-count", 1);
-    qdev_prop_set_uint32(s->gic, "redist-region-count[0]", ms->smp.cpus);
+    qlist_append_int(redist_region_count, ms->smp.cpus);
+    qdev_prop_set_array(s->gic, "redist-region-count", redist_region_count);
     gicbus = SYS_BUS_DEVICE(s->gic);
     sysbus_realize_and_unref(gicbus, &error_fatal);
     sysbus_mmio_map(gicbus, 0, SDM660_GICD_BASE);
