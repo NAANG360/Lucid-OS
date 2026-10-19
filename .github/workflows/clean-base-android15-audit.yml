@@ -26,7 +26,7 @@ jobs:
           fetch-depth: 1
 
       - name: Test preservation manifest logic
-        run: python3 -m unittest tests/test_validate_lucid_preservation.py -v
+        run: python3 tests/test_validate_lucid_preservation.py -v
 
       - name: Snapshot mandatory LucidOS preservation payload
         shell: bash
@@ -49,7 +49,7 @@ jobs:
             "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME"
           test -s "clean-base/$EXPECTED_FILENAME"
           sha256sum "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-sha256.txt
-          stat -c 'filename=%n%nbytes=%s' "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-file.txt
+          stat -c 'filename=%n\\nbytes=%s' "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-file.txt
           unzip -tq "clean-base/$EXPECTED_FILENAME"
           unzip -Z1 "clean-base/$EXPECTED_FILENAME" > clean-base/audit/base-zip-entry-list.txt
 
