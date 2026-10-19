@@ -112,6 +112,10 @@ jobs:
             cp -a "$RUNNER_TEMP/mnt/original-product/." "$RUNNER_TEMP/source/product_mod/"
             sudo umount "$RUNNER_TEMP/mnt/original-product"
             TREE="$RUNNER_TEMP/source/product_mod"
+            rm -f "$RUNNER_TEMP/rom/original-lineage.zip" \
+              "$RUNNER_TEMP/source/original-product.transfer.list" \
+              "$RUNNER_TEMP/source/original-product.new.dat.br" \
+              "$RUNNER_TEMP/source/original-product.img"
             echo "Recovered product source from original LineageOS archive after clean e2fsck validation."
           fi
           echo "$TREE" > "$RUNNER_TEMP/product-tree-path.txt"
@@ -225,6 +229,7 @@ jobs:
           brotli -q 6 -c "$IMAGE" > "$UPDATE/product.new.dat.br"
           ls -lh "$UPDATE/product.new.dat.br" > report/full-product-payload-size.txt
           cp "$RUNNER_TEMP/rom/LucidOS-unsigned.zip" out/LucidOS-unsigned-full-product.zip
+          rm -f "$RUNNER_TEMP/rom/LucidOS-unsigned.zip"
           (cd "$UPDATE" && zip -0 -u "$GITHUB_WORKSPACE/out/LucidOS-unsigned-full-product.zip" product.transfer.list product.new.dat.br)
           unzip -t out/LucidOS-unsigned-full-product.zip | tail -n 2
           unzip -p out/LucidOS-unsigned-full-product.zip product.transfer.list > report/final-product-transfer-list.txt
