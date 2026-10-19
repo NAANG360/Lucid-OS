@@ -25,6 +25,9 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Test preservation manifest logic
+        run: python3 -m unittest tests/test_validate_lucid_preservation.py -v
+
       - name: Snapshot mandatory LucidOS preservation payload
         shell: bash
         run: |
