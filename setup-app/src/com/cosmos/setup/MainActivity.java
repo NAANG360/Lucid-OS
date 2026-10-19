@@ -6,20 +6,16 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
-import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
-import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
-import android.view.inputmethod.InputMethodManager;
 import android.content.Context;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -35,7 +31,6 @@ public final class MainActivity extends Activity {
     private final Handler handler = new Handler();
     private LinearLayout root;
     private int screen = 0;
-    private EditText phoneInput;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
