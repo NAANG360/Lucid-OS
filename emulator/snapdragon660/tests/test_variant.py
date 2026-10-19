@@ -29,6 +29,12 @@ class SnapdragonVariantTests(unittest.TestCase):
         # Timer PPIs legitimately use 0xf08; they must not satisfy the UART check.
         self.assertNotIn("0, SDM660_UART_SPI, 0xf08", uart)
 
+    def test_gicv3_redistributor_stride_matches_eight_cpu_layout(self):
+        source = (ROOT / "qemu" / "hw" / "arm" / "sdm660_lavender.c").read_text()
+        self.assertIn('"redistributor-stride", 2', source)
+        self.assertIn("0, 0x20000", source)
+        self.assertIn("#define SDM660_GICR_SIZE      0x100000", source)
+
     def test_arch_timer_uses_source_declared_frequency(self):
         source = (ROOT / "qemu" / "hw" / "arm" / "sdm660_lavender.c").read_text()
         timer = source.split('qemu_fdt_add_subnode(fdt, "/timer");', 1)[1].split('qemu_fdt_add_subnode(fdt, "/intc");', 1)[0]
