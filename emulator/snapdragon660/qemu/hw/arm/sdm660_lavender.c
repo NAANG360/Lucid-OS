@@ -111,8 +111,9 @@ static void lavender_create_fdt(SDM660LavenderState *s)
         exit(1);
     }
     fdt = s->fdt;
-    qemu_fdt_setprop_string(fdt, "/", "compatible",
-                            "xiaomi,lavender-sdm660");
+    qemu_fdt_setprop_string(fdt, "/", "model",
+                            "Xiaomi Redmi Note 7 (lavender)");
+    qemu_fdt_setprop_string(fdt, "/", "compatible", "qcom,sdm660");
     qemu_fdt_setprop_cell(fdt, "/", "#address-cells", 2);
     qemu_fdt_setprop_cell(fdt, "/", "#size-cells", 2);
     qemu_fdt_add_subnode(fdt, "/memory");
@@ -150,9 +151,11 @@ static void lavender_create_fdt(SDM660LavenderState *s)
     qemu_fdt_setprop_sized_cells(fdt, "/soc/serial@c170000", "reg",
                                  2, SDM660_UART_BASE, 2, SDM660_UART_SIZE);
     qemu_fdt_setprop_string(fdt, "/soc/serial@c170000", "status", "okay");
-    qemu_fdt_add_subnode(fdt, "/chosen");
-    qemu_fdt_setprop_string(fdt, "/chosen", "stdout-path",
+    qemu_fdt_add_subnode(fdt, "/aliases");
+    qemu_fdt_setprop_string(fdt, "/aliases", "serial0",
                             "/soc/serial@c170000");
+    qemu_fdt_add_subnode(fdt, "/chosen");
+    qemu_fdt_setprop_string(fdt, "/chosen", "stdout-path", "serial0");
 }
 
 static void *lavender_get_dtb(const struct arm_boot_info *binfo, int *size)
