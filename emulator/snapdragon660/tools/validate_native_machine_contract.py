@@ -74,7 +74,7 @@ def validate(dtsi: str, machine: str) -> dict:
     uart_fdt = uart_fdt_match.group(1)
     if '"interrupt-parent"' not in uart_fdt or '"interrupts"' not in uart_fdt:
         raise ValueError("UART FDT node is missing its interrupt-parent/interrupts properties")
-    if not re.search(r'"interrupt-parent",\\s*1', uart_fdt):
+    if not re.search(r'"interrupt-parent",\s*1', uart_fdt):
         raise ValueError("UART FDT interrupt-parent does not reference the native GIC phandle")
     if 'qemu_fdt_setprop_cell(fdt, "/", "interrupt-parent", 1)' not in machine:
         raise ValueError("root FDT interrupt-parent does not reference the native GIC phandle")
