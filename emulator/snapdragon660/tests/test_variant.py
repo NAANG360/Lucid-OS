@@ -20,6 +20,15 @@ class SnapdragonVariantTests(unittest.TestCase):
         self.assertIn("gicv3_class_name()", source)
         self.assertIn("arm_load_kernel", source)
         self.assertNotIn("TYPE_VIRT_MACHINE", source)
+    def test_uart_fdt_exposes_its_own_interrupt_tuple(self):
+        source = (ROOT / "qemu" / "hw" / "arm" / "sdm660_lavender.c").read_text()
+        uart = source.split('qemu_fdt_add_subnode(fdt, "/soc/serial@c170000");', 1)[1].split('qemu_fdt_add_subnode(fdt, "/aliases");', 1)[0]
+        self.assertIn('"interrupt-parent"', uart)
+        self.assertIn('"interrupts"', uart)
+        self.assertIn("0, SDM660_UART_SPI, 0", uart)
+        # Timer PPIs legitimately use 0xf08; they must not satisfy the UART check.
+        self.assertNotIn("0, SDM660_UART_SPI, 0xf08", uart)
+
     def test_cpu_topology_is_eight_unique_asymmetric_cores(self):
         p=json.loads((ROOT/"profile.json").read_text())
         clusters=p["soc"]["cpu_topology"]["clusters"]
