@@ -103,10 +103,14 @@ jobs:
             https://raw.githubusercontent.com/xiaomi-sdm660/android_kernel_xiaomi_sdm660/5ce3bc43631dca83f6081757c8982c2d5f6e017c/drivers/tty/serial/msm_serial_hs_hwreg.h \
             -o /tmp/msm_serial_hs_hwreg.h
           curl -fsSL \
+            https://raw.githubusercontent.com/xiaomi-sdm660/android_kernel_xiaomi_sdm660/5ce3bc43631dca83f6081757c8982c2d5f6e017c/drivers/tty/serial/msm_serial_hs.c \
+            -o /tmp/msm_serial_hs.c
+          curl -fsSL \
             https://raw.githubusercontent.com/xiaomi-sdm660/android_kernel_xiaomi_sdm660/5ce3bc43631dca83f6081757c8982c2d5f6e017c/arch/arm/boot/dts/qcom/sdm660.dtsi \
             -o /tmp/sdm660.dtsi
           python3 emulator/snapdragon660/tools/validate_uartdm_register_map.py \
             --kernel-header /tmp/msm_serial_hs_hwreg.h \
+            --kernel-driver /tmp/msm_serial_hs.c \
             --kernel-dtsi /tmp/sdm660.dtsi \
             --qemu-source emulator/snapdragon660/qemu/hw/char/sdm660_uartdm.c
       - name: Validate native machine UART mapping against SoC DTSI
