@@ -1,13 +1,13 @@
 # Clean Android 15 base → LucidOS migration
 
-## Selected base family
+## Base candidates (none accepted yet)
 
-Use a **vanilla Android 15 ROM for Redmi Note 7/7S (lavender)** from the Redmi Note 7/7S Updates channel, not the current LucidOS ZIP as the base. The channel has two relevant Android 15 candidates:
+Use a **verified vanilla Android 15 ROM for Redmi Note 7/7S (lavender)** from the Redmi Note 7/7S Updates channel, not the current LucidOS ZIP as the base. No candidate is accepted yet: the channel/build labels are discovery evidence, and the actual archive must pass the acceptance gates below. The channel has these candidate builds:
 
 - **LineageOS 22.2 Unofficial, vanilla/encrypted, dynamic, 4.19 kernel**, posted 24 December 2025: https://t.me/s/redminote7Updates?q=%23LineageOS
 - **LineageOS 22.2 lavender, 4.19 kernel, dated 12 June 2025**, from the Redmi Note 7 ROMs SourceForge project maintained by pix106: https://sourceforge.net/projects/lavender-roms/files/Rom/4.19/Lineage-22.2/lineage-22.2-lavender-20250612-1450.zip/download. This is a distinct build from the archived December 2025 LineageOS 22.2 package. Inspect its metadata and package list to verify Android 15, vanilla/no-GApps status, dynamic-partition layout and device assertions before promoting it to the chosen base.
 
-The repository's archived lineage-22.2-20251222-UNOFFICIAL-lavender.zip is the December 2025 LineageOS 22.2 package. For the requested different base, investigate the LineageOS-Ext Android 15 vanilla/dynamic build first; do not silently substitute the already-archived LineageOS 22.2 ZIP. Resolve its actual Download link and verify the exact file before using it. The channel post is evidence of the build label, not proof that the download is still available or safe.
+The repository's archived lineage-22.2-20251222-UNOFFICIAL-lavender.zip is the December 2025 LineageOS 22.2 package. It is not the requested different base. The June 2025 pix106 package is the first distinct candidate configured in the clean-base audit workflow; if it fails any gate, investigate the LineageOS-Ext Android 15 vanilla/dynamic build. The channel post is evidence of a build label, not proof that a download is still available, vanilla, dynamically partitioned, or safe.
 
 ## Merge contract
 
@@ -41,13 +41,22 @@ The clean ROM is the foundation, not the finished product. Keep the existing Luc
 
 ## Explicit overlay staging tool
 
-`tools/stage_lucid_overlays.py` is the first controlled merge primitive. It stages only an allowlist of Lucid-owned init hooks, scripts, permissions, the existing setup APK, and the Ubuntu base directory. It deliberately does not copy the old system tree wholesale or replace Android framework, Settings, SystemUI, vendor, boot, DTBO, or vbmeta. It defaults to a dry-run inventory and records each file's SHA-256, size, mode, and whether it would add/replace/leave unchanged. Once a complete base filesystem has been extracted to a directory containing `system/`, run:
+`tools/stage_lucid_overlays.py` is the first controlled merge primitive. It stages only an allowlist of Lucid-owned init hooks, scripts, permissions, the existing setup APK, and the Ubuntu base directory. It deliberately does not copy the old system tree wholesale or replace Android framework, Settings, SystemUI, vendor, boot, DTBO, or vbmeta. It defaults to a dry-run inventory and records each file's SHA-256, size, mode, and whether it would add/replace/leave unchanged. It also accepts repeatable `--extra-overlay SOURCE=DEST` mappings for locally available generated artifacts (for example, the output of the theme workflow). Once a complete base filesystem has been extracted to a directory containing `system/`, run:
 
 ```bash
 python3 tools/stage_lucid_overlays.py --base-root /path/to/extracted-base --report lucid-overlay-plan.json
 ```
 
-Inspect the report, then use `--apply` to copy the allowlisted files. This only stages source files; image creation still needs correct Android ownership, SELinux labels/file contexts, product overlay integration, and filesystem validation. It does not itself create a flashable ROM.
+Inspect the report, then use `--apply` to copy the allowlisted files. Generated theme outputs can be added explicitly after they have been downloaded from the theme workflow artifact, for example:
+
+```bash
+python3 tools/stage_lucid_overlays.py --base-root /path/to/extracted-base \
+  --extra-overlay /path/to/LucidWallpapers.apk=system/app/LucidWallpapers/LucidWallpapers.apk \
+  --extra-overlay /path/to/LucidOS-bootanimation.zip=system/media/bootanimation.zip \
+  --report lucid-overlay-plan.json
+```
+
+The wallpaper app and boot animation are suitable candidates for staging; the static framework RRO remains excluded until target overlay policy/idmap and signature behavior are validated. This only stages files; image creation still needs correct Android ownership, SELinux labels/file contexts, privileged permission integration, product overlay integration, and filesystem validation. It does not itself create a flashable ROM.
 
 ### Direct-download fallback identified
 
