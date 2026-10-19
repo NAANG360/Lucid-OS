@@ -151,19 +151,21 @@ print(f"max_referenced_block_end={max_range_end} image_bytes={image_bytes}")
 print(f"new_dat_bytes={len(raw)} ext4_superblock_magic_at_1080={ext4_magic} ext4_blocks={fs_blocks} ext4_block_size={fs_block_size}")
 if fs_blocks:
     fs_bytes = fs_blocks * fs_block_size
+    fs_ota_blocks = (fs_bytes + BLOCK - 1) // BLOCK
     operation_write_blocks = actual_new_blocks + zero_blocks
     operation_touched_blocks = operation_write_blocks + erase_blocks
     written_blocks = union_block_count(write_ranges)
     touched_blocks = union_block_count(touched_ranges)
-    write_coverage = 100.0 * written_blocks / fs_blocks
-    touched_coverage = 100.0 * touched_blocks / fs_blocks
+    write_coverage = 100.0 * written_blocks / fs_ota_blocks
+    touched_coverage = 100.0 * touched_blocks / fs_ota_blocks
     print(f"filesystem_declared_bytes={fs_bytes}")
+    print(f"filesystem_declared_ota_blocks={fs_ota_blocks}")
     print(f"new_plus_zero_operation_blocks={operation_write_blocks}")
     print(f"new_zero_erase_operation_blocks={operation_touched_blocks}")
-    print(f"new_plus_zero_unique_block_coverage={written_blocks}/{fs_blocks} ({write_coverage:.2f}%)")
-    print(f"new_zero_plus_erase_unique_block_coverage={touched_blocks}/{fs_blocks} ({touched_coverage:.2f}%)")
-    print(f"transfer_covers_full_filesystem_by_operations={touched_blocks >= fs_blocks}")
-    if touched_blocks < fs_blocks:
+    print(f"new_plus_zero_unique_block_coverage={written_blocks}/{fs_ota_blocks} ({write_coverage:.2f}%)")
+    print(f"new_zero_plus_erase_unique_block_coverage={touched_blocks}/{fs_ota_blocks} ({touched_coverage:.2f}%)")
+    print(f"transfer_covers_full_filesystem_by_operations={touched_blocks >= fs_ota_blocks}")
+    if touched_blocks < fs_ota_blocks:
         print("WARNING: transfer list leaves declared filesystem blocks untouched. A zero-based reconstruction is incomplete; it needs a compatible base image or a verified full-image source.")
 if not header_matches_write_count:
     print("WARNING: transfer-list header does not equal the number of blocks covered by new + zero commands.")
