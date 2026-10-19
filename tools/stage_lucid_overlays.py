@@ -61,6 +61,28 @@ def safe_source_path(value: str) -> Path:
     return raw.resolve()
 
 
+EXTRA_DESTINATIONS = {
+    "system/app/LucidWallpapers/LucidWallpapers.apk",
+    "system/media/bootanimation.zip",
+}
+
+
+def parse_extra_overlay(value: str) -> tuple[Path, str]:
+    if "=" not in value:
+        raise ValueError(f"invalid --extra-overlay {value!r}; expected SOURCE=DEST")
+    source_text, dest_text = value.split("=", 1)
+    destination = Path(dest_text)
+    if destination.is_absolute() or ".." in destination.parts:
+        raise ValueError(f"extra overlay destination must be relative and confined: {dest_text}")
+    normalized = destination.as_posix()
+    if normalized not in EXTRA_DESTINATIONS:
+        raise ValueError(
+            f"extra overlay destination is not approved: {normalized}; "
+            f"allowed destinations: {', '.join(sorted(EXTRA_DESTINATIONS))}"
+        )
+    return safe_source_path(source_text), normalized
+
+
 def source_files(src: Path) -> list[Path]:
     if src.is_symlink():
         raise ValueError(f"source symlink is not supported: {src}")
@@ -116,14 +138,8 @@ def main() -> int:
         reject_symlink_components(base / "system", base)
         mappings = [(repo / source_rel, dest_rel, required) for source_rel, dest_rel, required in OVERLAYS]
         for mapping in args.extra_overlay:
-            if "=" not in mapping:
-                raise ValueError(f"invalid --extra-overlay {mapping!r}; expected SOURCE=DEST")
-            source_text, dest_text = mapping.split("=", 1)
-            source = safe_source_path(source_text)
-            destination_rel = Path(dest_text)
-            if destination_rel.is_absolute() or ".." in destination_rel.parts:
-                raise ValueError(f"extra overlay destination must be relative and confined: {dest_text}")
-            mappings.append((source, destination_rel.as_posix(), True))
+            source, destination_rel = parse_extra_overlay(mapping)
+            mappings.append((source, destination_rel, True))
         for source, dest_rel, required in mappings:
             destination = base / dest_rel
             if not source.exists() and not source.is_symlink():
@@ -166,11 +182,8 @@ def main() -> int:
         try:
             mappings = [(repo / source_rel, dest_rel, required) for source_rel, dest_rel, required in OVERLAYS]
             for mapping in args.extra_overlay:
-                source_text, dest_text = mapping.split("=", 1)
-                destination_rel = Path(dest_text)
-                if destination_rel.is_absolute() or ".." in destination_rel.parts:
-                    raise ValueError(f"extra overlay destination must be relative and confined: {dest_text}")
-                mappings.append((safe_source_path(source_text), destination_rel.as_posix(), True))
+                source, destination_rel = parse_extra_overlay(mapping)
+                mappings.append((source, destination_rel, True))
             for source, dest_rel, required in mappings:
                 if not source.exists():
                     continue
