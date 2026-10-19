@@ -25,6 +25,12 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Snapshot mandatory LucidOS preservation payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/validate_lucid_preservation.py --root "$GITHUB_WORKSPACE" --output clean-base/audit/lucid-preservation-manifest.json
+
       - name: Download selected base without modifying existing ROM assets
         env:
           BASE_ROM_URL: ${{ inputs.base_rom_url }}
