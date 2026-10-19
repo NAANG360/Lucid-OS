@@ -21,10 +21,10 @@ class OverlayInventoryTests(unittest.TestCase):
             actions={Path(row['destination']).name:row['action'] for row in rows}
             self.assertEqual(actions,{'same':'unchanged','replace':'replace','add':'add'})
 
-    def test_missing_base_system_root_fails_gate(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp); repo=root/'repo'; base=root/'base'; repo.mkdir(); base.mkdir()
-            result={'pass':(base/'system').is_dir()}
-            self.assertFalse(result['pass'])
+    def test_allowlist_never_overlays_android_framework_settings_or_systemui(self):
+        destinations=[dest for _,dest,_ in MODULE.OVERLAYS]
+        self.assertFalse(any('/framework/' in dest for dest in destinations))
+        self.assertFalse(any(dest.endswith('/Settings.apk') or dest.endswith('/SystemUI.apk') for dest in destinations))
+        self.assertIn('system/etc/init/init.lucid.rc', destinations)
 
 if __name__=='__main__': unittest.main()
