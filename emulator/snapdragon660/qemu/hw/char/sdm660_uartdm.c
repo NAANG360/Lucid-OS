@@ -30,7 +30,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(SDM660UARTDMState, SDM660_UARTDM)
 #define UARTDM_CSR             0x0a0
 #define UARTDM_IMR             0x0b0
 #define UARTDM_ISR             0x0b4
-#define UARTDM_ISR_TX_READY    (1u << 7)
+#define UARTDM_ISR_TX_READY    0x80
 #define UARTDM_CR_CLEAR_TX_READY 0x300
 #define UARTDM_TX_READY        (1u << 2)
 #define UARTDM_RX_READY        (1u << 0)
