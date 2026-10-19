@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/compare-original-lucid-installers.yml'
       - 'tools/compare_rom_installers.py'
+      - 'tests/test_compare_rom_installers.py'
 
 permissions:
   contents: read
@@ -70,6 +71,9 @@ jobs:
           unzip -tq work/original/rom.zip
           unzip -tq work/lucid/rom.zip
           sha256sum work/original/rom.zip work/lucid/rom.zip | tee report/archive-sha256.txt
+
+      - name: Run transfer-list parser unit tests
+        run: python3 -m unittest discover -s tests -p 'test_compare_rom_installers.py' -v
 
       - name: Compare installer scripts and transfer-list semantics
         run: |
