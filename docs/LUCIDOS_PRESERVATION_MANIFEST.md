@@ -57,3 +57,7 @@ Preserve both the generator/source artwork and any generated animation binary. B
 ## Current known ROM issue
 
 The existing LucidOS product payload writes only 123,902 of 601,750 declared filesystem blocks and reconstructs to a corrupt ext4 filesystem from an empty image. This is a serious packaging defect, but not proof it is the only boot blocker. The new-base comparison must solve payload completeness and installer/partition consistency without discarding the custom files listed above.
+
+### Core runtime hardening
+- `system-tree/system/etc/init/init.lucid.rc` now resets `service.adb.tcp.port` to `-1` and restarts `adbd` when `sys.lucid.casting` becomes `0`, before clearing the persistent Lucid root toggle. This limits the desktop bridge's ADB-over-TCP exposure to the active casting session rather than leaving port 5555 enabled after casting stops.
+- This is a source-level init change only. It has not yet been boot-tested on lavender; verify USB ADB recovery, cast start/stop behavior, and init action ordering in a device or emulator log before including it in a release.
