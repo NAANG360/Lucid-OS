@@ -97,12 +97,12 @@ def main() -> int:
                 # SysBusDevice's own mmio.addr may remain unset. Inspect the guest
                 # physical memory tree rather than relying on "info qtree".
                 match = re.search(
-                    r"(?m)^\\s*([0-9a-fA-F]{8,16})-([0-9a-fA-F]{8,16})"
-                    r"[^\\n]*: sdm660-uartdm\\s*$",
+                    r"(?m)^\s*([0-9a-fA-F]{8,16})-([0-9a-fA-F]{8,16})"
+                    r"[^\n]*: sdm660-uartdm\s*$",
                     tree,
                 )
                 if not match:
-                    raise RuntimeError("Could not find UARTDM in QEMU's guest physical memory map:\\n" + tree)
+                    raise RuntimeError("Could not find UARTDM in QEMU's guest physical memory map:\n" + tree)
                 base = int(match.group(1), 16)
                 end_addr = int(match.group(2), 16)
                 if end_addr - base + 1 != 0x2000:
