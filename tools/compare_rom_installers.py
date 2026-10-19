@@ -37,8 +37,22 @@ def digest_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def parse_ranges(text: str) -> tuple[list[tuple[int, int]] | None, str | None]:
+    """Parse Android RangeSet syntax: count,start,end[,start,end...]."""
+    try:
+        values = [int(value) for value in text.split(",")]
+    except ValueError:
+        return None, "non-integer range field"
+    if not values or values[0] != len(values) - 1 or (len(values) - 1) % 2:
+        return None, "range count does not match fields"
+    ranges = list(zip(values[1::2], values[2::2]))
+    if any(start < 0 or finish < start for start, finish in ranges):
+        return None, "negative or reversed range"
+    return ranges, None
+
+
 def transfer_summary(data: bytes) -> list[str]:
-    """Validate range-based transfer operations and count operation-specific commands."""
+    """Validate transfer-list range commands and reconcile target writes with header."""
     lines = data.decode("utf-8", "replace").splitlines()
     out = ["header=" + " | ".join(lines[:4])]
     if len(lines) < 4:
@@ -49,50 +63,59 @@ def transfer_summary(data: bytes) -> list[str]:
             raise ValueError
     except ValueError:
         return out + ["ERROR: transfer-list write-block header is not a nonnegative integer"]
+
     counts: dict[str, int] = {}
-    ranges_by_cmd: dict[str, int] = {}
+    range_blocks_by_cmd: dict[str, int] = {}
+    target_write_blocks_by_cmd: dict[str, int] = {}
     malformed_ranges = 0
+    malformed_target_ranges = 0
     unparsed_ops: dict[str, int] = {}
+
     for line in lines[4:]:
         cmd, sep, arg = line.partition(" ")
         counts[cmd] = counts.get(cmd, 0) + 1
-        if cmd not in ("new", "zero", "erase"):
-            # move/bsdiff/imgdiff/stash/free have different grammars; don't
-            # falsely label them malformed when checking simple range commands.
+        if cmd in ("new", "zero", "erase"):
+            ranges, error = parse_ranges(arg) if sep else (None, "missing range argument")
+            if error or ranges is None:
+                malformed_ranges += 1
+                continue
+            block_count = sum(finish - start for start, finish in ranges)
+            range_blocks_by_cmd[cmd] = range_blocks_by_cmd.get(cmd, 0) + block_count
+            if cmd in ("new", "zero"):
+                target_write_blocks_by_cmd[cmd] = target_write_blocks_by_cmd.get(cmd, 0) + block_count
+            continue
+
+        # Android block_image_update target ranges: move <hash> <tgt_range> ...;
+        # bsdiff/imgdiff <offset> <len> <src_hash> <tgt_hash> <tgt_range> ...
+        tokens = line.split()
+        target_index = {"move": 2, "bsdiff": 5, "imgdiff": 5}.get(cmd)
+        if target_index is not None:
+            if len(tokens) <= target_index:
+                malformed_target_ranges += 1
+                continue
+            ranges, error = parse_ranges(tokens[target_index])
+            if error or ranges is None:
+                malformed_target_ranges += 1
+                continue
+            block_count = sum(finish - start for start, finish in ranges)
+            target_write_blocks_by_cmd[cmd] = target_write_blocks_by_cmd.get(cmd, 0) + block_count
+        else:
+            # stash/free/abort and other commands don't have the same target-range grammar.
             unparsed_ops[cmd] = unparsed_ops.get(cmd, 0) + 1
-            continue
-        if not sep:
-            malformed_ranges += 1
-            continue
-        try:
-            vals = [int(x) for x in arg.split(",")]
-            if not vals or vals[0] != len(vals) - 1 or (len(vals) - 1) % 2:
-                malformed_ranges += 1
-                continue
-            ranges = list(zip(vals[1::2], vals[2::2]))
-            if any(
-                start < 0 or finish < start
-                for start, finish in ranges
-            ):
-                malformed_ranges += 1
-                continue
-            ranges_by_cmd[cmd] = ranges_by_cmd.get(cmd, 0) + sum(
-                finish - start for start, finish in ranges
-            )
-        except ValueError:
-            malformed_ranges += 1
-    counted_write_blocks = ranges_by_cmd.get("new", 0) + ranges_by_cmd.get("zero", 0)
+
+    counted_write_blocks = sum(target_write_blocks_by_cmd.values())
     out.extend((
         f"command_counts={counts}",
-        f"range_blocks_by_command={ranges_by_cmd}",
+        f"range_blocks_by_command={range_blocks_by_cmd}",
+        f"target_write_blocks_by_command={target_write_blocks_by_cmd}",
         f"malformed_range_commands={malformed_ranges}",
+        f"malformed_target_range_commands={malformed_target_ranges}",
         f"expected_write_blocks={expected_write_blocks}",
-        f"counted_new_plus_zero_blocks={counted_write_blocks}",
+        f"counted_target_write_blocks={counted_write_blocks}",
         f"write_block_count_matches_header={counted_write_blocks == expected_write_blocks}",
         f"operation_specific_commands_not_interpreted={unparsed_ops}",
     ))
     return out
-
 
 def read_entry(z: zipfile.ZipFile, names: list[str], suffix: str) -> tuple[str, bytes] | None:
     matches = [name for name in names if name.endswith(suffix)]
