@@ -21,7 +21,7 @@ Install Android SDK platform 35, build-tools 35.0.0, and a Java compiler. Run:
 ANDROID_HOME=/path/to/android-sdk tools/build_lucid_setup.sh
 ```
 
-The generated APK is development-signed. It is **not ready for privileged ROM integration** until it is signed with the ROM's platform key and installed in the privileged path with the matching `WRITE_SECURE_SETTINGS` allowlist. Never put a development-signed APK into a release image and assume privileged permissions will be granted.
+The generated APK is development-signed. It is **not a release artifact yet**: install it in the privileged path with the matching `WRITE_SECURE_SETTINGS` allowlist, then verify the permission grant in the target build/device. Follow the ROM's signing policy for release builds; never assume a permission was granted just because the APK compiled.
 
 ## Current integration boundary
 
