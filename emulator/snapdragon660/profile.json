@@ -40,7 +40,7 @@
       ],
       "notes": [
         "MPIDR affinity values are transcribed from the public SoC DTSI CPU reg cells.",
-        "This does not imply that QEMU currently instantiates these CPUs.",
+        "QEMU instantiates Cortex-A53/A72 architectural approximations with these MPIDR values; this is not Kryo 260 microarchitecture emulation.",
         "Frequency/voltage scaling, Kryo-specific microarchitecture, cache hierarchy and Qualcomm power management are not emulated."
       ]
     }
