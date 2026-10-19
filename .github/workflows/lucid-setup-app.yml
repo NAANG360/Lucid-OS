@@ -13,9 +13,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: lucid-setup-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pin a current runner image while investigating runner allocation failures.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
