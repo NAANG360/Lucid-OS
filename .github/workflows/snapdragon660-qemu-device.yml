@@ -67,7 +67,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: qemu-src/build
-          key: qemu-v10.0.0-aarch64-softmmu-build-v1
+          key: qemu-v10.0.0-aarch64-softmmu-build-v2
       - name: Runtime smoke test device registration and realization
         working-directory: qemu-src
         run: |
