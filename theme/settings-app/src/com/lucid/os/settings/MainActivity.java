@@ -23,7 +23,7 @@ public final class MainActivity extends Activity {
         TextView title=text("Settings",34,INK,true);LinearLayout.LayoutParams p=params(-1,-2);p.topMargin=dp(8);root.addView(title,p);
         TextView sub=text("Make this device yours.",14,MUTED,false);LinearLayout.LayoutParams sp=params(-1,-2);sp.topMargin=dp(3);sp.bottomMargin=dp(18);root.addView(sub,sp);
         addSection(root,"DEVICE",new String[]{"Network & internet","Connected devices","Display & brightness","Sound & vibration","Storage","Battery","Security & privacy","Location","Accessibility","System & updates"},new String[]{Settings.ACTION_WIRELESS_SETTINGS,Settings.ACTION_BLUETOOTH_SETTINGS,Settings.ACTION_DISPLAY_SETTINGS,Settings.ACTION_SOUND_SETTINGS,Settings.ACTION_INTERNAL_STORAGE_SETTINGS,Settings.ACTION_BATTERY_SAVER_SETTINGS,Settings.ACTION_SECURITY_SETTINGS,Settings.ACTION_LOCATION_SOURCE_SETTINGS,Settings.ACTION_ACCESSIBILITY_SETTINGS,Settings.ACTION_SETTINGS});
-        addSection(root,"PERSONALIZATION",new String[]{"Wallpapers & colors","Home screen & gestures","Notifications","Apps","About this device"},new String[]{"com.lucid.os.wallpapers",Settings.ACTION_HOME_SETTINGS,Settings.ACTION_NOTIFICATION_SETTINGS,Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS,Settings.ACTION_DEVICE_INFO_SETTINGS});
+        addSection(root,"PERSONALIZATION",new String[]{"Wallpapers & system colors","Control Center","Home screen & gestures","Notifications","Apps","About this device"},new String[]{"com.lucid.os.wallpapers","com.lucid.os.controlcenter",Settings.ACTION_HOME_SETTINGS,Settings.ACTION_NOTIFICATION_SETTINGS,Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS,Settings.ACTION_DEVICE_INFO_SETTINGS});
         TextView note=text("Lucid Settings is an early functional dashboard. Platform-owned pages remain available for controls that need Android's privileged Settings provider.",11,MUTED,false);LinearLayout.LayoutParams np=params(-1,-2);np.topMargin=dp(14);root.addView(note,np);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.addView(root);setContentView(scroll);
     }
@@ -42,7 +42,7 @@ public final class MainActivity extends Activity {
     private void launch(String action){
         try{
             Intent i;
-            if(action.equals("com.lucid.os.wallpapers")){i=new Intent();i.setClassName(this,action+".MainActivity");}
+            if(action.equals("com.lucid.os.wallpapers") || action.equals("com.lucid.os.controlcenter")){i=new Intent();i.setClassName(this,action+".MainActivity");}
             else i=new Intent(action);
             startActivity(i);
         }catch(Exception e){Toast.makeText(this,"That settings page is not exposed by this Android build.",Toast.LENGTH_SHORT).show();}
