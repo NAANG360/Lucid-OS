@@ -183,8 +183,10 @@ public final class MainActivity extends Activity {
             palette.put("android.theme.customization.color_source", "preset");
             palette.put("android.theme.customization.dynamic_color", "1");
             if (applyChoices) {
-                Settings.Secure.putString(getContentResolver(),
-                    "theme_customization_overlay_packages", palette.toString());
+                if (!Settings.Secure.putString(getContentResolver(),
+                    "theme_customization_overlay_packages", palette.toString())) {
+                    throw new SecurityException("Android refused the system palette setting");
+                }
                 if (selectedWallpaper != null) {
                     try (InputStream in = getAssets().open(selectedWallpaper)) {
                         WallpaperManager.getInstance(this).setStream(in, null, true,
@@ -192,7 +194,9 @@ public final class MainActivity extends Activity {
                     }
                 }
             }
-            Settings.Secure.putInt(getContentResolver(), "lucid_setup_complete", 1);
+            if (!Settings.Secure.putInt(getContentResolver(), "lucid_setup_complete", 1)) {
+                throw new SecurityException("Android refused to save setup completion");
+            }
             Toast.makeText(this, "You're all set. Welcome to LucidOS.", Toast.LENGTH_LONG).show();
             Intent home = new Intent(Intent.ACTION_MAIN);
             home.addCategory(Intent.CATEGORY_HOME);
