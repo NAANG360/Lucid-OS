@@ -70,7 +70,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: qemu-src/build
-          key: qemu-v10.0.0-aarch64-softmmu-build-v4
+          key: qemu-v10.0.0-aarch64-softmmu-build-v5
       - name: Configure and compile AArch64 system emulator
         working-directory: qemu-src
         run: |
@@ -82,16 +82,8 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: qemu-src/build
-          key: qemu-v10.0.0-aarch64-softmmu-build-v4
-      - name: Runtime smoke test device registration and realization
-        working-directory: qemu-src
+          key: qemu-v10.0.0-aarch64-softmmu-build-v5
+      - name: Runtime test UARTDM MMIO and TX path
         run: |
           set -eux
-          ./build/qemu-system-aarch64 \
-            -machine virt -accel tcg -nodefaults -display none \
-            -monitor none -serial none -S \
-            -chardev file,id=uart,path=/tmp/sdm660-uartdm-smoke.log \
-            -device sdm660-uartdm,chardev=uart \
-            -daemonize -pidfile /tmp/sdm660-qemu.pid
-          kill -0 "$(cat /tmp/sdm660-qemu.pid)"
-          kill "$(cat /tmp/sdm660-qemu.pid)"
+          python3 emulator/snapdragon660/qemu/tests/smoke_uartdm.py
