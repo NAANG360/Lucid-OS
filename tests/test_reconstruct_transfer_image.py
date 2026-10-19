@@ -50,7 +50,7 @@ class TransferImageReconstructionTests(unittest.TestCase):
             with open(output, "rb") as stream:
                 image = stream.read()
             self.assertEqual(len(image), 3 * BLOCK)
-            self.assertEqual(image[:BLOCK], b"A" * BLOCK)
+            self.assertEqual(image[:BLOCK], bytes(first_block))
             self.assertEqual(image[BLOCK:2 * BLOCK], bytes(BLOCK))
             self.assertEqual(image[2 * BLOCK:], b"C" * BLOCK)
 
