@@ -27,7 +27,7 @@ QEMU supports ARM system emulation, but its generic `virt` machine is not a Snap
 - Add an ARMv8 machine model with the documented memory map and compatible interrupt controller/UART/timer devices.
 - Add a board device tree that describes only implemented devices.
 - Boot a tiny purpose-built bare-metal diagnostic first; do not start with Android.
-- Add automated register-level tests for each emulated peripheral. The current Python UARTDM contract is test-only and not connected to QEMU.
+- Add automated register-level tests for each emulated peripheral. The UARTDM model now has a QTest-driven runtime check for TX-ready status, DMEN handling, CR readback, TX enable/disable gating, TX reset, and chardev output. Interrupt, RX, clock/reset integration, and board-level tests remain unimplemented.
 - Do not claim support for a peripheral until a test exercises it.
 
 ### Stage 3 — Linux bring-up
