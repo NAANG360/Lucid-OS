@@ -12,7 +12,7 @@ public final class ControlCenterTileService extends TileService {
         if (tile != null) {
             tile.setLabel("Lucid");
             tile.setSubtitle("Control Center");
-            tile.setState(Tile.STATE_ACTIVE);
+            tile.setState(Tile.STATE_INACTIVE);
             tile.setIcon(Icon.createWithResource(this, R.drawable.ic_lucid_tile));
             tile.updateTile();
         }
