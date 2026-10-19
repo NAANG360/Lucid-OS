@@ -23,12 +23,6 @@ BINARY_SUFFIXES = (
     "system.new.dat.br", "vendor.new.dat.br", "product.new.dat.br",
     "system_ext.new.dat.br", "odm.new.dat.br",
 )
-INSTALLER_RE = re.compile(
-    r"format|wipe|delete|block_image_update|block_image_verify|package_extract|"
-    r"super_dummy|dynamic_partitions|product|vendor|system|cust|metadata", re.I
-)
-
-
 def digest_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -130,14 +124,6 @@ def transfer_summary(data: bytes) -> list[str]:
         f"operation_specific_commands_not_interpreted={unparsed_ops}",
     ))
     return out
-
-def read_entry(z: zipfile.ZipFile, names: list[str], suffix: str) -> tuple[str, bytes] | None:
-    matches = [name for name in names if name.endswith(suffix)]
-    if len(matches) != 1:
-        print(f"WARNING: expected exactly one {suffix}, found {len(matches)}: {matches}")
-        return None
-    return matches[0], z.read(matches[0])
-
 
 def main() -> int:
     loaded: dict[str, tuple[zipfile.ZipFile, list[str]]] = {}
