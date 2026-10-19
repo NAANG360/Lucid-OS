@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""Cross-check the native lavender machine's first UART/GIC map against pinned SoC DTSI."""
+from __future__ import annotations
+
+import argparse
+import re
+from pathlib import Path
+
+
+def define_int(source: str, name: str) -> int:
+    match = re.search(
+        rf"^\s*#define\s+{re.escape(name)}\s+(0x[0-9a-fA-F]+|[0-9]+)(?:ULL|UL|U|L)?\b",
+        source, re.M,
+    )
+    if not match:
+        raise ValueError(f"machine source missing numeric define {name}")
+    return int(match.group(1), 0)
+
+
+def validate(dtsi: str, machine: str) -> dict:
+    node_match = re.search(
+        r"uartblsp1dm1:\s*serial@0c170000\s*\{(.*?)\n\s*\};",
+        dtsi, re.S,
+    )
+    if not node_match:
+        raise ValueError("pinned SDM660 DTSI has no uartblsp1dm1 node at 0x0c170000")
+    node = node_match.group(1)
+
+    compatible_match = re.search(r'\bcompatible\s*=\s*((?:"[^"]+"\s*,?\s*)+);', node)
+    if not compatible_match:
+        raise ValueError("uartblsp1dm1 has no compatible string list")
+    compatibles = re.findall(r'"([^"]+)"', compatible_match.group(1))
+    if not any(f'"{value}"' in machine for value in compatibles):
+        raise ValueError(
+            "native machine UART compatible does not match pinned DTSI: "
+            + ", ".join(compatibles)
+        )
+
+    reg_match = re.search(
+        r"\breg\s*=\s*<\s*(0x[0-9a-fA-F]+|[0-9]+)\s+"
+        r"(0x[0-9a-fA-F]+|[0-9]+)\s*>", node,
+    )
+    if not reg_match:
+        raise ValueError("uartblsp1dm1 reg is not a simple base/size tuple")
+    base, size = (int(value, 0) for value in reg_match.groups())
+
+    irq_match = re.search(
+        r"\binterrupts\s*=\s*<\s*(0x[0-9a-fA-F]+|[0-9]+)\s+"
+        r"(0x[0-9a-fA-F]+|[0-9]+)\s+"
+        r"(0x[0-9a-fA-F]+|[0-9]+)\s*>", node,
+    )
+    if not irq_match:
+        raise ValueError("uartblsp1dm1 interrupts is not a simple three-cell tuple")
+    irq_type, irq_number, irq_flags = (int(value, 0) for value in irq_match.groups())
+
+    expected = {
+        "SDM660_UART_BASE": base,
+        "SDM660_UART_SIZE": size,
+        "SDM660_UART_SPI": irq_number,
+    }
+    for name, value in expected.items():
+        actual = define_int(machine, name)
+        if actual != value:
+            raise ValueError(f"{name}=0x{actual:x}, pinned DTSI requires 0x{value:x}")
+
+    if irq_type != 0:
+        raise ValueError(f"UART interrupt type cell {irq_type} is not an SPI (0)")
+    if f"0, SDM660_UART_SPI, {irq_flags}" not in machine:
+        raise ValueError(
+            f"native machine must preserve DTSI UART interrupt flags cell {irq_flags}"
+        )
+    if "32 + SDM660_UART_SPI" not in machine:
+        raise ValueError("UART SPI must connect to GIC INTID 32 + SPI number")
+
+    return {
+        "compatible": compatibles,
+        "mmio_base": hex(base),
+        "mmio_size": hex(size),
+        "interrupt_cells": [irq_type, irq_number, irq_flags],
+        "status": "source-contract-matched; not proof of retail DT enablement",
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--kernel-dtsi", required=True, type=Path)
+    parser.add_argument("--machine-source", required=True, type=Path)
+    args = parser.parse_args()
+    try:
+        report = validate(
+            args.kernel_dtsi.read_text(encoding="utf-8"),
+            args.machine_source.read_text(encoding="utf-8"),
+        )
+    except (OSError, ValueError) as exc:
+        print(f"FAIL: {exc}")
+        return 1
+    import json
+    print(json.dumps(report, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
