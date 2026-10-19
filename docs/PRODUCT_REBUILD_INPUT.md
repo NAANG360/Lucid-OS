@@ -1,6 +1,6 @@
 # Required input to rebuild the full product partition
 
-The uploaded `LucidOS-unsigned.zip` is not self-contained for `product`. Its transfer list writes only 123,902 blocks, while the product filesystem spans 601,750 blocks. Reconstructing that package from a blank super image produces a corrupt product filesystem. The main installer discards the old super storage, so the missing product blocks cannot safely be assumed to remain.
+The uploaded `LucidOS-unsigned.zip` is not self-contained for `product`. Its transfer list writes only 123,902 blocks, while the product filesystem spans 601,750 blocks. Reconstructing that package from a blank image produces a corrupt product filesystem. The installer explicitly runs `blkdiscard` on the physical `system` and `vendor` partitions and resets/rebuilds the dynamic-partition group metadata; it does not explicitly discard the physical `product` partition. However, that does not guarantee old product contents survive or line up with the newly allocated logical product extents, so the missing product blocks cannot safely be assumed to remain.
 
 The rebuild workflow now first tries to recover the product filesystem from the original LineageOS ZIP. It will use that route only if the original transfer list touches the entire declared filesystem and the reconstructed ext4 image passes `e2fsck -fn`. If either check fails, the workflow stops and requires the complete product tree described below.
 
