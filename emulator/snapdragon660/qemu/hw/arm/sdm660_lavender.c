@@ -143,6 +143,7 @@ static void lavender_create_fdt(SDM660LavenderState *s)
                                  2, SDM660_GICD_BASE, 2, SDM660_GICD_SIZE,
                                  2, SDM660_GICR_BASE, 2, SDM660_GICR_SIZE);
     qemu_fdt_setprop_cell(fdt, "/intc", "phandle", 1);
+    qemu_fdt_setprop_cell(fdt, "/", "interrupt-parent", 1);
     /* GICv3 maintenance PPI, matching the SDM660 SoC DTSI. */
     qemu_fdt_setprop_cells(fdt, "/intc", "interrupts", 1,
                            SDM660_GIC_MAINT_IRQ, 4);
