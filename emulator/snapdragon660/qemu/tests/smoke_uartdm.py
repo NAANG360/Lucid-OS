@@ -93,12 +93,16 @@ def main() -> int:
                                    {"command-line": "info qtree"})
                 if not isinstance(tree, str):
                     raise RuntimeError("QMP did not return the QEMU device tree")
-                match = re.search(
-                    r"dev: sdm660-uartdm[^\n]*\n(?:(?!dev: ).*\n)*?\s*mmio 0x([0-9a-fA-F]+)/0x2000",
+                device_block = re.search(
+                    r"(?ms)^\\s*dev: sdm660-uartdm[^\\n]*\\n(.*?)(?=^\\s*dev: |\\Z)",
                     tree,
                 )
+                match = re.search(
+                    r"mmio\\s+(?:0x)?([0-9a-fA-F]+)/(?:(?:0x)?)(?:0*2000)\\b",
+                    device_block.group(1) if device_block else "",
+                )
                 if not match:
-                    raise RuntimeError("Could not find the UARTDM 0x2000 MMIO window in 'info qtree':\n" + tree)
+                    raise RuntimeError("Could not find the UARTDM 0x2000 MMIO window in 'info qtree':\\n" + tree)
                 base = int(match.group(1), 16)
                 print(f"UARTDM MMIO base discovered from QEMU device tree: 0x{base:x}")
 
