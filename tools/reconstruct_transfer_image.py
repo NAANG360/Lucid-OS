@@ -12,6 +12,24 @@ import brotli
 
 BLOCK = 4096
 
+
+def union_block_count(ranges):
+    """Count unique blocks in half-open ranges, avoiding overlap double-counting."""
+    total = 0
+    current_start = current_end = None
+    for start, end in sorted(ranges):
+        if current_start is None:
+            current_start, current_end = start, end
+        elif start <= current_end:
+            current_end = max(current_end, end)
+        else:
+            total += current_end - current_start
+            current_start, current_end = start, end
+    if current_start is not None:
+        total += current_end - current_start
+    return total
+
+
 def fail(msg):
     raise SystemExit(msg)
 
@@ -30,6 +48,8 @@ if version != 4:
 
 commands = []
 max_range_end = 0
+write_ranges = []
+touched_ranges = []
 expected_new_blocks = 0
 zero_blocks = 0
 erase_blocks = 0
@@ -52,6 +72,9 @@ for line_no, line in enumerate(lines[4:], start=5):
             fail(f"invalid block range on line {line_no}: {start}-{end}")
         command_blocks += end - start
         max_range_end = max(max_range_end, end)
+        touched_ranges.append((start, end))
+        if command in ("new", "zero"):
+            write_ranges.append((start, end))
     if command == "new":
         expected_new_blocks += command_blocks
     elif command == "zero":
@@ -128,13 +151,17 @@ print(f"max_referenced_block_end={max_range_end} image_bytes={image_bytes}")
 print(f"new_dat_bytes={len(raw)} ext4_superblock_magic_at_1080={ext4_magic} ext4_blocks={fs_blocks} ext4_block_size={fs_block_size}")
 if fs_blocks:
     fs_bytes = fs_blocks * fs_block_size
-    written_blocks = actual_new_blocks + zero_blocks
-    touched_blocks = written_blocks + erase_blocks
+    operation_write_blocks = actual_new_blocks + zero_blocks
+    operation_touched_blocks = operation_write_blocks + erase_blocks
+    written_blocks = union_block_count(write_ranges)
+    touched_blocks = union_block_count(touched_ranges)
     write_coverage = 100.0 * written_blocks / fs_blocks
     touched_coverage = 100.0 * touched_blocks / fs_blocks
     print(f"filesystem_declared_bytes={fs_bytes}")
-    print(f"new_plus_zero_block_coverage={written_blocks}/{fs_blocks} ({write_coverage:.2f}%)")
-    print(f"new_zero_plus_erase_coverage={touched_blocks}/{fs_blocks} ({touched_coverage:.2f}%)")
+    print(f"new_plus_zero_operation_blocks={operation_write_blocks}")
+    print(f"new_zero_erase_operation_blocks={operation_touched_blocks}")
+    print(f"new_plus_zero_unique_block_coverage={written_blocks}/{fs_blocks} ({write_coverage:.2f}%)")
+    print(f"new_zero_plus_erase_unique_block_coverage={touched_blocks}/{fs_blocks} ({touched_coverage:.2f}%)")
     print(f"transfer_covers_full_filesystem_by_operations={touched_blocks >= fs_blocks}")
     if touched_blocks < fs_blocks:
         print("WARNING: transfer list leaves declared filesystem blocks untouched. A zero-based reconstruction is incomplete; it needs a compatible base image or a verified full-image source.")
