@@ -47,4 +47,4 @@ not blindly copy the MTP status or assume every SoC node is enabled.
 - SR reports TX-ready immediately; no baud timing or FIFO depth is simulated.
 - TX output is only a debug console path, not a complete UARTDM implementation.
 - Device reset does not yet model hardware reset side effects beyond register state.
-- There is no native `sdm660-lavender` QEMU machine wired to this device yet.
+- The UARTDM MMIO window is 0x1000 bytes, matching the pinned SoC DTSI declaration. There is no native `sdm660-lavender` QEMU machine wired to this device yet.
