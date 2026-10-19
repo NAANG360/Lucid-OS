@@ -67,6 +67,10 @@ class OverlayInventoryTests(unittest.TestCase):
             )
             self.assertEqual(source, artifact)
             self.assertEqual(destination, "system/app/LucidWallpapers/LucidWallpapers.apk")
+            directory = root / "artifact-dir"
+            directory.mkdir()
+            with self.assertRaisesRegex(ValueError, "regular file"):
+                MODULE.parse_extra_overlay(f"{directory}=system/media/bootanimation.zip")
             with self.assertRaisesRegex(ValueError, "not approved"):
                 MODULE.parse_extra_overlay(f"{artifact}=system/framework/framework.jar")
             with self.assertRaisesRegex(ValueError, "not approved"):
