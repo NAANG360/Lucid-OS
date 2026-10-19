@@ -57,6 +57,21 @@ class OverlayInventoryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "symlink"):
                 MODULE.reject_symlink_components(base / "system" / "etc", base)
 
+    def test_extra_overlay_allows_only_reviewed_destinations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "artifact.apk"
+            artifact.write_text("apk")
+            source, destination = MODULE.parse_extra_overlay(
+                f"{artifact}=system/app/LucidWallpapers/LucidWallpapers.apk"
+            )
+            self.assertEqual(source, artifact)
+            self.assertEqual(destination, "system/app/LucidWallpapers/LucidWallpapers.apk")
+            with self.assertRaisesRegex(ValueError, "not approved"):
+                MODULE.parse_extra_overlay(f"{artifact}=system/framework/framework.jar")
+            with self.assertRaisesRegex(ValueError, "not approved"):
+                MODULE.parse_extra_overlay(f"{artifact}=system/priv-app/SystemUI/SystemUI.apk")
+
     def test_external_source_symlink_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
