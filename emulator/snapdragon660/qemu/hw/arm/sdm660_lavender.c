@@ -139,6 +139,8 @@ static void lavender_create_fdt(SDM660LavenderState *s)
     qemu_fdt_setprop(fdt, "/intc", "interrupt-controller", NULL, 0);
     qemu_fdt_setprop_cell(fdt, "/intc", "#interrupt-cells", 3);
     qemu_fdt_setprop_cell(fdt, "/intc", "#redistributor-regions", 1);
+    qemu_fdt_setprop_sized_cells(fdt, "/intc", "redistributor-stride", 2,
+                                 0, 0x20000);
     qemu_fdt_setprop_cell(fdt, "/intc", "#address-cells", 2);
     qemu_fdt_setprop(fdt, "/intc", "ranges", NULL, 0);
     qemu_fdt_setprop_sized_cells(fdt, "/intc", "reg",
