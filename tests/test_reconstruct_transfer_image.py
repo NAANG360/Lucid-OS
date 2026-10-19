@@ -31,8 +31,8 @@ class TransferImageReconstructionTests(unittest.TestCase):
             first_block = bytearray(b"A" * BLOCK)
             # Minimal ext4 superblock fields at file offset 1024 so the test
             # exercises unique-coverage accounting with overlapping ranges.
-            struct.pack_into("<I", first_block, 1028, 3)  # s_blocks_count_lo
-            struct.pack_into("<I", first_block, 1048, 2)  # s_log_block_size => 4096
+            struct.pack_into("<I", first_block, 1028, 12)  # 12 ext4 blocks at 1 KiB each
+            struct.pack_into("<I", first_block, 1048, 0)  # s_log_block_size => 1024
             first_block[1080:1082] = b"\x53\xef"
             first_block[1360:1364] = bytes(4)  # s_blocks_count_hi
             raw = bytes(first_block) + (b"B" * BLOCK) + (b"C" * BLOCK)
