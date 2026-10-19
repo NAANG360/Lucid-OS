@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "target": "Xiaomi Redmi Note 7 (lavender), Qualcomm SDM660",
+  "source": {
+    "repository": "xiaomi-sdm660/android_kernel_xiaomi_sdm660",
+    "revision": "5ce3bc43631dca83f6081757c8982c2d5f6e017c",
+    "file": "arch/arm/boot/dts/qcom/sdm660.dtsi",
+    "note": "Addresses are source-declared candidates, not proof of retail lavender enablement or QEMU implementation."
+  },
+  "entries": [
+    {
+      "name": "gic-distributor",
+      "base": "0x17a00000",
+      "size": "0x10000",
+      "kind": "interrupt-controller",
+      "evidence": "confirmed-dtsi-declaration",
+      "implementation": "not-implemented",
+      "boot_critical": true,
+      "notes": "GICv3 distributor candidate; must be wired to QEMU CPU interfaces."
+    },
+    {
+      "name": "gic-redistributor",
+      "base": "0x17b00000",
+      "size": "0x100000",
+      "kind": "interrupt-controller",
+      "evidence": "confirmed-dtsi-declaration",
+      "implementation": "not-implemented",
+      "boot_critical": true,
+      "notes": "GICv3 redistributor region candidate."
+    },
+    {
+      "name": "uartdm-0c170000",
+      "base": "0x0c170000",
+      "size": "0x1000",
+      "kind": "uart",
+      "evidence": "confirmed-dtsi-declaration",
+      "implementation": "prototype-device-not-board-mapped",
+      "boot_critical": true,
+      "notes": "Common SoC DTSI marks this candidate disabled; verify final lavender DT/DTBO before selecting console."
+    },
+    {
+      "name": "uartdm-0c1b0000",
+      "base": "0x0c1b0000",
+      "size": "0x1000",
+      "kind": "uart",
+      "evidence": "confirmed-dtsi-declaration",
+      "implementation": "prototype-device-not-board-mapped",
+      "boot_critical": true,
+      "notes": "Second UARTDM candidate; console selection unresolved."
+    },
+    {
+      "name": "sdhci-emmc",
+      "base": "0x0c0c4000",
+      "size": "0x1000",
+      "kind": "storage",
+      "evidence": "confirmed-dtsi-declaration",
+      "implementation": "not-implemented",
+      "boot_critical": true,
+      "notes": "eMMC controller candidate; retail DT/DTBO and storage mode must be verified."
+    },
+    {
+      "name": "sdhci-emmc-cmdq",
+      "base": "0x0c0c5000",
+      "size": "0x1000",
+      "kind": "storage-subregion",
+      "evidence": "confirmed-dtsi-declaration",
+      "implementation": "not-implemented",
+      "boot_critical": true,
+      "notes": "Separate cmdq_mem range declared adjacent to SDC1."
+    },
+    {
+      "name": "sdhci-sdcard",
+      "base": "0x0c084000",
+      "size": "0x1000",
+      "kind": "storage",
+      "evidence": "confirmed-dtsi-declaration",
+      "implementation": "not-implemented",
+      "boot_critical": false,
+      "notes": "SD-card controller candidate."
+    },
+    {
+      "name": "gcc",
+      "base": "0x00100000",
+      "size": "0x94000",
+      "kind": "clock-reset-controller",
+      "evidence": "confirmed-dtsi-declaration",
+      "implementation": "not-implemented",
+      "boot_critical": true,
+      "notes": "Register semantics and required clocks/resets remain unimplemented."
+    },
+    {
+      "name": "mmcc",
+      "base": "0x0c8c0000",
+      "size": "0x40000",
+      "kind": "clock-controller",
+      "evidence": "confirmed-dtsi-declaration",
+      "implementation": "not-implemented",
+      "boot_critical": false,
+      "notes": "Multimedia clock controller candidate."
+    },
+    {
+      "name": "gpu-clock-controller",
+      "base": "0x05065000",
+      "size": "0x10000",
+      "kind": "clock-reset-controller",
+      "evidence": "confirmed-dtsi-declaration",
+      "implementation": "not-implemented",
+      "boot_critical": false,
+      "notes": "Clock/reset registers only; not an Adreno GPU model."
+    }
+  ]
+}
