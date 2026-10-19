@@ -47,7 +47,9 @@ jobs:
           case "$BASE_ROM_URL" in https://*) ;; *) echo 'Only HTTPS URLs are accepted.' >&2; exit 2 ;; esac
           mkdir -p clean-base/audit "$RUNNER_TEMP/lucid"
           curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 4800 \
-            "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME"
+            "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME" \
+            --write-out 'http_code=%{http_code}\\neffective_url=%{url_effective}\\ncontent_type=%{content_type}\\nsize_download=%{size_download}\\n' \
+            | tee clean-base/audit/base-download-response.txt
           test -s "clean-base/$EXPECTED_FILENAME"
           sha256sum "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-sha256.txt
           stat -c 'filename=%n bytes=%s' "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-file.txt
@@ -91,7 +93,8 @@ jobs:
                   'base_has_system_dat_br': bool(exact_or_suffix(bn, 'system.new.dat.br')),
                   'base_has_vendor_dat_br': bool(exact_or_suffix(bn, 'vendor.new.dat.br')),
                   'base_has_product_dat_br': bool(exact_or_suffix(bn, 'product.new.dat.br')),
-                  'metadata_mentions_android_15': '15' in base_metadata and ('post-build=' in base_metadata or 'pre-device=' in base_metadata),
+                  'metadata_mentions_sdk_35': 'post-sdk-level=35' in base_metadata.lower() or 'pre-sdk-level=35' in base_metadata.lower(),
+                  'metadata_mentions_android_15': ('post-sdk-level=35' in base_metadata.lower() or 'pre-sdk-level=35' in base_metadata.lower() or 'android-15' in base_metadata.lower()),
                   'metadata': base_metadata,
                   'updater_mentions_lavender': 'lavender' in base_updater.lower(),
                   'updater_mentions_dynamic_partition_layout': any(x in base_signals for x in ('super_dummy.img', 'dynamic_partitions_op_list', 'retrofit_dynamic_partitions')),
