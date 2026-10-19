@@ -30,6 +30,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--kernel-header", required=True, type=Path)
     parser.add_argument("--qemu-source", required=True, type=Path)
+    parser.add_argument("--kernel-dtsi", required=True, type=Path,
+                        help="Pinned SDM660 SoC DTSI containing the UARTDM reg tuple")
     args = parser.parse_args()
     reference = defines(args.kernel_header)
     implementation = defines(args.qemu_source)
