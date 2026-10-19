@@ -94,7 +94,7 @@ def main() -> int:
     failed = False
     try:
         for label, path in ARCHIVES.items():
-            print("\\n" + "=" * 88 + "\\n" + label + "\\n" + "=" * 88)
+            print("\n" + "=" * 88 + "\n" + label + "\n" + "=" * 88)
             if not path.is_file():
                 print(f"ERROR: missing archive {path}")
                 failed = True
@@ -117,7 +117,7 @@ def main() -> int:
         (orig_z, orig_names) = loaded["ORIGINAL LINEAGEOS"]
         (lucid_z, lucid_names) = loaded["LUCID OS"]
         orig_set, lucid_set = set(orig_names), set(lucid_names)
-        print("\\n" + "=" * 88 + "\\nARCHIVE ENTRY DIFFERENCES\\n" + "=" * 88)
+        print("\n" + "=" * 88 + "\nARCHIVE ENTRY DIFFERENCES\n" + "=" * 88)
         print("only_in_original=" + repr(sorted(orig_set - lucid_set)))
         print("only_in_lucid=" + repr(sorted(lucid_set - orig_set)))
         print(f"common_entries={len(orig_set & lucid_set)}")
@@ -127,7 +127,7 @@ def main() -> int:
             if name.endswith(TEXT_SUFFIXES) or name.endswith(".transfer.list")
         })
         for name in important:
-            print(f"\\n--- ENTRY {name} ---")
+            print(f"\n--- ENTRY {name} ---")
             if name not in orig_set:
                 print("ORIGINAL: MISSING")
                 print("LUCID SHA256: " + digest_bytes(lucid_z.read(name)))
@@ -145,9 +145,9 @@ def main() -> int:
             print("content=DIFFERENT")
             if name.endswith(".transfer.list"):
                 print("ORIGINAL transfer summary:")
-                print("\\n".join(transfer_summary(a)))
+                print("\n".join(transfer_summary(a)))
                 print("LUCID transfer summary:")
-                print("\\n".join(transfer_summary(b)))
+                print("\n".join(transfer_summary(b)))
             if name.endswith(TEXT_SUFFIXES):
                 diff = difflib.unified_diff(
                     a.decode("utf-8", "replace").splitlines(),
