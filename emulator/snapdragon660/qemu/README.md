@@ -43,7 +43,7 @@ not blindly copy the MTP status or assume every SoC node is enabled.
 
 ## Known limitations before compile/runtime validation
 
-- The CI workflow compiles against pinned QEMU v10.0.0 and runs a QTest-driven runtime test on the generic `virt` platform bus. It checks the status-register TX-ready bit and verifies that a transmitted byte reaches the QEMU chardev. This validates a narrow peripheral behavior only; it does not validate a Snapdragon board, Qualcomm CPU topology, or guest boot.
+- The CI workflow compiles against pinned QEMU v10.0.0 and runs a QTest-driven runtime test on the generic `virt` platform bus. It checks TX-ready status, DMEN mode handling, CR readback, TX enable/disable gating, TX reset behavior, and chardev output. This validates narrow peripheral behavior only; it does not validate a Snapdragon board, Qualcomm CPU topology, or guest boot.
 - SR reports TX-ready immediately; no baud timing or FIFO depth is simulated.
 - TX output is only a debug console path, not a complete UARTDM implementation.
 - Device reset does not yet model hardware reset side effects beyond register state.
