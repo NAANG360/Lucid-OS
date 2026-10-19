@@ -4,13 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       base_rom_url:
-        description: Direct HTTPS download URL for the chosen vanilla Android 15 lavender ROM from RedmiNote7Updates
+        description: Direct HTTPS download URL for the June 2025 pix106 LineageOS 22.2 lavender candidate; verify vanilla/dynamic metadata in the report
         required: true
+        default: https://sourceforge.net/projects/lavender-roms/files/Rom/4.19/Lineage-22.2/lineage-22.2-lavender-20250612-1450.zip/download
         type: string
       expected_filename:
         description: Expected ROM ZIP filename (letters, digits, dots, underscores, hyphens only)
         required: true
-        default: lineage-ext-lavender-android15.zip
+        default: lineage-22.2-lavender-20250612-1450.zip
         type: string
 
 permissions:
