@@ -18,6 +18,7 @@
 #include "exec/address-spaces.h"
 #include "hw/arm/boot.h"
 #include "hw/core/boards.h"
+#include "hw/core/sysbus-fdt.h"
 #include "hw/qdev-properties.h"
 #include "hw/qdev-properties-system.h"
 #include "hw/char/serial.h"
@@ -255,6 +256,7 @@ static void lavender_machine_class_init(ObjectClass *oc, void *data)
     mc->max_cpus = 8;
     mc->default_cpus = 1;
     mc->possible_cpu_arch_ids = lavender_possible_cpu_arch_ids;
+    machine_class_allow_dynamic_sysbus_dev(mc, "sdm660-uartdm");
     mc->ignore_memory_transaction_failures = false;
 }
 
