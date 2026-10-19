@@ -20,10 +20,7 @@ Copy `hw/char/sdm660_uartdm.c` into QEMU's `hw/char/` and add this line to
 system_ss.add(files('sdm660_uartdm.c'))
 ```
 
-Build a system emulator with the ARM system target enabled. The device is
-registered as `sdm660-uartdm`; a board must instantiate it, attach a chardev,
-map its MMIO region at a source-verified address, and route the console pinmux/
-clock/reset assumptions before a guest can use it.
+Build a system emulator with the ARM system target enabled. The device is registered as `sdm660-uartdm`. The CI harness temporarily instantiates it on QEMU's generic `virt` platform bus solely to test the device model; that is not a Snapdragon board. The board model must map its MMIO region at a source-verified SDM660 address and route the console pinmux/clock/reset assumptions before a guest can use it.
 
 Do not add the device to the default `virt` board and label that a Snapdragon
 machine. The native board still needs the actual SDM660 CPU topology, memory
@@ -46,10 +43,7 @@ not blindly copy the MTP status or assume every SoC node is enabled.
 
 ## Known limitations before compile/runtime validation
 
-- The CI workflow compiles against QEMU v10.0.0 and realizes the user-creatable
-  SysBus device under QEMU's `none` machine. This checks registration and object
-  realization only; it does not validate MMIO transactions, a Snapdragon board,
-  or guest boot.
+- The CI workflow compiles against pinned QEMU v10.0.0 and runs a QTest-driven runtime test on the generic `virt` platform bus. It checks the status-register TX-ready bit and verifies that a transmitted byte reaches the QEMU chardev. This validates a narrow peripheral behavior only; it does not validate a Snapdragon board, Qualcomm CPU topology, or guest boot.
 - SR reports TX-ready immediately; no baud timing or FIFO depth is simulated.
 - TX output is only a debug console path, not a complete UARTDM implementation.
 - Device reset does not yet model hardware reset side effects beyond register state.
