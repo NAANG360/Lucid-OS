@@ -35,6 +35,16 @@ class SnapdragonVariantTests(unittest.TestCase):
         self.assertIn('"redistributor-stride", 2, 0x20000', source)
         self.assertIn("#define SDM660_GICR_SIZE      0x100000", source)
 
+    def test_arch_timer_uses_sdm660_ppi_order(self):
+        source = (ROOT / "qemu" / "hw" / "arm" / "sdm660_lavender.c").read_text()
+        timer = source.split('qemu_fdt_add_subnode(fdt, "/timer");', 1)[1].split('qemu_fdt_add_subnode(fdt, "/intc");', 1)[0]
+        self.assertIn("1, 1, 0xf08, 1, 2, 0xf08, 1, 3, 0xf08, 1, 0, 0xf08", timer)
+        self.assertIn("[GTIMER_PHYS] = 1", source)
+        self.assertIn("[GTIMER_VIRT] = 2", source)
+        self.assertIn("[GTIMER_HYP] = 3", source)
+        self.assertIn("[GTIMER_SEC] = 0", source)
+        self.assertNotIn("[GTIMER_HYPVIRT]", source)
+
     def test_arch_timer_uses_source_declared_frequency(self):
         source = (ROOT / "qemu" / "hw" / "arm" / "sdm660_lavender.c").read_text()
         timer = source.split('qemu_fdt_add_subnode(fdt, "/timer");', 1)[1].split('qemu_fdt_add_subnode(fdt, "/intc");', 1)[0]
