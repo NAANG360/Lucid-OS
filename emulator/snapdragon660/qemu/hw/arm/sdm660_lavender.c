@@ -95,6 +95,7 @@ static void lavender_add_cpu_nodes(SDM660LavenderState *s)
         qemu_fdt_add_subnode(s->fdt, name);
         qemu_fdt_setprop_string(s->fdt, name, "device_type", "cpu");
         qemu_fdt_setprop_string(s->fdt, name, "compatible", "arm,armv8");
+        qemu_fdt_setprop_string(s->fdt, name, "enable-method", "psci");
         qemu_fdt_setprop_sized_cells(s->fdt, name, "reg", 2,
                                      lavender_mpidr(i));
         if (i >= ms->smp.cpus) {
@@ -266,6 +267,8 @@ static void lavender_init(MachineState *machine)
     s->bootinfo.loader_start = SDM660_RAM_BASE;
     s->bootinfo.get_dtb = lavender_get_dtb;
     s->bootinfo.firmware_loaded = false;
+    /* Use QEMU ARM's built-in PSCI implementation for CPU_ON/OFF. */
+    s->bootinfo.psci_conduit = QEMU_PSCI_CONDUIT_SMC;
     arm_load_kernel(ARM_CPU(first_cpu), machine, &s->bootinfo);
 }
 
