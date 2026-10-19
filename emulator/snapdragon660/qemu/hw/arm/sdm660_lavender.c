@@ -233,6 +233,8 @@ static void lavender_init(MachineState *machine)
     uartbus = SYS_BUS_DEVICE(uart);
     sysbus_realize_and_unref(uartbus, &error_fatal);
     sysbus_mmio_map(uartbus, 0, SDM660_UART_BASE);
+    sysbus_connect_irq(uartbus, 0,
+                       qdev_get_gpio_in(s->gic, 32 + SDM660_UART_SPI));
 
     lavender_create_fdt(s);
     s->bootinfo.ram_size = machine->ram_size;
