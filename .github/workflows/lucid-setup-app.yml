@@ -1,0 +1,49 @@
+name: LucidOS First-Boot Setup App
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "setup-app/**"
+      - "theme/assets/**"
+      - "tools/build_lucid_setup.sh"
+      - ".github/workflows/lucid-setup-app.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "build-tools;35.0.0"
+      - name: Install Android platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35"
+      - name: Build and verify setup APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools/build_lucid_setup.sh "$GITHUB_WORKSPACE/out/LucidSetup.apk"
+          mkdir -p report
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging out/LucidSetup.apk > report/setup-app-badging.txt
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose out/LucidSetup.apk
+          sha256sum out/LucidSetup.apk > report/setup-app-sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lucid-firstboot-setup-development-apk
+          path: |
+            out/LucidSetup.apk
+            report/
+          if-no-files-found: error
+          retention-days: 14
