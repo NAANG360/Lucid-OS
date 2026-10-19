@@ -116,16 +116,30 @@ def main() -> int:
                     raise RuntimeError(f"UARTDM TX-ready bit was clear: {status}")
                 print(f"PASS: UARTDM status register reports TX-ready (0x{status_value:08x})")
 
+                qtest_command(qtest, f"writel 0x{base + 0x03c:x} 0x4")
+                dmen = qtest_command(qtest, f"readl 0x{base + 0x03c:x}")
+                dmen_value = int(dmen.split()[-1], 0)
+                if dmen_value != 0x10:
+                    raise RuntimeError(f"UARTDM DMEN single-character mode mismatch: {dmen}")
+                print("PASS: DMEN disables TX BAM and selects single-character mode")
+
+                # A disabled transmitter must not leak data to the chardev.
+                qtest_command(qtest, f"writel 0x{base + 0x100:x} 0x58")
                 qtest_command(qtest, f"writel 0x{base + 0x0a8:x} 0x4")
+                cr = qtest_command(qtest, f"readl 0x{base + 0x0a8:x}")
+                if int(cr.split()[-1], 0) != 0x4:
+                    raise RuntimeError(f"UARTDM CR enable readback mismatch: {cr}")
                 qtest_command(qtest, f"writel 0x{base + 0x100:x} 0x41")
-                print("Wrote 'A' to UARTDM TX FIFO after enabling TX")
+                qtest_command(qtest, f"writel 0x{base + 0x0a8:x} 0x20")
+                qtest_command(qtest, f"writel 0x{base + 0x100:x} 0x42")
+                print("Exercised TX-disabled, TX-enabled, and reset states")
                 qmp_command(qmp, "quit")
                 proc.wait(timeout=10)
                 payload = Path(tx_path).read_bytes() if Path(tx_path).exists() else b""
-                if b"A" not in payload:
-                    raise RuntimeError(f"UARTDM TX byte was not delivered to chardev; captured {payload!r}")
-                print(f"PASS: UARTDM transmitted byte 0x41 to chardev ({payload!r})")
-                print("PASS: UARTDM runtime MMIO and TX path")
+                if payload != b"A":
+                    raise RuntimeError(f"UARTDM TX gating/reset mismatch; expected b'A', captured {payload!r}")
+                print(f"PASS: only enabled TX byte 0x41 reached chardev ({payload!r})")
+                print("PASS: UARTDM MMIO, DMEN, TX gating, reset, and chardev path")
                 return 0
             finally:
                 if qtest is not None:
