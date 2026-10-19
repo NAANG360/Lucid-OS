@@ -11,6 +11,8 @@ on:
       - 'tests/test_reconstruct_transfer_image.py'
       - 'tools/validate_lucid_preservation.py'
       - 'tests/test_validate_lucid_preservation.py'
+      - 'tools/stage_lucid_overlays.py'
+      - 'tests/test_stage_lucid_overlays.py'
       - '.github/workflows/lightweight-rom-tooling-tests.yml'
 
 permissions:
@@ -30,4 +32,5 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p 'test_compare_rom_installers.py' -v
           python3 tests/test_validate_lucid_preservation.py -v
+          python3 tests/test_stage_lucid_overlays.py -v
           python3 tests/test_reconstruct_transfer_image.py
