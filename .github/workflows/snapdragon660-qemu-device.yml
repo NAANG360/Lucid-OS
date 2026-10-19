@@ -29,6 +29,8 @@ jobs:
             emulator/snapdragon660/tests/test_uartdm_register_map.py \
             emulator/snapdragon660/tests/test_variant.py \
             emulator/snapdragon660/qemu/tests/smoke_uartdm.py
+      - name: Run Snapdragon model regression tests
+        run: python3 -m unittest discover -s emulator/snapdragon660/tests -v
       - name: Install QEMU build dependencies
         run: |
           sudo apt-get update
@@ -132,10 +134,11 @@ jobs:
             --machine-source emulator/snapdragon660/qemu/hw/arm/sdm660_lavender.c
       - name: Validate source-derived SDM660 memory map
         run: python3 emulator/snapdragon660/tools/validate_board_memory_map.py
-      - name: Configure AArch64 system emulator on cache miss
-        if: steps.qemu-cache.outputs.cache-hit != 'true'
+      - name: Configure AArch64 system emulator after applying board patches
         working-directory: qemu-src
         run: |
+          # Reconfigure even on a cache hit: board Kconfig/Meson edits are
+          # applied after cache restore and must reach generated build metadata.
           ./configure --target-list=aarch64-softmmu --disable-werror --disable-docs
       - name: Compile AArch64 system emulator
         working-directory: qemu-src
