@@ -48,7 +48,7 @@ jobs:
           mkdir -p clean-base/audit "$RUNNER_TEMP/lucid"
           curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 4800 \
             "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME" \
-            --write-out 'http_code=%{http_code}\\neffective_url=%{url_effective}\\ncontent_type=%{content_type}\\nsize_download=%{size_download}\\n' \
+            --write-out 'http_code=%{http_code}\neffective_url=%{url_effective}\ncontent_type=%{content_type}\nsize_download=%{size_download}\n' \
             | tee clean-base/audit/base-download-response.txt
           test -s "clean-base/$EXPECTED_FILENAME"
           sha256sum "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-sha256.txt
@@ -81,7 +81,7 @@ jobs:
               base_metadata = read_first(bz, bn, 'META-INF/com/android/metadata')
               base_updater = read_first(bz, bn, 'META-INF/com/google/android/updater-script')
               base_dyn = read_first(bz, bn, 'dynamic_partitions_op_list')
-              base_signals = (base_metadata + '\\n' + base_updater + '\\n' + base_dyn).lower()
+              base_signals = (base_metadata + '\n' + base_updater + '\n' + base_dyn).lower()
               summary = {
                   'base_archive_entries': len(bn), 'lucid_archive_entries': len(ln),
                   'base_has_boot_img': bool(exact_or_suffix(bn, 'boot.img')),
