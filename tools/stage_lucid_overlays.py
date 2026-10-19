@@ -91,6 +91,8 @@ def main() -> int:
     parser.add_argument("--base-root", type=Path, required=True,
                         help="Extracted base filesystem root containing system/")
     parser.add_argument("--report", type=Path, default=Path("lucid-overlay-plan.json"))
+    parser.add_argument("--extra-overlay", action="append", default=[], metavar="SOURCE=DEST",
+                        help="Add a generated artifact mapping; SOURCE is a local file, DEST is relative to base root. Repeatable.")
     parser.add_argument("--apply", action="store_true",
                         help="Copy the listed Lucid paths; default is dry-run only")
     args = parser.parse_args()
@@ -101,14 +103,24 @@ def main() -> int:
         if not (base / "system").is_dir():
             raise ValueError(f"base root does not contain system/: {base}")
         reject_symlink_components(base / "system", base)
-        for source_rel, dest_rel, required in OVERLAYS:
-            source = repo / source_rel
+        mappings = [(repo / source_rel, dest_rel, required) for source_rel, dest_rel, required in OVERLAYS]
+        for mapping in args.extra_overlay:
+            if "=" not in mapping:
+                raise ValueError(f"invalid --extra-overlay {mapping!r}; expected SOURCE=DEST")
+            source_text, dest_text = mapping.split("=", 1)
+            source = Path(source_text).expanduser().resolve()
+            destination_rel = Path(dest_text)
+            if destination_rel.is_absolute() or ".." in destination_rel.parts:
+                raise ValueError(f"extra overlay destination must be relative and confined: {dest_text}")
+            mappings.append((source, destination_rel.as_posix(), True))
+        for source, dest_rel, required in mappings:
             destination = base / dest_rel
             if not source.exists() and not source.is_symlink():
                 if required:
-                    missing.append(source_rel)
+                    missing.append(str(source))
                 continue
-            reject_symlink_components(source, repo)
+            source_root = repo if source.is_relative_to(repo) else source.parent
+            reject_symlink_components(source, source_root)
             reject_symlink_components(destination, base)
             rows.extend(inventory(source, destination))
     except (OSError, ValueError) as exc:
@@ -141,8 +153,14 @@ def main() -> int:
 
     if args.apply:
         try:
-            for source_rel, dest_rel, required in OVERLAYS:
-                source = repo / source_rel
+            mappings = [(repo / source_rel, dest_rel, required) for source_rel, dest_rel, required in OVERLAYS]
+            for mapping in args.extra_overlay:
+                source_text, dest_text = mapping.split("=", 1)
+                destination_rel = Path(dest_text)
+                if destination_rel.is_absolute() or ".." in destination_rel.parts:
+                    raise ValueError(f"extra overlay destination must be relative and confined: {dest_text}")
+                mappings.append((Path(source_text).expanduser().resolve(), destination_rel.as_posix(), True))
+            for source, dest_rel, required in mappings:
                 if not source.exists():
                     continue
                 destination = base / dest_rel
