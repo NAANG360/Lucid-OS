@@ -106,7 +106,7 @@ if [ ! -f "$INIT_MARKER" ]; then
 set -e
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y xfce4 xfce4-goodies plank dbus-x11 adb wget curl git desktop-file-utils hicolor-icon-theme
+apt-get install -y xfce4 xfce4-goodies plank dbus-x11 adb desktop-file-utils hicolor-icon-theme libnotify-bin adwaita-icon-theme
 # Lucid theme is shipped inline: no GitHub clone, installer, or Termux required.
 mkdir -p /usr/share/themes/Lucid-Dark/gtk-3.0 /usr/share/themes/Lucid-Dark/gtk-4.0
 cat >/usr/share/themes/Lucid-Dark/gtk-3.0/gtk.css <<'LUCID_GTK'
@@ -265,7 +265,13 @@ SYNC_PID=$!
 echo "$SYNC_PID" > "$SYNC_PID_FILE"
 
 # Start Termux:X11 and the desktop session.
-am start -n com.termux.x11/com.termux.x11.MainActivity >/dev/null 2>&1 || log_msg "Termux:X11 launch failed; install/enable Termux:X11 to display the Linux desktop."
+# A native Android X server is required to remove the final Termux:X11 dependency.
+# Do not silently claim desktop mode is available if no display server is present.
+if ! pm path com.termux.x11 >/dev/null 2>&1; then
+    log_msg "No compatible X11 display provider installed. Chroot is prepared, but GUI session cannot be displayed."
+    exit 1
+fi
+am start -n com.termux.x11/com.termux.x11.MainActivity >/dev/null 2>&1 || log_msg "X11 display provider launch failed."
 # startxfce4 expects a session bus; dbus-x11 is installed during provisioning.
 # Keep the session in the foreground so init can stop/restart the desktop service.
 chroot "$CHROOT_DIR" /bin/bash -lc 'export DISPLAY="${DISPLAY:-:0}"; export XDG_RUNTIME_DIR=/run/user/0; mkdir -p "$XDG_RUNTIME_DIR"; chmod 0700 "$XDG_RUNTIME_DIR"; exec dbus-launch --exit-with-session startxfce4' 
