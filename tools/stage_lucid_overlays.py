@@ -193,10 +193,10 @@ def main() -> int:
 
     if args.apply:
         try:
-            mappings = [(overlay_source_root / source_rel, dest_rel, required) for source_rel, dest_rel, required in OVERLAYS]
+            mappings = [(overlay_source_root / source_rel, adjusted_destination(dest_rel), required) for source_rel, dest_rel, required in OVERLAYS]
             for mapping in args.extra_overlay:
                 source, destination_rel = parse_extra_overlay(mapping)
-                mappings.append((source, destination_rel, True))
+                mappings.append((source, adjusted_destination(destination_rel), True))
             for source, dest_rel, required in mappings:
                 if not source.exists():
                     continue
