@@ -45,7 +45,7 @@ jobs:
           sudo apt-get install -y -qq brotli cpio e2fsprogs file zip unzip lz4 xz-utils
           mkdir -p report "$RUNNER_TEMP/assembly"
           python3 -m venv "$RUNNER_TEMP/assembly/venv"
-          "$RUNNER_TEMP/assembly/venv/bin/pip" install --quiet brotli lz4 zstandard
+          "$RUNNER_TEMP/assembly/venv/bin/pip" install --quiet brotli lz4 zstandard cryptography
           "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_validate_lucid_preservation.py -v
           "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_stage_lucid_overlays.py -v
           "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_reconstruct_transfer_image.py -v
@@ -88,6 +88,8 @@ jobs:
           unzip -p "$BASE_ZIP" META-INF/com/google/android/updater-script > "$RUNNER_TEMP/assembly/updater-script"
           unzip -p "$BASE_ZIP" boot.img > "$RUNNER_TEMP/assembly/boot/base-boot.img"
           unzip -p "$LUCID_ZIP" boot.img > "$RUNNER_TEMP/assembly/boot/lucid-boot.img"
+          unzip -p "$BASE_ZIP" vbmeta.img > "$RUNNER_TEMP/assembly/boot/base-vbmeta.img"
+          unzip -p "$LUCID_ZIP" vbmeta.img > "$RUNNER_TEMP/assembly/boot/lucid-vbmeta.img"
           if grep -qx dtbo.img report/original-lucid-zip-entry-list.txt; then
             unzip -p "$LUCID_ZIP" dtbo.img > "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img"
           fi
@@ -151,6 +153,46 @@ jobs:
             echo "The kernels differ or Lucid DTBO is absent; do not transplant the old DTBO. The base installer leaves device DTBO unchanged." | tee report/dtbo-decision.txt
           fi
           echo "KERNEL_MATCH=$KERNEL_MATCH" >> "$GITHUB_ENV"
+
+      - name: Audit AVB and prepare verification-disabled vbmeta
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --retry-all-errors \
+            "https://android.googlesource.com/platform/external/avb/+/refs/heads/main/avbtool.py?format=TEXT" \
+            --output "$RUNNER_TEMP/assembly/avbtool.py.b64"
+          base64 --decode "$RUNNER_TEMP/assembly/avbtool.py.b64" > "$RUNNER_TEMP/assembly/avbtool.py"
+          "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+            --image "$RUNNER_TEMP/assembly/boot/base-vbmeta.img" > report/base-vbmeta-info.txt
+          "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+            --image "$RUNNER_TEMP/assembly/boot/lucid-vbmeta.img" > report/lucid-vbmeta-info.txt
+          BASE_FLAGS="$(awk -F': ' '/^Flags:/ {print $2; exit}' report/base-vbmeta-info.txt | awk '{print $1}')"
+          LUCID_FLAGS="$(awk -F': ' '/^Flags:/ {print $2; exit}' report/lucid-vbmeta-info.txt | awk '{print $1}')"
+          BASE_VBMETA_SIZE="$(stat -c %s "$RUNNER_TEMP/assembly/boot/base-vbmeta.img")"
+          LUCID_VBMETA_SIZE="$(stat -c %s "$RUNNER_TEMP/assembly/boot/lucid-vbmeta.img")"
+          if [[ "$BASE_FLAGS" == "3" ]]; then
+            echo "The base vbmeta already disables AVB verification and hashtree checks; retaining it." | tee report/vbmeta-decision.txt
+          elif [[ "$LUCID_FLAGS" == "3" && "$LUCID_VBMETA_SIZE" == "$BASE_VBMETA_SIZE" ]]; then
+            cp "$RUNNER_TEMP/assembly/boot/lucid-vbmeta.img" "$RUNNER_TEMP/assembly/update/vbmeta.img"
+            echo "Using original Lucid vbmeta: flags=3 and exact size match." | tee report/vbmeta-decision.txt
+          else
+            "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" make_vbmeta_image \
+              --flags 3 --padding_size "$BASE_VBMETA_SIZE" \
+              --output "$RUNNER_TEMP/assembly/update/vbmeta.img"
+            "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+              --image "$RUNNER_TEMP/assembly/update/vbmeta.img" > report/generated-vbmeta-info.txt
+            grep -q '^Flags: 3' report/generated-vbmeta-info.txt
+            echo "Generated an unsigned vbmeta image with AVB verification and hashtree disabled; flashing requires an unlocked bootloader." | tee report/vbmeta-decision.txt
+          fi
+          if [[ -s "$RUNNER_TEMP/assembly/update/vbmeta.img" ]]; then
+            [[ "$(stat -c %s "$RUNNER_TEMP/assembly/update/vbmeta.img")" == "$BASE_VBMETA_SIZE" ]]
+            "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+              --image "$RUNNER_TEMP/assembly/update/vbmeta.img" > report/selected-vbmeta-info.txt
+            grep -q '^Flags: 3' report/selected-vbmeta-info.txt
+            echo "VBMETA_REPLACEMENT=1" >> "$GITHUB_ENV"
+          else
+            echo "VBMETA_REPLACEMENT=0" >> "$GITHUB_ENV"
+          fi
 
       - name: Build LucidSetup, About, Wallpapers, and boot animation from source
         shell: bash
