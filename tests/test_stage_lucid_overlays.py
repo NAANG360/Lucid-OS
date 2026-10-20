@@ -36,6 +36,7 @@ class OverlayInventoryTests(unittest.TestCase):
         self.assertFalse(any(dest.endswith("/Settings.apk") or dest.endswith("/SystemUI.apk")
                              for dest in destinations))
         self.assertIn("system/etc/init/init.lucid.rc", destinations)
+        self.assertIn("system/bin/lucid-linux-app", destinations)
 
     def test_source_tree_symlink_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
