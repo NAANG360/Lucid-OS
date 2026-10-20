@@ -1,0 +1,19 @@
+#!/system/bin/sh
+# Android-side entry point used by Termux:Widget shortcuts for Lucid chroot apps.
+set -u
+ROOT="/data/local/lucid_desktop"
+APP="${1:-}"
+case "$APP" in *[!A-Za-z0-9_.-]*|'') echo "Invalid desktop app id" >&2; exit 2 ;; esac
+DESKTOP="$ROOT/usr/share/applications/$APP.desktop"
+[ -f "$DESKTOP" ] || DESKTOP="$ROOT/root/.local/share/applications/$APP.desktop"
+[ -f "$DESKTOP" ] || { echo "Desktop app not found: $APP" >&2; exit 1; }
+EXEC="$(sed -n 's/^Exec=//p' "$DESKTOP" | head -n 1)"
+[ -n "$EXEC" ] || { echo "No Exec entry in $DESKTOP" >&2; exit 1; }
+case "$EXEC" in *";"*|*"&"*|*"|"*|*"$("*|*">"*|*"<"*) echo "Unsafe Exec entry rejected" >&2; exit 1 ;; esac
+export DISPLAY=:0
+export XDG_RUNTIME_DIR="$ROOT/run/user/0"
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 0700 "$XDG_RUNTIME_DIR"
+# GUI output appears in the active Termux:X11 session.
+chroot "$ROOT" /bin/bash -lc "export DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/0; exec $EXEC" >/dev/null 2>&1 &
+exit 0
