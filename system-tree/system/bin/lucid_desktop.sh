@@ -174,6 +174,36 @@ chroot "$ROOT" /usr/sbin/runuser -u root -- /bin/bash -lc "export DISPLAY=:0; ex
 ANDROID_LINUX
 chmod 0755 /system/bin/lucid-linux-app
 
+# Termux:Widget reads executable scripts from ~/.shortcuts. If Termux exists,
+# publish launchers there so Linux GUI apps can be launched from Android's app
+# drawer via the Termux:Widget shortcut surface. Root is required for chroot.
+sync_termux_shortcuts() {
+    TERMUX_DATA="/data/data/com.termux"
+    [ -d "$TERMUX_DATA" ] || return 0
+    TERMUX_UID="$(stat -c '%u' "$TERMUX_DATA" 2>/dev/null)"
+    TERMUX_GID="$(stat -c '%g' "$TERMUX_DATA" 2>/dev/null)"
+    case "$TERMUX_UID:$TERMUX_GID" in *[!0-9:]*|'':*) return 1 ;; esac
+    SHORTCUTS="$TERMUX_DATA/files/home/.shortcuts/lucid-linux"
+    mkdir -p "$SHORTCUTS" || return 1
+    chown "$TERMUX_UID:$TERMUX_GID" "$TERMUX_DATA/files/home/.shortcuts" "$SHORTCUTS" 2>/dev/null || true
+    find "$CHROOT_DIR/usr/share/applications" "$CHROOT_DIR/root/.local/share/applications" -maxdepth 1 -type f -name '*.desktop' 2>/dev/null | while IFS= read -r desktop; do
+        app_id="${desktop##*/}"
+        app_id="${app_id%.desktop}"
+        case "$app_id" in *[!A-Za-z0-9_.-]*|'') continue ;; esac
+        title="$(sed -n 's/^Name=//p' "$desktop" | head -n 1 | tr -cd 'A-Za-z0-9 ._()-' | cut -c1-60)"
+        [ -n "$title" ] || title="$app_id"
+        shortcut="$SHORTCUTS/$app_id"
+        cat >"$shortcut" <<EOF_SHORTCUT
+#!/system/bin/sh
+su -c '/system/bin/lucid-linux-app "$app_id"'
+EOF_SHORTCUT
+        chmod 0755 "$shortcut"
+        chown "$TERMUX_UID:$TERMUX_GID" "$shortcut" 2>/dev/null || true
+    done
+    # Termux:Widget must be installed for these scripts to appear as launchable shortcuts.
+    log_msg "Synced Linux desktop app launchers to Termux shortcuts; Termux:Widget is required to expose them in Android."
+}
+
 # Keep a native app menu and panel rather than relying on one-time generated icons.
 mkdir -p /root/.config/xfce4/xfconf/xfce-perchannel-xml /root/.config/autostart
 cat >/root/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml <<'XSETTINGS'
@@ -209,6 +239,7 @@ CHROOT_SETUP
 fi
 
 # Start Android bridge only with loopback-only firewall protection.
+sync_termux_shortcuts || log_msg "Could not publish Termux Linux-app shortcuts."
 if start_local_adbd; then
     chroot "$CHROOT_DIR" /usr/local/bin/lucid-sync-android-apps >/dev/null 2>&1 || true
 else
@@ -220,6 +251,7 @@ fi
     echo $$ > "$SYNC_PID_FILE"
     while true; do
         sleep 60
+        sync_termux_shortcuts || true
         if start_local_adbd; then
             chroot "$CHROOT_DIR" /usr/local/bin/lucid-sync-android-apps >/dev/null 2>&1 || true
         fi
