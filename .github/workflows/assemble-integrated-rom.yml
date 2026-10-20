@@ -116,7 +116,11 @@ jobs:
           cp "$RUNNER_TEMP/assembly/boot/lucid-inspect/boot-header-report.txt" report/lucid-boot-header.txt
           cp "$RUNNER_TEMP/assembly/boot/base-inspect/kernel-compatibility-strings.txt" report/base-kernel-strings.txt
           cp "$RUNNER_TEMP/assembly/boot/lucid-inspect/kernel-compatibility-strings.txt" report/lucid-kernel-strings.txt
-          cp "$RUNNER_TEMP/assembly/boot/base-inspect/ramdisk-lucid-preservation-scan.txt" report/base-ramdisk-lucid-scan.txt
+          if [[ -s "$RUNNER_TEMP/assembly/boot/base-inspect/ramdisk-lucid-preservation-scan.txt" ]]; then
+            cp "$RUNNER_TEMP/assembly/boot/base-inspect/ramdisk-lucid-preservation-scan.txt" report/base-ramdisk-lucid-scan.txt
+          else
+            echo "Base ramdisk was not decoded; the base boot image will be retained unchanged." > report/base-ramdisk-lucid-scan.txt
+          fi
           if [[ -s "$RUNNER_TEMP/assembly/boot/lucid-inspect/ramdisk-lucid-preservation-scan.txt" ]]; then
             cp "$RUNNER_TEMP/assembly/boot/lucid-inspect/ramdisk-lucid-preservation-scan.txt" report/lucid-ramdisk-lucid-scan.txt
           else
