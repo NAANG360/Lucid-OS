@@ -13,6 +13,13 @@ BRIDGE_PORT=5555
 ANDROID_UID="$(id -u)"
 ANDROID_GID="$(id -g)"
 
+# A root-off preference is authoritative even if casting is requested.
+# The Android init property trigger also stops this service when switched off.
+if [ "$(getprop persist.lucid.chroot_root)" != "1" ]; then
+    log -t "LucidDesktop" "Desktop not started: chroot root access is disabled in Developer Options."
+    exit 1
+fi
+
 log_msg() { log -t "$TAG" "$*"; }
 is_mounted() { awk -v target="$1" '$2 == target { found=1 } END { exit !found }' /proc/mounts; }
 
