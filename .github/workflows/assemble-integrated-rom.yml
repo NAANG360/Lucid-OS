@@ -449,7 +449,45 @@ jobs:
             [[ "$(stat -c %s "$IMAGE")" == "$SIZE" ]]
             if [[ "$part" == "system" ]]; then
               debugfs -R 'cat /build.prop' "$IMAGE" > report/rebuilt-system-build.prop
-              grep -Eq '^(ro.build.version.sdk|ro.system.build.version.sdk)=35            brotli -q 6 -c "$IMAGE" > "$RUNNER_TEMP/assembly/update/$part.new.dat.br"
+              python3 - report/rebuilt-system-build.prop <<'PY'
+          import sys
+          props={}
+          for line in open(sys.argv[1],errors='replace'):
+              if '=' in line and not line.lstrip().startswith('#'):
+                  key,value=line.rstrip('\n').split('=',1)
+                  props[key]=value
+          sdk=props.get('ro.build.version.sdk') or props.get('ro.system.build.version.sdk')
+          release=props.get('ro.build.version.release') or props.get('ro.system.build.version.release')
+          if sdk!='35' or release not in ('15','15.0'):
+              raise SystemExit(f'Rebuilt system identity invalid: sdk={sdk!r} release={release!r}')
+          if props.get('ro.build.display.id')!='LucidOS-0.1':
+              raise SystemExit('LucidOS display ID was not preserved in the built system image')
+          if not props.get('ro.build.fingerprint','').startswith('Lucid/lucid_lavender/lavender:15/'):
+              raise SystemExit('Custom Lucid Android 15 fingerprint is missing from the built system image')
+          PY
+              debugfs -R 'cat /etc/init/init.lucid.rc' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-init-lucid.rc"
+              debugfs -R 'cat /bin/lucid-linux-app' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-lucid-linux-app"
+              debugfs -R 'cat /usr/lucid/ubuntu-base-arm64.tar.gz' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-ubuntu-base.tar.gz"
+              debugfs -R 'cat /priv-app/LucidSetup/LucidSetup.apk' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-LucidSetup.apk"
+              cmp -s "$RUNNER_TEMP/assembly/verify-init-lucid.rc" "$OVERLAY_SOURCE/system-tree/system/etc/init/init.lucid.rc"
+              cmp -s "$RUNNER_TEMP/assembly/verify-lucid-linux-app" "$OVERLAY_SOURCE/system-tree/system/bin/lucid-linux-app"
+              cmp -s "$RUNNER_TEMP/assembly/verify-ubuntu-base.tar.gz" "$OVERLAY_SOURCE/system-tree/system/usr/lucid/ubuntu-base-arm64.tar.gz"
+              cmp -s "$RUNNER_TEMP/assembly/verify-LucidSetup.apk" out/LucidSetup.apk
+              rm -f "$RUNNER_TEMP/assembly/verify-init-lucid.rc" "$RUNNER_TEMP/assembly/verify-lucid-linux-app" \
+                "$RUNNER_TEMP/assembly/verify-ubuntu-base.tar.gz" "$RUNNER_TEMP/assembly/verify-LucidSetup.apk"
+            elif [[ "$part" == "product" ]]; then
+              debugfs -R 'cat /priv-app/LucidWallpapers/LucidWallpapers.apk' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-LucidWallpapers.apk"
+              debugfs -R 'cat /app/LucidAbout/LucidAbout.apk' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-LucidAbout.apk"
+              debugfs -R 'cat /media/bootanimation.zip' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-bootanimation.zip"
+              debugfs -R 'cat /etc/permissions/privapp-permissions-lucid.xml' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-wallpaper-permissions.xml"
+              cmp -s "$RUNNER_TEMP/assembly/verify-LucidWallpapers.apk" out/LucidWallpapers.apk
+              cmp -s "$RUNNER_TEMP/assembly/verify-LucidAbout.apk" out/LucidAbout.apk
+              cmp -s "$RUNNER_TEMP/assembly/verify-bootanimation.zip" out/LucidOS-bootanimation.zip
+              cmp -s "$RUNNER_TEMP/assembly/verify-wallpaper-permissions.xml" theme/privapp-permissions-lucid.xml
+              rm -f "$RUNNER_TEMP/assembly/verify-LucidWallpapers.apk" "$RUNNER_TEMP/assembly/verify-LucidAbout.apk" \
+                "$RUNNER_TEMP/assembly/verify-bootanimation.zip" "$RUNNER_TEMP/assembly/verify-wallpaper-permissions.xml"
+            fi
+            brotli -q 6 -c "$IMAGE" > "$RUNNER_TEMP/assembly/update/$part.new.dat.br"
             : > "$RUNNER_TEMP/assembly/update/$part.patch.dat"
             ROUNDTRIP="$RUNNER_TEMP/assembly/images/$part-roundtrip.img"
             "$RUNNER_TEMP/assembly/venv/bin/python" tools/reconstruct_transfer_image.py \
