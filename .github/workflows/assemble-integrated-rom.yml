@@ -68,22 +68,10 @@ jobs:
           curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 7200 "$BASE_ROM_URL" --output "$BASE_ZIP"
           printf '%s  %s\n' "$EXPECTED_SHA256" "$BASE_ZIP" | sha256sum --check -
           sha256sum "$BASE_ZIP" | tee report/base-sha256.txt
-          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/assembly/releases.json"
-          LUCID_ASSET_ID="$(python3 - "$RUNNER_TEMP/assembly/releases.json" <<'PY'
-          import json,sys
-          for release in json.load(open(sys.argv[1])):
-              if release.get("tag_name") == "tobelucid-source-v1":
-                  for asset in release.get("assets", []):
-                      if asset.get("name") == "LucidOS-unsigned.zip":
-                          print(asset["id"])
-                          raise SystemExit(0)
-          raise SystemExit("Pinned LucidOS-unsigned.zip release asset was not found")
-          PY
-          )"
           LUCID_ZIP="$RUNNER_TEMP/assembly/lucid/LucidOS-unsigned.zip"
           curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 7200 \
             -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$LUCID_ASSET_ID" --output "$LUCID_ZIP"
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/652845990" --output "$LUCID_ZIP"
           printf '%s  %s\n' "6e9fa4bc2c7dffee9671a02f45bf3b4b7f881b33546cde33b2ea2c9f8ca953b1" "$LUCID_ZIP" | sha256sum --check -
           sha256sum "$LUCID_ZIP" | tee report/original-lucid-sha256.txt
           unzip -t "$BASE_ZIP" > report/base-zip-integrity.txt
