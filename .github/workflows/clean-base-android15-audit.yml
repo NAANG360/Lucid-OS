@@ -61,12 +61,14 @@ jobs:
             rm -f "clean-base/$EXPECTED_FILENAME"
             curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 4800 \
               "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME"
-            echo "download_method=curl-fallback" > clean-base/audit/base-download-response.txt
+            DOWNLOAD_METHOD=curl-fallback
           else
-            echo "download_method=aria2c-parallel" > clean-base/audit/base-download-response.txt
+            DOWNLOAD_METHOD=aria2c-parallel
           fi
-          printf 'requested_url=%s\nsize_download=%s\n' "$BASE_ROM_URL" "$(stat -c %s "clean-base/$EXPECTED_FILENAME")" \
-            >> clean-base/audit/base-download-response.txt
+          {
+            printf 'download_method=%s\n' "$DOWNLOAD_METHOD"
+            printf 'requested_url=%s\nsize_download=%s\n' "$BASE_ROM_URL" "$(stat -c %s "clean-base/$EXPECTED_FILENAME")"
+          } > clean-base/audit/base-download-response.txt
           test -s "clean-base/$EXPECTED_FILENAME"
           sha256sum "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-sha256.txt
           stat -c 'filename=%n bytes=%s' "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-file.txt
