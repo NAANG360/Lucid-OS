@@ -50,6 +50,15 @@ def validate(root: Path) -> dict:
         errors.append("desktop ADB bridge lacks IPv4/IPv6 loopback-only protection")
     if "bind_once /dev" not in desktop or "bind_once /proc" not in desktop or "bind_once /sys" not in desktop:
         errors.append("desktop bind-mount idempotency contract incomplete")
+    if "/usr/local/bin/lucid-sync-android-apps" not in desktop or "lucid-android-" not in desktop:
+        errors.append("Android app discovery/sync integration missing")
+    if "sync_termux_shortcuts()" not in desktop or "Termux:Widget" not in desktop:
+        errors.append("Linux app-to-Android shortcut integration missing")
+    linux_launcher = root / "system-tree/system/bin/lucid-linux-app"
+    if not linux_launcher.is_file():
+        errors.append("missing Android-side Linux app launcher")
+    elif not (linux_launcher.stat().st_mode & 0o111):
+        errors.append("Android-side Linux app launcher is not executable")
 
     root_toggle_path = root / "system-tree/system/bin/lucid_root_toggle.sh"
     root_toggle = root_toggle_path.read_text(encoding="utf-8", errors="replace") if root_toggle_path.is_file() else ""
