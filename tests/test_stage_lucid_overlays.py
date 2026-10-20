@@ -3,6 +3,7 @@
 import importlib.util
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "tools" / "stage_lucid_overlays.py"
@@ -37,6 +38,41 @@ class OverlayInventoryTests(unittest.TestCase):
                              for dest in destinations))
         self.assertIn("system/etc/init/init.lucid.rc", destinations)
         self.assertIn("system/bin/lucid-linux-app", destinations)
+
+
+    def test_staging_can_use_a_pruned_source_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "repo"
+            source_root = root / "overlay-source"
+            base = root / "base"
+            repo.mkdir()
+            base.mkdir()
+            (base / "system").mkdir()
+            for source_rel, _, _ in MODULE.OVERLAYS:
+                source = source_root / source_rel
+                if source_rel.endswith("/usr/lucid"):
+                    source.mkdir(parents=True, exist_ok=True)
+                    (source / "ubuntu-base-arm64.tar.gz").write_text("rootfs")
+                else:
+                    source.parent.mkdir(parents=True, exist_ok=True)
+                    source.write_text("from-pruned-source-root")
+            report = root / "overlay-plan.json"
+            argv = [
+                "stage_lucid_overlays.py",
+                "--repo-root", str(repo),
+                "--source-root", str(source_root),
+                "--base-root", str(base),
+                "--report", str(report),
+                "--apply",
+            ]
+            with mock.patch("sys.argv", argv):
+                self.assertEqual(MODULE.main(), 0)
+            self.assertEqual(
+                (base / "system/bin/lucid-linux-app").read_text(),
+                "from-pruned-source-root",
+            )
+            self.assertTrue(report.is_file())
 
     def test_source_tree_symlink_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
