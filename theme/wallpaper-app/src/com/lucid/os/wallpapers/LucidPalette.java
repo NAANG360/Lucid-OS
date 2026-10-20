@@ -14,7 +14,7 @@ public final class LucidPalette {
     private static final String INITIALIZED = "lucid_palette_initialized";
     private static final String THEME_SETTING = "theme_customization_overlay_packages";
     private static final String STYLE = "TONAL_SPOT";
-    private static final String DEFAULT_BLUE = "#0866FF";
+    private static final String DEFAULT_VIOLET = "#8B5CF6";
 
     private LucidPalette() {}
 
@@ -41,10 +41,10 @@ public final class LucidPalette {
             return;
         }
         try {
-            if (apply(context, DEFAULT_BLUE)) {
-                Log.i(TAG, "Applied first-boot Lucid Blue palette; wallpaper remains user-controlled.");
+            if (apply(context, DEFAULT_VIOLET)) {
+                Log.i(TAG, "Applied first-boot Lucid Violet palette; wallpaper remains user-controlled.");
             } else {
-                Log.w(TAG, "Android did not accept the default Lucid Blue palette.");
+                Log.w(TAG, "Android did not accept the default Lucid Violet palette.");
             }
         } catch (Exception e) {
             Log.e(TAG, "Could not apply first-boot Lucid palette.", e);
