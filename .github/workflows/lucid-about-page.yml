@@ -1,0 +1,38 @@
+name: LucidOS About Device Page
+on:
+  workflow_dispatch:
+  push:
+    branches: [fix/chroot-desktop-runtime]
+    paths:
+      - "theme/about-app/**"
+      - "theme/assets/lucid-wallpaper-dusk.jpg"
+      - "tools/build_lucid_about.sh"
+      - ".github/workflows/lucid-about-page.yml"
+permissions:
+  contents: read
+jobs:
+  build-about:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "build-tools;35.0.0" 
+      - name: Install Android platform
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35"
+      - name: Build and verify About app
+        run: |
+          chmod +x tools/build_lucid_about.sh
+          tools/build_lucid_about.sh "$GITHUB_WORKSPACE/out/LucidAbout.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging out/LucidAbout.apk
+          sha256sum out/LucidAbout.apk > out/LucidAbout.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lucid-about-device-apk
+          path: out/LucidAbout.apk
+          if-no-files-found: error
+          retention-days: 14
