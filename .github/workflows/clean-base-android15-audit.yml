@@ -4,7 +4,8 @@ on:
   push:
     branches: [fix/chroot-desktop-runtime]
     paths:
-      - ".github/workflows/clean-base-android15-audit.yml"\n      - "docs/ENGINEERING_JOURNAL.md"
+      - ".github/workflows/clean-base-android15-audit.yml"
+      - "docs/ENGINEERING_JOURNAL.md"
       - "docs/CLEAN_BASE_MIGRATION.md"
       - "tools/stage_lucid_overlays.py"
       - "tools/validate_lucid_preservation.py"
