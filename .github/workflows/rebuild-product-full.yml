@@ -152,6 +152,26 @@ jobs:
           test -s "$RUNNER_TEMP/theme/out/LucidOS-bootanimation.zip"
           echo "theme_source_run=$RUN_ID" >> report/source-tree-inventory.txt
 
+      - name: Install Android SDK for LucidOS About app
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "build-tools;35.0.0"
+
+      - name: Build and verify the LucidOS About app
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35"
+          chmod +x tools/build_lucid_about.sh
+          tools/build_lucid_about.sh "$GITHUB_WORKSPACE/out/LucidAbout.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging out/LucidAbout.apk > report/lucid-about-badging.txt
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose out/LucidAbout.apk > report/lucid-about-signature.txt
+          sha256sum out/LucidAbout.apk > report/lucid-about-sha256.txt
+          test -s out/LucidAbout.apk
+
       - name: Fetch AOSP host filesystem tools
         shell: bash
         run: |
@@ -186,15 +206,18 @@ jobs:
           FILE_CONTEXTS="$RUNNER_TEMP/product-file-contexts"
           cp system-tree/system/etc/selinux/plat_file_contexts "$FILE_CONTEXTS"
 
-          mkdir -p "$TREE/priv-app/LucidWallpapers" "$TREE/media" "$TREE/etc/permissions"
+          mkdir -p "$TREE/priv-app/LucidWallpapers" "$TREE/app/LucidAbout" "$TREE/media" "$TREE/etc/permissions"
           cp "$RUNNER_TEMP/theme/out/LucidWallpapers.apk" \
             "$TREE/priv-app/LucidWallpapers/LucidWallpapers.apk"
+          cp out/LucidAbout.apk "$TREE/app/LucidAbout/LucidAbout.apk"
           cp "$RUNNER_TEMP/theme/out/LucidOS-bootanimation.zip" \
             "$TREE/media/bootanimation.zip"
           cp theme/privapp-permissions-lucid.xml "$TREE/etc/permissions/privapp-permissions-lucid.xml"
+          printf 'package=com.lucid.os.about\npath=app/LucidAbout/LucidAbout.apk\nrole=standalone-about-screen\n' > report/lucid-about-rom-integration.txt
           printf 'status=clean\nsource=cloud-rebuilt\n' > "$TREE/etc/lucid-base-product-verified"
           chmod 0644 "$TREE/priv-app/LucidWallpapers/LucidWallpapers.apk" \
-            "$TREE/media/bootanimation.zip" "$TREE/etc/lucid-base-product-verified" \
+            "$TREE/app/LucidAbout/LucidAbout.apk" "$TREE/media/bootanimation.zip" \
+            "$TREE/etc/lucid-base-product-verified" \
             "$TREE/etc/permissions/privapp-permissions-lucid.xml"
           chmod 0755 "$TREE/priv-app" "$TREE/priv-app/LucidWallpapers" "$TREE/media" "$TREE/etc" "$TREE/etc/permissions"
           sudo chown -hR 0:0 "$TREE"
