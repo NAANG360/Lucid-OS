@@ -232,7 +232,7 @@ jobs:
           "$BUILD_TOOLS/aapt2" compile --dir theme/wallpaper-app/res -o "$RUNNER_TEMP/assembly/wallpaper-resources.zip"
           "$BUILD_TOOLS/aapt2" link --manifest theme/wallpaper-app/AndroidManifest.xml -I "$ANDROID_JAR" -A theme/wallpaper-app/assets -o "$RUNNER_TEMP/assembly/LucidWallpapers-unsigned.apk" "$RUNNER_TEMP/assembly/wallpaper-resources.zip"
           mapfile -t WALLPAPER_SOURCES < <(find theme/wallpaper-app/src -name '*.java' -print | sort)
-          javac -source 8 -target 8 -bootclasspath "$ANDROID_JAR" -d "$RUNNER_TEMP/assembly/wallpaper-classes" "${WALLPAPER_SOURCES[@]}"
+          javac --release 8 -classpath "$ANDROID_JAR" -d "$RUNNER_TEMP/assembly/wallpaper-classes" "${WALLPAPER_SOURCES[@]}"
           mapfile -t WALLPAPER_CLASSES < <(find "$RUNNER_TEMP/assembly/wallpaper-classes" -name '*.class' -print | sort)
           "$BUILD_TOOLS/d8" --lib "$ANDROID_JAR" --output "$RUNNER_TEMP/assembly/wallpaper-dex" "${WALLPAPER_CLASSES[@]}"
           (cd "$RUNNER_TEMP/assembly/wallpaper-dex" && zip -q "$RUNNER_TEMP/assembly/LucidWallpapers-unsigned.apk" classes.dex)
