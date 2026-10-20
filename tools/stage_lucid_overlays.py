@@ -125,6 +125,8 @@ def inventory(src: Path, dst: Path):
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    parser.add_argument("--source-root", type=Path, default=None,
+                        help="Root for the tracked overlay source paths; defaults to --repo-root")
     parser.add_argument("--base-root", type=Path, required=True,
                         help="Extracted base filesystem root containing system/")
     parser.add_argument("--report", type=Path, default=Path("lucid-overlay-plan.json"))
@@ -134,13 +136,14 @@ def main() -> int:
                         help="Copy the listed Lucid paths; default is dry-run only")
     args = parser.parse_args()
     repo = args.repo_root.resolve()
+    source_root = (args.source_root or repo).resolve()
     base = args.base_root.resolve()
     rows, missing = [], []
     try:
         if not (base / "system").is_dir():
             raise ValueError(f"base root does not contain system/: {base}")
         reject_symlink_components(base / "system", base)
-        mappings = [(repo / source_rel, dest_rel, required) for source_rel, dest_rel, required in OVERLAYS]
+        mappings = [(source_root / source_rel, dest_rel, required) for source_rel, dest_rel, required in OVERLAYS]
         for mapping in args.extra_overlay:
             source, destination_rel = parse_extra_overlay(mapping)
             mappings.append((source, destination_rel, True))
