@@ -4,7 +4,7 @@ on:
   push:
     branches: [fix/chroot-desktop-runtime]
     paths:
-      - ".github/workflows/clean-base-android15-audit.yml"
+      - ".github/workflows/clean-base-android15-audit.yml"\n      - "docs/ENGINEERING_JOURNAL.md"
       - "docs/CLEAN_BASE_MIGRATION.md"
       - "tools/stage_lucid_overlays.py"
       - "tools/validate_lucid_preservation.py"
@@ -130,6 +130,127 @@ jobs:
                           out.write_text(z.read(n).decode('utf-8', 'replace'))
                   (report / f'{label}-structure.txt').write_text('\n'.join(lines) + '\n')
           print((report / 'zip-entry-comparison.json').read_text())
+          PY
+
+      - name: Audit base identity, installer and boot-component compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT=clean-base/audit/base-compatibility
+          mkdir -p "$REPORT" "$RUNNER_TEMP/base-compat"
+          BASE_ZIP="clean-base/$EXPECTED_FILENAME"
+          unzip -Z1 "$BASE_ZIP" > "$REPORT/entries.txt"
+          unzip -p "$BASE_ZIP" META-INF/com/android/metadata > "$REPORT/metadata.txt" || true
+          unzip -p "$BASE_ZIP" META-INF/com/google/android/updater-script > "$REPORT/updater-script.txt" || true
+          unzip -p "$BASE_ZIP" dynamic_partitions_op_list > "$REPORT/dynamic_partitions_op_list.txt" || true
+          unzip -p "$BASE_ZIP" system.transfer.list > "$RUNNER_TEMP/base-compat/system.transfer.list" || true
+          unzip -p "$BASE_ZIP" system.new.dat.br > "$RUNNER_TEMP/base-compat/system.new.dat.br" || true
+          unzip -p "$BASE_ZIP" vendor.transfer.list > "$RUNNER_TEMP/base-compat/vendor.transfer.list" || true
+          unzip -p "$BASE_ZIP" vendor.new.dat.br > "$RUNNER_TEMP/base-compat/vendor.new.dat.br" || true
+          python3 - "$REPORT" "$BASE_ZIP" <<'PY'
+          import json, pathlib, sys, zipfile, re
+          out=pathlib.Path(sys.argv[1]); zpath=sys.argv[2]
+          with zipfile.ZipFile(zpath) as z:
+              names=set(z.namelist())
+              metadata=z.read('META-INF/com/android/metadata').decode('utf-8','replace') if 'META-INF/com/android/metadata' in names else ''
+              updater=z.read('META-INF/com/google/android/updater-script').decode('utf-8','replace') if 'META-INF/com/google/android/updater-script' in names else ''
+              entries=[]
+              for n in sorted(names):
+                  if n.endswith(('.img','.dat.br','.transfer.list')) or n in ('dynamic_partitions_op_list','payload.bin'):
+                      entries.append({'path':n,'bytes':z.getinfo(n).file_size})
+              result={'archive':pathlib.Path(zpath).name,'entry_count':len(names),'partition_payloads':entries,
+                'metadata':metadata,'pre_device_lavender':'pre-device=lavender' in metadata.lower(),
+                'sdk35_declared':'sdk-level=35' in metadata.lower(),
+                'fingerprint_lines':re.findall(r'(?im)^post-build=.*        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p clean-base/audit/product-check "$RUNNER_TEMP/base-product"
+          EXPECTED_FILENAME="${EXPECTED_FILENAME:-RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip}"
+          BASE_ZIP="clean-base/$EXPECTED_FILENAME"
+          if ! unzip -Z1 "$BASE_ZIP" | grep -qx 'product.transfer.list' ||
+             ! unzip -Z1 "$BASE_ZIP" | grep -qx 'product.new.dat.br'; then
+            echo "REJECTED: archive does not expose product.transfer.list + product.new.dat.br; inspect its actual image format before accepting this base." | tee clean-base/audit/product-check/RESULT.txt
+            exit 0
+          fi
+          unzip -p "$BASE_ZIP" product.transfer.list > "$RUNNER_TEMP/base-product/product.transfer.list"
+          unzip -p "$BASE_ZIP" product.new.dat.br > "$RUNNER_TEMP/base-product/product.new.dat.br"
+          python3 -m venv "$RUNNER_TEMP/product-venv"
+          "$RUNNER_TEMP/product-venv/bin/pip" install --quiet brotli
+          "$RUNNER_TEMP/product-venv/bin/python" tools/reconstruct_transfer_image.py \
+            "$RUNNER_TEMP/base-product/product.transfer.list" \
+            "$RUNNER_TEMP/base-product/product.new.dat.br" \
+            "$RUNNER_TEMP/base-product/product.img" \
+            > clean-base/audit/product-check/reconstruction.txt 2>&1 || {
+              cat clean-base/audit/product-check/reconstruction.txt
+              echo "REJECTED: product reconstruction failed; candidate is not accepted." | tee clean-base/audit/product-check/RESULT.txt
+              exit 0
+            }
+          file "$RUNNER_TEMP/base-product/product.img" | tee clean-base/audit/product-check/file.txt
+          sha256sum "$RUNNER_TEMP/base-product/product.img" | tee clean-base/audit/product-check/sha256.txt
+          set +e
+          e2fsck -fn "$RUNNER_TEMP/base-product/product.img" > clean-base/audit/product-check/e2fsck.txt 2>&1
+          fsck_rc=$?
+          set -e
+          printf 'e2fsck_exit_code=%s\n' "$fsck_rc" | tee clean-base/audit/product-check/RESULT.txt
+          if [ "$fsck_rc" -eq 0 ]; then
+            echo "Product image passed read-only e2fsck; this is one acceptance gate, not proof of device bootability." | tee -a clean-base/audit/product-check/RESULT.txt
+          else
+            echo "Product image did not pass read-only e2fsck; do not package this base without a verified full product image/tree." | tee -a clean-base/audit/product-check/RESULT.txt
+          fi
+
+      - name: Publish intake evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-clean-base-intake
+          path: clean-base/audit/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce candidate acceptance gate after evidence upload
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          result=clean-base/audit/product-check/RESULT.txt
+          if [[ ! -s "$result" ]]; then
+            echo "REJECTED: no product filesystem validation result was produced." >&2
+            exit 1
+          fi
+          if grep -q '^REJECTED:' "$result"; then
+            cat "$result"
+            exit 1
+          fi
+          if ! grep -q '^e2fsck_exit_code=0$' "$result"; then
+            cat "$result"
+            echo "REJECTED: product filesystem did not pass the required validation gate." >&2
+            exit 1
+          fi
+          echo "Product filesystem validation gate passed. This does not by itself prove ROM bootability."
+,metadata),
+                'updater_mentions_lavender':'lavender' in updater.lower(),
+                'updater_mentions_retrofit_dynamic':any(s in updater.lower() for s in ('retrofit','dynamic partition','super_dummy')),
+                'has_boot_img':'boot.img' in names,'has_dtbo_img':'dtbo.img' in names,
+                'has_vbmeta_img':'vbmeta.img' in names,'has_recovery_img':'recovery.img' in names,
+                'has_super_dummy_script':'install/bin/flash_super_dummy.sh' in names,
+                'has_dynamic_partition_op_list':'dynamic_partitions_op_list' in names}
+              (out/'summary.json').write_text(json.dumps(result,indent=2)+'\\n')
+              print(json.dumps(result,indent=2))
+          PY
+          # Fail the candidate audit if device assertion or key boot/install components are missing.
+          python3 - "$REPORT/summary.json" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1])); failures=[]
+          if not d['pre_device_lavender']: failures.append('metadata does not assert pre-device=lavender')
+          if not d['has_boot_img']: failures.append('boot.img missing')
+          if not d['has_vbmeta_img']: failures.append('vbmeta.img missing')
+          if not d['has_dynamic_partition_op_list']: failures.append('dynamic_partitions_op_list missing')
+          # DTBO absence is a compatibility question, not an automatic failure: document explicitly.
+          d['audit_failures']=failures
+          d['dtbo_note']='dtbo.img absent: base must be reconciled with the target device and installer before acceptance' if not d['has_dtbo_img'] else 'dtbo.img present'
+          open(sys.argv[1],'w').write(json.dumps(d,indent=2)+'\\n')
+          print('AUDIT_FAILURES='+json.dumps(failures)); print(d['dtbo_note'])
+          if failures: raise SystemExit(1)
           PY
 
       - name: Reconstruct and validate the selected base product filesystem
