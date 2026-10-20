@@ -50,6 +50,7 @@ jobs:
           "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_stage_lucid_overlays.py -v
           "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_reconstruct_transfer_image.py -v
           python3 -m py_compile tools/purge_rising_customizations.py
+          "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_purge_rising_customizations.py -v
           "$RUNNER_TEMP/assembly/venv/bin/python" tools/validate_lucid_preservation.py --root "$GITHUB_WORKSPACE" --output report/lucid-preservation-manifest.json
           df -h "$RUNNER_TEMP" | tee report/disk-before-build.txt
 
