@@ -42,9 +42,9 @@ jobs:
 
       - name: Test transfer-list reconstruction and coverage logic
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq python3-brotli
-          python3 tests/test_reconstruct_transfer_image.py -v
+          python3 -m venv "$RUNNER_TEMP/transfer-test-venv"
+          "$RUNNER_TEMP/transfer-test-venv/bin/pip" install --quiet brotli
+          "$RUNNER_TEMP/transfer-test-venv/bin/python" tests/test_reconstruct_transfer_image.py -v
 
       - name: Snapshot mandatory LucidOS preservation payload
         shell: bash
