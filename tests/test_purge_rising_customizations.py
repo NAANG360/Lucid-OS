@@ -18,6 +18,7 @@ class PurgeRisingTests(unittest.TestCase):
         self.aapt.write_text("""#!/bin/sh
 case "$3" in
   *RisingClock.apk) echo "package: name='com.rising.clock'"; echo "application-label:'Rising Clock'";;
+  *RisingUpdater.apk) echo "package: name='com.rising.updater'"; echo "application-label:'Updater'";;
   *) echo "package: name='com.android.calculator'"; echo "application-label:'Calculator'";;
 esac
 """)
@@ -51,6 +52,26 @@ esac
         self.assertEqual(len(report["removed"]), 1)
         self.assertEqual(report["removed"][0]["package"], "com.rising.clock")
         self.assertEqual(len(report["branding_edits"]), 1)
+
+    def test_removes_package_specific_permission_configs_for_removed_rising_app(self):
+        apk = self.root / "system_ext/priv-app/RisingUpdater/RisingUpdater.apk"
+        apk.parent.mkdir(parents=True)
+        apk.write_bytes(b"fake apk")
+        configs = [
+            self.root / "system_ext/etc/permissions/privapp_whitelist_com.rising.updater.xml",
+            self.root / "system_ext/etc/default-permissions/default-permissions_com.rising.updater.xml",
+        ]
+        for config in configs:
+            config.parent.mkdir(parents=True, exist_ok=True)
+            config.write_text("<permissions/>")
+        result = self.run_purge("--apply")
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertFalse(apk.parent.exists())
+        self.assertTrue(all(not config.exists() for config in configs))
+        report = json.loads(self.report.read_text())
+        self.assertEqual(len(report["removed"]), 1)
+        self.assertEqual(len(report["removed_config"]), 2)
+        self.assertEqual(report["unresolved"], [])
 
     def test_unreviewed_rising_configuration_blocks_packaging(self):
         p = self.root / "system/etc/permissions/rising-permissions.xml"
