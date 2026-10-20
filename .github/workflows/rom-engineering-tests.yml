@@ -1,0 +1,40 @@
+name: LucidOS Engineering Tests
+
+on:
+  push:
+    branches: [fix/chroot-desktop-runtime]
+    paths:
+      - "tools/stage_lucid_overlays.py"
+      - "tools/validate_lucid_preservation.py"
+      - "tools/reconstruct_transfer_image.py"
+      - "tests/test_stage_lucid_overlays.py"
+      - "tests/test_validate_lucid_preservation.py"
+      - "tests/test_reconstruct_transfer_image.py"
+      - ".github/workflows/rom-engineering-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Python test dependency
+        run: |
+          python3 -m venv "$RUNNER_TEMP/lucid-test-venv"
+          "$RUNNER_TEMP/lucid-test-venv/bin/pip" install --quiet brotli
+
+      - name: Test overlay staging safety
+        run: "$RUNNER_TEMP/lucid-test-venv/bin/python" tests/test_stage_lucid_overlays.py -v
+
+      - name: Test preservation manifest
+        run: "$RUNNER_TEMP/lucid-test-venv/bin/python" tests/test_validate_lucid_preservation.py -v
+
+      - name: Test OTA reconstruction and full-write coverage
+        run: "$RUNNER_TEMP/lucid-test-venv/bin/python" tests/test_reconstruct_transfer_image.py -v
