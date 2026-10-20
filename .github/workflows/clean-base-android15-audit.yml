@@ -141,7 +141,7 @@ jobs:
           BASE_ZIP="clean-base/$EXPECTED_FILENAME"
           if ! unzip -Z1 "$BASE_ZIP" | grep -qx 'product.transfer.list' ||
              ! unzip -Z1 "$BASE_ZIP" | grep -qx 'product.new.dat.br'; then
-            echo "Selected archive does not expose product.transfer.list + product.new.dat.br; image-format-specific inspection is required." | tee clean-base/audit/product-check/RESULT.txt
+            echo "REJECTED: archive does not expose product.transfer.list + product.new.dat.br; inspect its actual image format before accepting this base." | tee clean-base/audit/product-check/RESULT.txt
             exit 0
           fi
           unzip -p "$BASE_ZIP" product.transfer.list > "$RUNNER_TEMP/base-product/product.transfer.list"
@@ -154,7 +154,7 @@ jobs:
             "$RUNNER_TEMP/base-product/product.img" \
             > clean-base/audit/product-check/reconstruction.txt 2>&1 || {
               cat clean-base/audit/product-check/reconstruction.txt
-              echo "Product reconstruction failed; candidate is not accepted." | tee clean-base/audit/product-check/RESULT.txt
+              echo "REJECTED: product reconstruction failed; candidate is not accepted." | tee clean-base/audit/product-check/RESULT.txt
               exit 0
             }
           file "$RUNNER_TEMP/base-product/product.img" | tee clean-base/audit/product-check/file.txt
@@ -178,3 +178,24 @@ jobs:
           path: clean-base/audit/
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Enforce candidate acceptance gate after evidence upload
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          result=clean-base/audit/product-check/RESULT.txt
+          if [[ ! -s "$result" ]]; then
+            echo "REJECTED: no product filesystem validation result was produced." >&2
+            exit 1
+          fi
+          if grep -q '^REJECTED:' "$result"; then
+            cat "$result"
+            exit 1
+          fi
+          if ! grep -q '^e2fsck_exit_code=0$' "$result"; then
+            cat "$result"
+            echo "REJECTED: product filesystem did not pass the required validation gate." >&2
+            exit 1
+          fi
+          echo "Product filesystem validation gate passed. This does not by itself prove ROM bootability."
