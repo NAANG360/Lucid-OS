@@ -261,8 +261,8 @@ jobs:
             } > "$RESULT"
             if [[ "$part" == "system" ]]; then
               sudo mount -t ext4 -o loop,ro,noload "$RUNNER_TEMP/base-partitions/system.img" "$RUNNER_TEMP/mnt-system"
-              find "$RUNNER_TEMP/mnt-system" -maxdepth 3 -type f \( -name build.prop -o -name system-build.prop \) -print > "$REPORT/build-prop-paths.txt"
-              find "$RUNNER_TEMP/mnt-system" -maxdepth 3 -type f \( -name build.prop -o -name system-build.prop \) -exec grep -hE '^(ro\.build\.version\.(sdk|release)|ro\.system\.build\.version\.(sdk|release))=' {} \; > "$REPORT/system-build-properties.txt" || true
+              sudo find "$RUNNER_TEMP/mnt-system" -maxdepth 3 -type f \( -name build.prop -o -name system-build.prop \) -print > "$REPORT/build-prop-paths.txt"
+              sudo find "$RUNNER_TEMP/mnt-system" -maxdepth 3 -type f \( -name build.prop -o -name system-build.prop \) -exec grep -hE '^(ro\.build\.version\.(sdk|release)|ro\.system\.build\.version\.(sdk|release))=' {} \; > "$REPORT/system-build-properties.txt" || true
               if ! grep -Eq '^(ro\.build\.version\.sdk|ro\.system\.build\.version\.sdk)=35$' "$REPORT/system-build-properties.txt" ||
                  ! grep -Eq '^(ro\.build\.version\.release|ro\.system\.build\.version\.release)=15(\.0)?$' "$REPORT/system-build-properties.txt"; then
                 echo "REJECTED: extracted system build.prop does not prove Android 15 / SDK 35." | tee "$RESULT"
