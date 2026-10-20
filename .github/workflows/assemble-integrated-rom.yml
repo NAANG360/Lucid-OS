@@ -110,6 +110,7 @@ jobs:
           echo "UPDATE_DIR=$RUNNER_TEMP/assembly/update" >> "$GITHUB_ENV"
           echo "OUTPUT_ZIP=$GITHUB_WORKSPACE/out/LucidOS-Android15-lavender-unsigned.zip" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/assembly/root" "$RUNNER_TEMP/assembly/update" out
+          rm -f "$LUCID_ZIP"
 
       - name: Inspect both boot images and enforce ramdisk preservation
         shell: bash
@@ -124,13 +125,17 @@ jobs:
           cp "$RUNNER_TEMP/assembly/boot/base-inspect/kernel-compatibility-strings.txt" report/base-kernel-strings.txt
           cp "$RUNNER_TEMP/assembly/boot/lucid-inspect/kernel-compatibility-strings.txt" report/lucid-kernel-strings.txt
           cp "$RUNNER_TEMP/assembly/boot/base-inspect/ramdisk-lucid-preservation-scan.txt" report/base-ramdisk-lucid-scan.txt
-          cp "$RUNNER_TEMP/assembly/boot/lucid-inspect/ramdisk-lucid-preservation-scan.txt" report/lucid-ramdisk-lucid-scan.txt
+          if [[ -s "$RUNNER_TEMP/assembly/boot/lucid-inspect/ramdisk-lucid-preservation-scan.txt" ]]; then
+            cp "$RUNNER_TEMP/assembly/boot/lucid-inspect/ramdisk-lucid-preservation-scan.txt" report/lucid-ramdisk-lucid-scan.txt
+          else
+            echo "Lucid ramdisk scan file missing; compression was not decoded." > report/lucid-ramdisk-lucid-scan.txt
+          fi
           BASE_KERNEL_SHA="$(grep '^kernel_sha256=' report/base-boot-header.txt | cut -d= -f2)"
           LUCID_KERNEL_SHA="$(grep '^kernel_sha256=' report/lucid-boot-header.txt | cut -d= -f2)"
           [[ -n "$BASE_KERNEL_SHA" && -n "$LUCID_KERNEL_SHA" ]]
           printf 'base_kernel_sha256=%s\nlucid_kernel_sha256=%s\n' "$BASE_KERNEL_SHA" "$LUCID_KERNEL_SHA" | tee report/kernel-comparison.txt
-          if grep -q 'ERROR: no standard ANDROID' report/base-boot-header.txt ||
-             grep -q 'ERROR: no standard ANDROID' report/lucid-boot-header.txt; then
+          if grep -q 'ERROR:' report/base-boot-header.txt ||
+             grep -q 'ERROR:' report/lucid-boot-header.txt; then
             echo "Boot image parser could not validate one of the images; refusing to silently drop boot components." >&2
             exit 1
           fi
@@ -244,6 +249,7 @@ jobs:
             --base-root "$ROOT" \
             --apply \
             --report "$GITHUB_WORKSPACE/report/system-overlay-plan.json"
+          sudo cp "$GITHUB_WORKSPACE/out/LucidSetup.apk" "$ROOT/system/priv-app/LucidSetup/LucidSetup.apk"
           sudo python3 - "$ROOT/system/build.prop" "$RUNNER_TEMP/assembly/build-fingerprint.txt" <<'PY'
           import pathlib,sys
           prop_path=pathlib.Path(sys.argv[1])
@@ -453,12 +459,7 @@ jobs:
               product.transfer.list product.new.dat.br product.patch.dat \
               system_ext.transfer.list system_ext.new.dat.br system_ext.patch.dat \
               odm.transfer.list odm.new.dat.br odm.patch.dat
-            cp metadata "META-INF-com-android-metadata"
-            cp updater-script "META-INF-com-google-android-updater-script"
-            zip -0 -q "$OUTPUT_ZIP" "META-INF-com-android-metadata" "META-INF-com-google-android-updater-script"
           )
-          # Replace the temporary flat metadata names with the exact ZIP paths.
-          zip -q -d "$OUTPUT_ZIP" "META-INF-com-android-metadata" "META-INF-com-google-android-updater-script"
           mkdir -p "$UPDATE/META-INF/com/android" "$UPDATE/META-INF/com/google/android"
           cp "$UPDATE/metadata" "$UPDATE/META-INF/com/android/metadata"
           cp "$UPDATE/updater-script" "$UPDATE/META-INF/com/google/android/updater-script"
