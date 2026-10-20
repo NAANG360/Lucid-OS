@@ -450,9 +450,9 @@ jobs:
           CONTEXTS="$RUNNER_TEMP/assembly/merged-file-contexts"
           : > "$CONTEXTS"
           while IFS= read -r -d '' context_file; do
-            cat "$context_file" >> "$CONTEXTS"
+            sudo cat "$context_file" >> "$CONTEXTS"
             printf '\n' >> "$CONTEXTS"
-          done < <(find "$ROOT" -type f -path '*/etc/selinux/*file_contexts' -print0 | sort -z)
+          done < <(sudo find "$ROOT" -type f -path '*/etc/selinux/*file_contexts' -print0 | sort -z)
           cat >> "$CONTEXTS" <<'EOF'
           /system/bin/lucid_[^/]+ u:object_r:system_file:s0
           /system/etc/init/init\.lucid\.rc u:object_r:system_file:s0
