@@ -42,7 +42,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq brotli cpio e2fsprogs file zip unzip lz4 xz-utils
+          sudo apt-get install -y -qq aria2 brotli cpio e2fsprogs file zip unzip lz4 xz-utils
           mkdir -p report "$RUNNER_TEMP/assembly"
           python3 -m venv "$RUNNER_TEMP/assembly/venv"
           "$RUNNER_TEMP/assembly/venv/bin/pip" install --quiet brotli lz4 zstandard cryptography
@@ -65,7 +65,14 @@ jobs:
           [[ "$EXPECTED_SHA256" =~ ^[0-9a-fA-F]{64}$ ]]
           mkdir -p "$RUNNER_TEMP/assembly/base" "$RUNNER_TEMP/assembly/lucid" "$RUNNER_TEMP/assembly/boot" report
           BASE_ZIP="$RUNNER_TEMP/assembly/base/$EXPECTED_FILENAME"
-          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 7200 "$BASE_ROM_URL" --output "$BASE_ZIP"
+          if ! aria2c --max-connection-per-server=8 --split=8 --min-split-size=1M \
+            --file-allocation=none --retry-wait=5 --max-tries=5 --timeout=60 --connect-timeout=30 \
+            --console-log-level=warn --summary-interval=30 --dir="$RUNNER_TEMP/assembly/base" \
+            --out="$EXPECTED_FILENAME" "$BASE_ROM_URL"; then
+            rm -f "$BASE_ZIP"
+            curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 7200 \
+              "$BASE_ROM_URL" --output "$BASE_ZIP"
+          fi
           printf '%s  %s\n' "$EXPECTED_SHA256" "$BASE_ZIP" | sha256sum --check -
           sha256sum "$BASE_ZIP" | tee report/base-sha256.txt
           LUCID_ZIP="$RUNNER_TEMP/assembly/lucid/LucidOS-unsigned.zip"
