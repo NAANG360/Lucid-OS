@@ -432,15 +432,19 @@ jobs:
             --output "$RUNNER_TEMP/assembly/aosp-tools.tar.gz"
           tar -xzf "$RUNNER_TEMP/assembly/aosp-tools.tar.gz" -C "$RUNNER_TEMP/assembly/aosp-tools"
           E2FSDROID="$(find "$RUNNER_TEMP/assembly/aosp-tools" -type f -name e2fsdroid -print -quit)"
+          MKE2FS="$(find "$RUNNER_TEMP/assembly/aosp-tools" -type f -name mke2fs -print -quit)"
           test -n "$E2FSDROID"
-          chmod +x "$E2FSDROID"
+          test -n "$MKE2FS"
+          chmod +x "$E2FSDROID" "$MKE2FS"
           TOOLS_ROOT="$(dirname "$(dirname "$E2FSDROID")")"
           {
             echo "E2FSDROID=$E2FSDROID"
+            echo "MKE2FS=$MKE2FS"
             echo "AOSP_TOOLS_ROOT=$TOOLS_ROOT"
             echo "BUILD_EPOCH=$(date -u +%s)"
           } >> "$GITHUB_ENV"
           ldd "$E2FSDROID" > report/e2fsdroid-linked-libraries.txt 2>&1 || true
+          ldd "$MKE2FS" > report/mke2fs-linked-libraries.txt 2>&1 || true
 
       - name: Build and validate all five full partition images
         shell: bash
@@ -490,7 +494,8 @@ jobs:
             if [[ "$part" == "system" && "$SYSTEM_SAR" == "1" ]]; then IMAGE_MOUNTPOINT="/"; fi
             IMAGE="$RUNNER_TEMP/assembly/images/$part.img"
             truncate -s "$SIZE" "$IMAGE"
-            mke2fs -F -t ext4 -b 4096 -L "$part" -m 0 "$IMAGE" "$BLOCKS" 2>&1 | tee "report/mke2fs-$part.txt"
+            sudo env LD_LIBRARY_PATH="$AOSP_TOOLS_ROOT/lib64:$AOSP_TOOLS_ROOT/lib" \
+              "$MKE2FS" -F -t ext4 -b 4096 -L "$part" -m 0 "$IMAGE" "$BLOCKS" 2>&1 | tee "report/mke2fs-$part.txt"
             sudo env LD_LIBRARY_PATH="$AOSP_TOOLS_ROOT/lib64:$AOSP_TOOLS_ROOT/lib" \
               "$E2FSDROID" -f "$ROOT/$part" -a "$IMAGE_MOUNTPOINT" -T "$BUILD_EPOCH" -S "$CONTEXTS" "$IMAGE" \
               2>&1 | tee "report/e2fsdroid-$part.txt"
