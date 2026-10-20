@@ -1,8 +1,5 @@
 # Lucid chroot root is opt-in. The Developer Options control must set this property.
 # Default-off behavior prevents the desktop daemon from starting with root disabled.
-on post-fs-data
-    setprop persist.lucid.chroot_root 0
-
 service lucid_desktop /system/bin/lucid_desktop.sh
     class main
     user root
