@@ -162,12 +162,18 @@ jobs:
             "https://android.googlesource.com/platform/external/avb/+/refs/heads/main/avbtool.py?format=TEXT" \
             --output "$RUNNER_TEMP/assembly/avbtool.py.b64"
           base64 --decode "$RUNNER_TEMP/assembly/avbtool.py.b64" > "$RUNNER_TEMP/assembly/avbtool.py"
-          "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
-            --image "$RUNNER_TEMP/assembly/boot/base-vbmeta.img" > report/base-vbmeta-info.txt
-          "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
-            --image "$RUNNER_TEMP/assembly/boot/lucid-vbmeta.img" > report/lucid-vbmeta-info.txt
+          if ! "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+            --image "$RUNNER_TEMP/assembly/boot/base-vbmeta.img" > report/base-vbmeta-info.txt 2>&1; then
+            echo "AVB parser could not read the base vbmeta; a fresh verification-disabled image will be generated." | tee report/base-vbmeta-parse-warning.txt
+          fi
+          if ! "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+            --image "$RUNNER_TEMP/assembly/boot/lucid-vbmeta.img" > report/lucid-vbmeta-info.txt 2>&1; then
+            echo "AVB parser could not read the original Lucid vbmeta; it will not be reused." | tee report/lucid-vbmeta-parse-warning.txt
+          fi
           BASE_FLAGS="$(awk -F': ' '/^Flags:/ {print $2; exit}' report/base-vbmeta-info.txt | awk '{print $1}')"
           LUCID_FLAGS="$(awk -F': ' '/^Flags:/ {print $2; exit}' report/lucid-vbmeta-info.txt | awk '{print $1}')"
+          BASE_FLAGS="${BASE_FLAGS:-unknown}"
+          LUCID_FLAGS="${LUCID_FLAGS:-unknown}"
           BASE_VBMETA_SIZE="$(stat -c %s "$RUNNER_TEMP/assembly/boot/base-vbmeta.img")"
           LUCID_VBMETA_SIZE="$(stat -c %s "$RUNNER_TEMP/assembly/boot/lucid-vbmeta.img")"
           if [[ "$BASE_FLAGS" == "3" ]]; then
