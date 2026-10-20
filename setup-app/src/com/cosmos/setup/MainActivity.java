@@ -254,6 +254,7 @@ public final class MainActivity extends Activity {
         private final Path path = new Path();
         private final long start = System.currentTimeMillis();
         ArtView(Context c, int type) { super(c); kind = type; setLayerType(View.LAYER_TYPE_SOFTWARE, null); }
+        private float dp(int value) { return value * getResources().getDisplayMetrics().density; }
 
         @Override protected void onDraw(Canvas c) {
             super.onDraw(c);
