@@ -144,12 +144,13 @@ jobs:
             exit 1
           fi
           if [[ "$BASE_KERNEL_SHA" == "$LUCID_KERNEL_SHA" && -s "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" ]]; then
-            echo "KERNEL_MATCH=1" >> "$GITHUB_ENV"
+            KERNEL_MATCH=1
             echo "The Lucid and base kernel payloads are byte-identical; the original Lucid DTBO is eligible for retention." | tee report/dtbo-decision.txt
           else
-            echo "KERNEL_MATCH=0" >> "$GITHUB_ENV"
+            KERNEL_MATCH=0
             echo "The kernels differ or Lucid DTBO is absent; do not transplant the old DTBO. The base installer leaves device DTBO unchanged." | tee report/dtbo-decision.txt
           fi
+          echo "KERNEL_MATCH=$KERNEL_MATCH" >> "$GITHUB_ENV"
 
       - name: Build LucidSetup, About, Wallpapers, and boot animation from source
         shell: bash
