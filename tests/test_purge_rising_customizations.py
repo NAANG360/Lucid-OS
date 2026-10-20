@@ -16,7 +16,7 @@ class PurgeRisingTests(unittest.TestCase):
             (self.root / part).mkdir()
         self.aapt = self.root / "fake-aapt"
         self.aapt.write_text("""#!/bin/sh
-case "$4" in
+case "$3" in
   *RisingClock.apk) echo "package: name='com.rising.clock'"; echo "application-label:'Rising Clock'";;
   *) echo "package: name='com.android.calculator'"; echo "application-label:'Calculator'";;
 esac
