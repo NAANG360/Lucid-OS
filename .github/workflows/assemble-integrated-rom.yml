@@ -525,6 +525,13 @@ jobs:
             fi
             brotli -q 6 -c "$IMAGE" > "$RUNNER_TEMP/assembly/update/$part.new.dat.br"
             : > "$RUNNER_TEMP/assembly/update/$part.patch.dat"
+            cat > "$RUNNER_TEMP/assembly/update/$part.transfer.list" <<EOF
+4
+$BLOCKS
+0
+0
+new 2,0,$BLOCKS
+EOF
             ROUNDTRIP="$RUNNER_TEMP/assembly/images/$part-roundtrip.img"
             "$RUNNER_TEMP/assembly/venv/bin/python" tools/reconstruct_transfer_image.py \
               "$RUNNER_TEMP/assembly/update/$part.transfer.list" \
