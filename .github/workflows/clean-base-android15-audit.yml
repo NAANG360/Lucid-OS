@@ -187,7 +187,7 @@ jobs:
           d['dtbo_note']='dtbo.img absent: reconcile with device/installer before acceptance' if not d['has_dtbo_img'] else 'dtbo.img present'
           open(sys.argv[1],'w').write(json.dumps(d,indent=2)+'\n')
           print('AUDIT_FAILURES='+json.dumps(failures)); print(d['dtbo_note'])
-          if failures: raise SystemExit(1)
+          if failures: print('Candidate compatibility gate failed; continue collecting product evidence before final rejection.')
           PY
 
       - name: Reconstruct and validate the selected base product filesystem
@@ -256,4 +256,23 @@ jobs:
             echo "REJECTED: product filesystem did not pass the required validation gate." >&2
             exit 1
           fi
-          echo "Product filesystem validation gate passed. This does not by itself prove ROM bootability."
+          compat=clean-base/audit/base-compatibility/summary.json
+          if [[ ! -s "$compat" ]]; then
+            echo "REJECTED: no base identity/installer compatibility summary was produced." >&2
+            exit 1
+          fi
+          if ! python3 - "$compat" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1]))
+          failures=d.get("audit_failures", [])
+          if failures:
+              print("REJECTED: candidate compatibility failures:")
+              for item in failures:
+                  print("- " + item)
+              raise SystemExit(1)
+          PY
+          then
+            cat "$compat"
+            exit 1
+          fi
+          echo "Product filesystem and base compatibility gates passed. This does not by itself prove ROM bootability."
