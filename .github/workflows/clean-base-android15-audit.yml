@@ -1,17 +1,6 @@
 name: Clean Android 15 Base Audit
 
 on:
-  push:
-    branches: [fix/chroot-desktop-runtime]
-    paths:
-      - ".github/workflows/clean-base-android15-audit.yml"
-      - "docs/ENGINEERING_JOURNAL.md"
-      - "docs/CLEAN_BASE_MIGRATION.md"
-      - "tools/stage_lucid_overlays.py"
-      - "tools/validate_lucid_preservation.py"
-      - "tools/reconstruct_transfer_image.py"
-      - "tests/test_validate_lucid_preservation.py"
-      - "tests/test_reconstruct_transfer_image.py"
   workflow_dispatch:
     inputs:
       base_rom_url:
