@@ -6,7 +6,7 @@ on:
       base_rom_url:
         description: Direct HTTPS download URL for the March 2025 Rising-Revived Android 15 lavender candidate; verify actual system build properties and dynamic partition payloads in the report
         required: true
-        default: https://sourceforge.net/projects/termux-lavender/files/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip/download
+        default: https://downloads.sourceforge.net/project/termux-lavender/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip
         type: string
       expected_filename:
         description: Expected ROM ZIP filename (letters, digits, dots, underscores, hyphens only)
@@ -43,7 +43,7 @@ jobs:
 
       - name: Download selected base without modifying existing ROM assets
         env:
-          BASE_ROM_URL: ${{ inputs.base_rom_url || 'https://sourceforge.net/projects/termux-lavender/files/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip/download' }}
+          BASE_ROM_URL: ${{ inputs.base_rom_url || 'https://downloads.sourceforge.net/project/termux-lavender/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip' }}
           EXPECTED_FILENAME: ${{ inputs.expected_filename || 'RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip' }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
