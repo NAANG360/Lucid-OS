@@ -450,7 +450,7 @@ jobs:
           CONTEXTS="$RUNNER_TEMP/assembly/merged-file-contexts"
           : > "$CONTEXTS"
           while IFS= read -r -d '' context_file; do
-            sudo cat "$context_file" >> "$CONTEXTS"
+            sudo cat "$context_file" | tee -a "$CONTEXTS" >/dev/null
             printf '\n' >> "$CONTEXTS"
           done < <(sudo find "$ROOT" -type f -path '*/etc/selinux/*file_contexts' -print0 | sort -z)
           cat >> "$CONTEXTS" <<'EOF'
