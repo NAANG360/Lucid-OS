@@ -491,7 +491,9 @@ jobs:
           lines=path.read_text(errors='replace').splitlines()
           out=[]
           for line in lines:
-              if line.startswith('post-build='):
+              if line.startswith('ota-property-files='):
+                  continue
+              elif line.startswith('post-build='):
                   out.append('post-build='+fingerprint)
               elif line.startswith('post-build-incremental='):
                   out.append('post-build-incremental='+incremental)
