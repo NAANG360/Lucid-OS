@@ -409,17 +409,17 @@ jobs:
             "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
           sudo chown -hR 0:0 "$ROOT/product/priv-app/LucidWallpapers" "$ROOT/product/app/LucidAbout" \
             "$ROOT/product/media/bootanimation.zip" "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
-          test -s "$SYSTEM_FS_ROOT/usr/lucid/ubuntu-base-arm64.tar.gz"
-          test -s "$SYSTEM_FS_ROOT/priv-app/LucidSetup/LucidSetup.apk"
-          test -s "$SYSTEM_FS_ROOT/etc/init/init.lucid.rc"
-          test -s "$SYSTEM_FS_ROOT/bin/lucid_desktop.sh"
-          test -s "$SYSTEM_FS_ROOT/bin/lucid_firstboot.sh"
-          test -s "$SYSTEM_FS_ROOT/bin/lucid_root_toggle.sh"
-          test -x "$SYSTEM_FS_ROOT/bin/lucid-linux-app"
-          grep -Eq '^ro.build.version.sdk=35$|^ro.system.build.version.sdk=35$' "$SYSTEM_FS_ROOT/build.prop"
-          grep -Eq '^ro.build.version.release=15$|^ro.system.build.version.release=15$' "$SYSTEM_FS_ROOT/build.prop"
+          sudo test -s "$SYSTEM_FS_ROOT/usr/lucid/ubuntu-base-arm64.tar.gz"
+          sudo test -s "$SYSTEM_FS_ROOT/priv-app/LucidSetup/LucidSetup.apk"
+          sudo test -s "$SYSTEM_FS_ROOT/etc/init/init.lucid.rc"
+          sudo test -s "$SYSTEM_FS_ROOT/bin/lucid_desktop.sh"
+          sudo test -s "$SYSTEM_FS_ROOT/bin/lucid_firstboot.sh"
+          sudo test -s "$SYSTEM_FS_ROOT/bin/lucid_root_toggle.sh"
+          sudo test -x "$SYSTEM_FS_ROOT/bin/lucid-linux-app"
+          sudo grep -Eq '^ro.build.version.sdk=35$|^ro.system.build.version.sdk=35$' "$SYSTEM_FS_ROOT/build.prop"
+          sudo grep -Eq '^ro.build.version.release=15$|^ro.system.build.version.release=15$' "$SYSTEM_FS_ROOT/build.prop"
           cp "$RUNNER_TEMP/assembly/build-fingerprint.txt" report/lucid-build-fingerprint.txt
-          sha256sum "$SYSTEM_FS_ROOT/build.prop" > report/integrated-build-prop-sha256.txt
+          sudo sha256sum "$SYSTEM_FS_ROOT/build.prop" | sudo tee report/integrated-build-prop-sha256.txt >/dev/null
           printf 'status=integrated\nbase=Rising-Revived-6.3\nsystem_build=Android15-SDK35\n' > report/integration-summary.txt
 
       - name: Fetch AOSP host filesystem tools
