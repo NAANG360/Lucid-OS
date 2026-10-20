@@ -103,12 +103,14 @@ jobs:
           if grep -qx dtbo.img report/original-lucid-zip-entry-list.txt; then
             unzip -p "$LUCID_ZIP" dtbo.img > "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img"
           fi
-          echo "BASE_ZIP=$BASE_ZIP" >> "$GITHUB_ENV"
-          echo "LUCID_ZIP=$LUCID_ZIP" >> "$GITHUB_ENV"
-          echo "BASE_ROOT=$RUNNER_TEMP/assembly/root" >> "$GITHUB_ENV"
-          echo "ASSEMBLY_DIR=$RUNNER_TEMP/assembly" >> "$GITHUB_ENV"
-          echo "UPDATE_DIR=$RUNNER_TEMP/assembly/update" >> "$GITHUB_ENV"
-          echo "OUTPUT_ZIP=$GITHUB_WORKSPACE/out/LucidOS-Android15-lavender-unsigned.zip" >> "$GITHUB_ENV"
+          {
+            echo "BASE_ZIP=$BASE_ZIP"
+            echo "LUCID_ZIP=$LUCID_ZIP"
+            echo "BASE_ROOT=$RUNNER_TEMP/assembly/root"
+            echo "ASSEMBLY_DIR=$RUNNER_TEMP/assembly"
+            echo "UPDATE_DIR=$RUNNER_TEMP/assembly/update"
+            echo "OUTPUT_ZIP=$GITHUB_WORKSPACE/out/LucidOS-Android15-lavender-unsigned.zip"
+          } >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/assembly/root" "$RUNNER_TEMP/assembly/update" out
           rm -f "$LUCID_ZIP"
 
@@ -332,9 +334,11 @@ jobs:
           test -n "$E2FSDROID"
           chmod +x "$E2FSDROID"
           TOOLS_ROOT="$(dirname "$(dirname "$E2FSDROID")")"
-          echo "E2FSDROID=$E2FSDROID" >> "$GITHUB_ENV"
-          echo "AOSP_TOOLS_ROOT=$TOOLS_ROOT" >> "$GITHUB_ENV"
-          echo "BUILD_EPOCH=$(date -u +%s)" >> "$GITHUB_ENV"
+          {
+            echo "E2FSDROID=$E2FSDROID"
+            echo "AOSP_TOOLS_ROOT=$TOOLS_ROOT"
+            echo "BUILD_EPOCH=$(date -u +%s)"
+          } >> "$GITHUB_ENV"
           ldd "$E2FSDROID" > report/e2fsdroid-linked-libraries.txt 2>&1 || true
 
       - name: Build and validate all five full partition images
@@ -383,12 +387,12 @@ jobs:
             BLOCKS=$((SIZE / 4096))
             IMAGE="$RUNNER_TEMP/assembly/images/$part.img"
             truncate -s "$SIZE" "$IMAGE"
-            mke2fs -F -t ext4 -b 4096 -L "$part" -m 0 "$IMAGE" "$BLOCKS" > "report/mke2fs-$part.txt" 2>&1
+            mke2fs -F -t ext4 -b 4096 -L "$part" -m 0 "$IMAGE" "$BLOCKS" 2>&1 | tee "report/mke2fs-$part.txt"
             sudo env LD_LIBRARY_PATH="$AOSP_TOOLS_ROOT/lib64:$AOSP_TOOLS_ROOT/lib" \
               "$E2FSDROID" -f "$ROOT/$part" -a "/$part" -T "$BUILD_EPOCH" -S "$CONTEXTS" "$IMAGE" \
-              > "report/e2fsdroid-$part.txt" 2>&1
-            sudo e2fsck -fy "$IMAGE" > "report/e2fsck-repair-$part.txt" 2>&1 || true
-            sudo e2fsck -fn "$IMAGE" > "report/e2fsck-final-$part.txt" 2>&1
+              2>&1 | tee "report/e2fsdroid-$part.txt"
+            sudo e2fsck -fy "$IMAGE" 2>&1 | tee "report/e2fsck-repair-$part.txt" || true
+            sudo e2fsck -fn "$IMAGE" 2>&1 | tee "report/e2fsck-final-$part.txt"
             [[ "$(stat -c %s "$IMAGE")" == "$SIZE" ]]
             printf '4\n%s\n0\n0\nnew 2,0,%s\n' "$BLOCKS" "$BLOCKS" > "$RUNNER_TEMP/assembly/update/$part.transfer.list"
             brotli -q 6 -c "$IMAGE" > "$RUNNER_TEMP/assembly/update/$part.new.dat.br"
