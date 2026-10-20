@@ -136,14 +136,14 @@ def main() -> int:
                         help="Copy the listed Lucid paths; default is dry-run only")
     args = parser.parse_args()
     repo = args.repo_root.resolve()
-    source_root = (args.source_root or repo).resolve()
+    overlay_source_root = (args.source_root or repo).resolve()
     base = args.base_root.resolve()
     rows, missing = [], []
     try:
         if not (base / "system").is_dir():
             raise ValueError(f"base root does not contain system/: {base}")
         reject_symlink_components(base / "system", base)
-        mappings = [(source_root / source_rel, dest_rel, required) for source_rel, dest_rel, required in OVERLAYS]
+        mappings = [(overlay_source_root / source_rel, dest_rel, required) for source_rel, dest_rel, required in OVERLAYS]
         for mapping in args.extra_overlay:
             source, destination_rel = parse_extra_overlay(mapping)
             mappings.append((source, destination_rel, True))
