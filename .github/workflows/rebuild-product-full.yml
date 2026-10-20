@@ -237,6 +237,12 @@ jobs:
             echo "Rebuilt product filesystem did not pass e2fsck; refusing to package." >&2
             exit 1
           fi
+          # Prove the APK was written into the ext4 image, then extract it back
+          # and compare hashes before any OTA payload is packaged.
+          debugfs -R 'stat /app/LucidAbout/LucidAbout.apk' "$IMAGE" > report/lucid-about-image-stat.txt 2>&1
+          debugfs -R 'cat /app/LucidAbout/LucidAbout.apk' "$IMAGE" > "$RUNNER_TEMP/LucidAbout-from-image.apk" 2> report/lucid-about-image-extract.txt
+          cmp out/LucidAbout.apk "$RUNNER_TEMP/LucidAbout-from-image.apk"
+          sha256sum "$RUNNER_TEMP/LucidAbout-from-image.apk" > report/lucid-about-image-sha256.txt
           dumpe2fs -h "$IMAGE" > report/product-superblock.txt 2>&1
           sha256sum "$IMAGE" > report/product-image-sha256.txt
           ls -lh "$IMAGE" > report/product-image-size.txt
