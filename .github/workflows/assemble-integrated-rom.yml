@@ -316,8 +316,8 @@ jobs:
             SYSTEM_SAR=0
           fi
           test -s "$SYSTEM_BUILD_PROP"
-          sudo grep -Eq '^(ro.build.version.sdk|ro.system.build.version.sdk)=35
-          sudo grep -Eq '^(ro.build.version.release|ro.system.build.version.release)=15(\.0)?
+          sudo grep -Eq '^(ro.build.version.sdk|ro.system.build.version.sdk)=35$' "$SYSTEM_BUILD_PROP"
+          sudo grep -Eq '^(ro.build.version.release|ro.system.build.version.release)=15(\.0)?$' "$SYSTEM_BUILD_PROP"
           {
             echo "SYSTEM_FS_ROOT=$SYSTEM_FS_ROOT"
             echo "SYSTEM_BUILD_PROP=$SYSTEM_BUILD_PROP"
