@@ -1,5 +1,8 @@
-# Lucid chroot root is opt-in. The Developer Options control must set this property.
-# Default-off behavior prevents the desktop daemon from starting with root disabled.
+# Lucid Desktop is fail-closed until the scoped chroot privilege backend is integrated.
+# The current service still runs as Android-host root; a chroot is not a security boundary.
+# Do not set persist.lucid.chroot_backend_ready in a release without the dedicated
+# SELinux domain, validated helper, and Developer Options control described in
+# docs/CHROOT_PRIVILEGE_BOUNDARY.md.
 service lucid_desktop /system/bin/lucid_desktop.sh
     class main
     user root
@@ -8,12 +11,18 @@ service lucid_desktop /system/bin/lucid_desktop.sh
     disabled
     oneshot
 
-# Casting only starts the privileged chroot when the user's root toggle is ON.
-on property:sys.lucid.casting=1 && property:persist.lucid.chroot_root=1
+# Both gates are required. backend_ready intentionally has no default-on value.
+on property:sys.lucid.casting=1 && property:persist.lucid.chroot_root=1 && property:persist.lucid.chroot_backend_ready=1
     start lucid_desktop
 
-# Turning off the chroot-root setting immediately tears down the privileged session.
+# Root-off is fail-closed: stop the session and reset its local ADB bridge.
 on property:persist.lucid.chroot_root=0
+    stop lucid_desktop
+    setprop service.adb.tcp.port -1
+    stop adbd
+    start adbd
+
+on property:persist.lucid.chroot_backend_ready=0
     stop lucid_desktop
     setprop service.adb.tcp.port -1
     stop adbd
