@@ -1,4 +1,8 @@
-# Define the chroot daemon
+# Lucid chroot root is opt-in. The Developer Options control must set this property.
+# Default-off behavior prevents the desktop daemon from starting with root disabled.
+on post-fs-data
+    setprop persist.lucid.chroot_root 0
+
 service lucid_desktop /system/bin/lucid_desktop.sh
     class main
     user root
@@ -7,18 +11,19 @@ service lucid_desktop /system/bin/lucid_desktop.sh
     disabled
     oneshot
 
-# Desktop/casting is independent of root availability. A display toggle must
-# never chmod the su binary or silently grant/revoke device-wide root.
+# Casting only starts the privileged chroot when the user's root toggle is ON.
 on property:sys.lucid.casting=1
     start lucid_desktop
 
-# Stop the chroot desktop and return the local ADB bridge to its default state.
+# Turning off the chroot-root setting immediately tears down the privileged session.
+on property:persist.lucid.chroot_root=0
+    stop lucid_desktop
+
 on property:sys.lucid.casting=0
     stop lucid_desktop
     setprop service.adb.tcp.port -1
     stop adbd
     start adbd
 
-# LucidOS first-boot setup
 on property:sys.boot_completed=1
     exec u:r:su:s0 root root -- /system/bin/lucid_firstboot.sh
