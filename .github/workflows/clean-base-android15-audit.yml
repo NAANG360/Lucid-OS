@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       base_rom_url:
-        description: Direct HTTPS download URL for the June 2025 LineageOS 22.2 lavender candidate; verify Android 15, vanilla status, and dynamic layout in the report
+        description: Direct HTTPS download URL for the March 2025 Rising-Revived Android 15 lavender candidate; verify actual system build properties and dynamic partition payloads in the report
         required: true
-        default: https://sourceforge.net/projects/lavender-roms/files/Rom/4.19/Lineage-22.2/lineage-22.2-lavender-20250612-1450.zip/download
+        default: https://sourceforge.net/projects/termux-lavender/files/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip/download
         type: string
       expected_filename:
         description: Expected ROM ZIP filename (letters, digits, dots, underscores, hyphens only)
         required: true
-        default: lineage-22.2-lavender-20250612-1450.zip
+        default: RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip
         type: string
 
 permissions:
@@ -43,8 +43,8 @@ jobs:
 
       - name: Download selected base without modifying existing ROM assets
         env:
-          BASE_ROM_URL: ${{ inputs.base_rom_url || 'https://sourceforge.net/projects/lavender-roms/files/Rom/4.19/Lineage-22.2/lineage-22.2-lavender-20250612-1450.zip/download' }}
-          EXPECTED_FILENAME: ${{ inputs.expected_filename || 'lineage-22.2-lavender-20250612-1450.zip' }}
+          BASE_ROM_URL: ${{ inputs.base_rom_url || 'https://sourceforge.net/projects/termux-lavender/files/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip/download' }}
+          EXPECTED_FILENAME: ${{ inputs.expected_filename || 'RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip' }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
@@ -155,6 +155,9 @@ jobs:
                 'sdk35_declared':'sdk-level=35' in metadata.lower(),
                 'fingerprint_lines':[line for line in metadata.splitlines() if line.startswith('post-build=')],
                 'fingerprint_declares_android15':any(':15/' in line for line in metadata.splitlines() if line.startswith('post-build=')),
+                'fingerprint_note':'post-build fingerprint is informational only; actual mounted system build.prop must prove SDK 35 / Android 15',
+                'required_partitions':['system','vendor','product','system_ext','odm'],
+                'has_full_partition_set':all((p+'.transfer.list' in names and p+'.new.dat.br' in names) for p in ('system','vendor','product','system_ext','odm')),
                 'updater_mentions_lavender':'lavender' in updater.lower(),
                 'updater_mentions_retrofit_dynamic':any(s in updater.lower() for s in ('retrofit','dynamic partition','super_dummy')),
                 'has_boot_img':'boot.img' in names,'has_dtbo_img':'dtbo.img' in names,
@@ -169,7 +172,8 @@ jobs:
           d=json.load(open(sys.argv[1])); failures=[]
           if not d['pre_device_lavender']: failures.append('metadata does not assert pre-device=lavender')
           if not d['sdk35_declared']: failures.append('metadata does not declare SDK 35')
-          if not d['fingerprint_declares_android15']: failures.append('post-build fingerprint does not declare Android 15; SDK metadata alone is insufficient')
+          if not d['has_full_partition_set']: failures.append('one or more full dynamic partition payload pairs are missing')
+          if not d['updater_mentions_retrofit_dynamic']: failures.append('updater does not show retrofit/dynamic partition support')
           if not d['has_boot_img']: failures.append('boot.img missing')
           if not d['has_vbmeta_img']: failures.append('vbmeta.img missing')
           if not d['has_dynamic_partition_op_list']: failures.append('dynamic_partitions_op_list missing')
@@ -180,43 +184,69 @@ jobs:
           if failures: print('Candidate compatibility gate failed; continue collecting product evidence before final rejection.')
           PY
 
-      - name: Reconstruct and validate the selected base product filesystem
+      - name: Reconstruct and validate every dynamic partition
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p clean-base/audit/product-check "$RUNNER_TEMP/base-product"
-          EXPECTED_FILENAME="${EXPECTED_FILENAME:-lineage-22.2-lavender-20250612-1450.zip}"
-          BASE_ZIP="clean-base/$EXPECTED_FILENAME"
-          if ! unzip -Z1 "$BASE_ZIP" | grep -qx 'product.transfer.list' ||
-             ! unzip -Z1 "$BASE_ZIP" | grep -qx 'product.new.dat.br'; then
-            echo "REJECTED: archive does not expose product.transfer.list + product.new.dat.br; inspect its actual image format before accepting this base." | tee clean-base/audit/product-check/RESULT.txt
-            exit 0
-          fi
-          unzip -p "$BASE_ZIP" product.transfer.list > "$RUNNER_TEMP/base-product/product.transfer.list"
-          unzip -p "$BASE_ZIP" product.new.dat.br > "$RUNNER_TEMP/base-product/product.new.dat.br"
-          python3 -m venv "$RUNNER_TEMP/product-venv"
-          "$RUNNER_TEMP/product-venv/bin/pip" install --quiet brotli
-          "$RUNNER_TEMP/product-venv/bin/python" tools/reconstruct_transfer_image.py \
-            "$RUNNER_TEMP/base-product/product.transfer.list" \
-            "$RUNNER_TEMP/base-product/product.new.dat.br" \
-            "$RUNNER_TEMP/base-product/product.img" \
-            > clean-base/audit/product-check/reconstruction.txt 2>&1 || {
-              cat clean-base/audit/product-check/reconstruction.txt
-              echo "REJECTED: product reconstruction failed; candidate is not accepted." | tee clean-base/audit/product-check/RESULT.txt
-              exit 0
-            }
-          file "$RUNNER_TEMP/base-product/product.img" | tee clean-base/audit/product-check/file.txt
-          sha256sum "$RUNNER_TEMP/base-product/product.img" | tee clean-base/audit/product-check/sha256.txt
-          set +e
-          e2fsck -fn "$RUNNER_TEMP/base-product/product.img" > clean-base/audit/product-check/e2fsck.txt 2>&1
-          fsck_rc=$?
-          set -e
-          printf 'e2fsck_exit_code=%s\n' "$fsck_rc" | tee clean-base/audit/product-check/RESULT.txt
-          if [ "$fsck_rc" -eq 0 ]; then
-            echo "Product image passed read-only e2fsck; this is one acceptance gate, not proof of device bootability." | tee -a clean-base/audit/product-check/RESULT.txt
-          else
-            echo "Product image did not pass read-only e2fsck; do not package this base without a verified full product image/tree." | tee -a clean-base/audit/product-check/RESULT.txt
-          fi
+          mkdir -p clean-base/audit/partition-check "$RUNNER_TEMP/base-partitions" "$RUNNER_TEMP/mnt-system"
+          BASE_ZIP="clean-base/${EXPECTED_FILENAME:-RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip}"
+          python3 -m venv "$RUNNER_TEMP/partition-venv"
+          "$RUNNER_TEMP/partition-venv/bin/pip" install --quiet brotli
+          for part in system vendor product system_ext odm; do
+            REPORT="clean-base/audit/partition-check/$part"
+            mkdir -p "$REPORT"
+            RESULT="$REPORT/RESULT.txt"
+            if ! unzip -Z1 "$BASE_ZIP" | grep -qx "$part.transfer.list" ||
+               ! unzip -Z1 "$BASE_ZIP" | grep -qx "$part.new.dat.br"; then
+              echo "REJECTED: required full partition payload pair missing for $part." | tee "$RESULT"
+              continue
+            fi
+            unzip -p "$BASE_ZIP" "$part.transfer.list" > "$RUNNER_TEMP/base-partitions/$part.transfer.list"
+            unzip -p "$BASE_ZIP" "$part.new.dat.br" > "$RUNNER_TEMP/base-partitions/$part.new.dat.br"
+            set +e
+            "$RUNNER_TEMP/partition-venv/bin/python" tools/reconstruct_transfer_image.py \
+              "$RUNNER_TEMP/base-partitions/$part.transfer.list" \
+              "$RUNNER_TEMP/base-partitions/$part.new.dat.br" \
+              "$RUNNER_TEMP/base-partitions/$part.img" > "$REPORT/reconstruction.txt" 2>&1
+            rc=$?
+            set -e
+            if [[ "$rc" -ne 0 ]]; then
+              echo "REJECTED: $part reconstruction failed." | tee "$RESULT"
+              continue
+            fi
+            if ! grep -q '^transfer_covers_full_filesystem_by_operations=True$' "$REPORT/reconstruction.txt"; then
+              echo "REJECTED: $part transfer list does not write every filesystem block." | tee "$RESULT"
+              continue
+            fi
+            set +e
+            e2fsck -fn "$RUNNER_TEMP/base-partitions/$part.img" > "$REPORT/e2fsck.txt" 2>&1
+            fsck_rc=$?
+            set -e
+            if [[ "$fsck_rc" -ne 0 ]]; then
+              echo "REJECTED: $part filesystem failed read-only e2fsck (exit $fsck_rc)." | tee "$RESULT"
+              continue
+            fi
+            {
+              echo "e2fsck_exit_code=0"
+              echo "full_write_coverage=True"
+              echo "image_sha256=$(sha256sum "$RUNNER_TEMP/base-partitions/$part.img" | cut -d' ' -f1)"
+            } > "$RESULT"
+            if [[ "$part" == "system" ]]; then
+              sudo mount -t ext4 -o loop,ro,noload "$RUNNER_TEMP/base-partitions/system.img" "$RUNNER_TEMP/mnt-system"
+              find "$RUNNER_TEMP/mnt-system" -maxdepth 3 -type f \( -name build.prop -o -name system-build.prop \) -print > "$REPORT/build-prop-paths.txt"
+              find "$RUNNER_TEMP/mnt-system" -maxdepth 3 -type f \( -name build.prop -o -name system-build.prop \) -exec grep -hE '^(ro\.build\.version\.(sdk|release)|ro\.system\.build\.version\.(sdk|release))=' {} \; > "$REPORT/system-build-properties.txt" || true
+              if ! grep -Eq '^(ro\.build\.version\.sdk|ro\.system\.build\.version\.sdk)=35$' "$REPORT/system-build-properties.txt" ||
+                 ! grep -Eq '^(ro\.build\.version\.release|ro\.system\.build\.version\.release)=15(\.0)?$' "$REPORT/system-build-properties.txt"; then
+                echo "REJECTED: extracted system build.prop does not prove Android 15 / SDK 35." | tee "$RESULT"
+              else
+                echo "system_sdk=35" >> "$RESULT"
+                echo "system_release=15" >> "$RESULT"
+              fi
+              sudo umount "$RUNNER_TEMP/mnt-system"
+            fi
+            rm -f "$RUNNER_TEMP/base-partitions/$part.transfer.list" \
+              "$RUNNER_TEMP/base-partitions/$part.new.dat.br" "$RUNNER_TEMP/base-partitions/$part.img"
+          done
 
       - name: Publish intake evidence
         if: always()
@@ -232,20 +262,59 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          result=clean-base/audit/product-check/RESULT.txt
-          if [[ ! -s "$result" ]]; then
-            echo "REJECTED: no product filesystem validation result was produced." >&2
+          failed=0
+          for part in system vendor product system_ext odm; do
+            result="clean-base/audit/partition-check/$part/RESULT.txt"
+            if [[ ! -s "$result" ]] || grep -q '^REJECTED:' "$result"; then
+              echo "REJECTED: partition gate failed for $part." >&2
+              [[ ! -s "$result" ]] || cat "$result"
+              failed=1
+            elif ! grep -q '^e2fsck_exit_code=0
+          compat=clean-base/audit/base-compatibility/summary.json
+          if [[ ! -s "$compat" ]]; then
+            echo "REJECTED: no base identity/installer compatibility summary was produced." >&2
             exit 1
           fi
-          if grep -q '^REJECTED:' "$result"; then
-            cat "$result"
+          if ! python3 - "$compat" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1]))
+          failures=d.get("audit_failures", [])
+          if failures:
+              print("REJECTED: candidate compatibility failures:")
+              for item in failures:
+                  print("- " + item)
+              raise SystemExit(1)
+          PY
+          then
+            cat "$compat"
             exit 1
           fi
-          if ! grep -q '^e2fsck_exit_code=0$' "$result"; then
-            cat "$result"
-            echo "REJECTED: product filesystem did not pass the required validation gate." >&2
-            exit 1
+          echo "Product filesystem and base compatibility gates passed. This does not by itself prove ROM bootability."
+ "$result"; then
+              echo "REJECTED: missing successful e2fsck result for $part." >&2
+              cat "$result"
+              failed=1
+            fi
+          done
+          compat=clean-base/audit/base-compatibility/summary.json
+          if [[ ! -s "$compat" ]]; then
+            echo "REJECTED: no base identity/installer compatibility summary was produced." >&2
+            failed=1
+          elif ! python3 - "$compat" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1]))
+          failures=d.get("audit_failures", [])
+          if failures:
+              print("REJECTED: candidate compatibility failures:")
+              for item in failures:
+                  print("- " + item)
+              raise SystemExit(1)
+          PY
+          then
+            cat "$compat"
+            failed=1
           fi
+          if (( failed )); then exit 1; fi
           compat=clean-base/audit/base-compatibility/summary.json
           if [[ ! -s "$compat" ]]; then
             echo "REJECTED: no base identity/installer compatibility summary was produced." >&2
