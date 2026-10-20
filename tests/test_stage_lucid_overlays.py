@@ -74,6 +74,41 @@ class OverlayInventoryTests(unittest.TestCase):
             )
             self.assertTrue(report.is_file())
 
+    def test_staging_handles_system_as_root_nested_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "repo"
+            source_root = root / "overlay-source"
+            base = root / "base"
+            repo.mkdir()
+            (base / "system/system").mkdir(parents=True)
+            (base / "system/system/build.prop").write_text("ro.build.version.sdk=35\\n")
+            for source_rel, _, _ in MODULE.OVERLAYS:
+                source = source_root / source_rel
+                if source_rel.endswith("/usr/lucid"):
+                    source.mkdir(parents=True, exist_ok=True)
+                    (source / "ubuntu-base-arm64.tar.gz").write_text("rootfs")
+                else:
+                    source.parent.mkdir(parents=True, exist_ok=True)
+                    source.write_text("from-sar-source")
+            report = root / "sar-overlay-plan.json"
+            argv = [
+                "stage_lucid_overlays.py",
+                "--repo-root", str(repo),
+                "--source-root", str(source_root),
+                "--base-root", str(base),
+                "--report", str(report),
+                "--apply",
+            ]
+            with mock.patch("sys.argv", argv):
+                self.assertEqual(MODULE.main(), 0)
+            self.assertEqual(
+                (base / "system/system/bin/lucid-linux-app").read_text(),
+                "from-sar-source",
+            )
+            self.assertFalse((base / "system/bin/lucid-linux-app").exists())
+            self.assertTrue(json.loads(report.read_text())["system_as_root"])
+
     def test_source_tree_symlink_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
