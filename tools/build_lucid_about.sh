@@ -10,9 +10,11 @@ mkdir -p "$WORK/res/drawable" "$WORK/classes" "$WORK/dex" "$(dirname "$OUT")"
 cp "$ROOT/theme/assets/lucid-wallpaper-dusk.jpg" "$WORK/res/drawable/lucid_wallpaper.jpg"
 "$BT/aapt2" compile --dir "$WORK/res" -o "$WORK/resources.zip"
 "$BT/aapt2" link -o "$WORK/unsigned.apk" -I "$SDK/platforms/android-35/android.jar" --manifest "$ROOT/theme/about-app/AndroidManifest.xml" --java "$WORK/generated" "$WORK/resources.zip"
-find "$ROOT/theme/about-app/src" "$WORK/generated" -name '*.java' -print0 | xargs -0 javac -source 8 -target 8 -classpath "$SDK/platforms/android-35/android.jar" -d "$WORK/classes"
+find "$ROOT/theme/about-app/src" "$WORK/generated" -name '*.java' -print0 | xargs -0 javac --release 8 -classpath "$SDK/platforms/android-35/android.jar" -d "$WORK/classes"
 find "$WORK/dex" -name '*.dex' -delete
-"$BT/d8" --min-api 29 --lib "$SDK/platforms/android-35/android.jar" --output "$WORK/dex" "$WORK/classes"
+mapfile -t CLASS_FILES < <(find "$WORK/classes" -name '*.class' -print | sort)
+[[ "${#CLASS_FILES[@]}" -gt 0 ]]
+"$BT/d8" --min-api 29 --lib "$SDK/platforms/android-35/android.jar" --output "$WORK/dex" "${CLASS_FILES[@]}"
 mkdir -p "$WORK/apk"
 cp "$WORK/unsigned.apk" "$WORK/apk/base.apk"
 cp "$WORK/dex/classes.dex" "$WORK/apk/classes.dex"
