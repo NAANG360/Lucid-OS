@@ -13,10 +13,14 @@ BRIDGE_PORT=5555
 ANDROID_UID="$(id -u)"
 ANDROID_GID="$(id -g)"
 
-# A root-off preference is authoritative even if casting is requested.
-# The Android init property trigger also stops this service when switched off.
+# Fail closed: a property toggle alone cannot isolate Android-host root.
+# The release must not start this host-root service until the scoped backend is audited.
 if [ "$(getprop persist.lucid.chroot_root)" != "1" ]; then
-    log -t "LucidDesktop" "Desktop not started: chroot root access is disabled in Developer Options."
+    log -t "LucidDesktop" "Desktop not started: chroot root gate is off."
+    exit 1
+fi
+if [ "$(getprop persist.lucid.chroot_backend_ready)" != "1" ]; then
+    log -t "LucidDesktop" "Desktop not started: scoped privilege backend is not marked ready."
     exit 1
 fi
 
