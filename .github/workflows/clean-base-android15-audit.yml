@@ -15,14 +15,14 @@ on:
   workflow_dispatch:
     inputs:
       base_rom_url:
-        description: Direct HTTPS download URL for the March 2025 Rising-Revived vanilla Android 15 dynamic lavender candidate; verify vanilla/dynamic metadata in the report
+        description: Direct HTTPS download URL for the June 2025 LineageOS 22.2 lavender candidate; verify Android 15, vanilla status, and dynamic layout in the report
         required: true
-        default: https://sourceforge.net/projects/termux-lavender/files/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip/download
+        default: https://sourceforge.net/projects/lavender-roms/files/Rom/4.19/Lineage-22.2/lineage-22.2-lavender-20250612-1450.zip/download
         type: string
       expected_filename:
         description: Expected ROM ZIP filename (letters, digits, dots, underscores, hyphens only)
         required: true
-        default: RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip
+        default: lineage-22.2-lavender-20250612-1450.zip
         type: string
 
 permissions:
@@ -54,8 +54,8 @@ jobs:
 
       - name: Download selected base without modifying existing ROM assets
         env:
-          BASE_ROM_URL: ${{ inputs.base_rom_url || 'https://sourceforge.net/projects/termux-lavender/files/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip/download' }}
-          EXPECTED_FILENAME: ${{ inputs.expected_filename || 'RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip' }}
+          BASE_ROM_URL: ${{ inputs.base_rom_url || 'https://sourceforge.net/projects/lavender-roms/files/Rom/4.19/Lineage-22.2/lineage-22.2-lavender-20250612-1450.zip/download' }}
+          EXPECTED_FILENAME: ${{ inputs.expected_filename || 'lineage-22.2-lavender-20250612-1450.zip' }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
@@ -195,7 +195,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p clean-base/audit/product-check "$RUNNER_TEMP/base-product"
-          EXPECTED_FILENAME="${EXPECTED_FILENAME:-RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip}"
+          EXPECTED_FILENAME="${EXPECTED_FILENAME:-lineage-22.2-lavender-20250612-1450.zip}"
           BASE_ZIP="clean-base/$EXPECTED_FILENAME"
           if ! unzip -Z1 "$BASE_ZIP" | grep -qx 'product.transfer.list' ||
              ! unzip -Z1 "$BASE_ZIP" | grep -qx 'product.new.dat.br'; then
