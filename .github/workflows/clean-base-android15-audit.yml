@@ -163,7 +163,8 @@ jobs:
                 'partition_payloads':[{'path':n,'bytes':z.getinfo(n).file_size} for n in sorted(names) if n.endswith(('.img','.dat.br','.transfer.list')) or n in ('dynamic_partitions_op_list','payload.bin')],
                 'metadata':metadata,'pre_device_lavender':'pre-device=lavender' in metadata.lower(),
                 'sdk35_declared':'sdk-level=35' in metadata.lower(),
-                'fingerprint_lines':re.findall(r'(?im)^post-build=.*
+                'fingerprint_lines':[line for line in metadata.splitlines() if line.startswith('post-build=')],
+                'fingerprint_declares_android15':any(':15/' in line for line in metadata.splitlines() if line.startswith('post-build=')),
                 'updater_mentions_lavender':'lavender' in updater.lower(),
                 'updater_mentions_retrofit_dynamic':any(s in updater.lower() for s in ('retrofit','dynamic partition','super_dummy')),
                 'has_boot_img':'boot.img' in names,'has_dtbo_img':'dtbo.img' in names,
