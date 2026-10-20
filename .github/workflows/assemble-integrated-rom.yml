@@ -49,7 +49,7 @@ jobs:
           "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_validate_lucid_preservation.py -v
           "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_stage_lucid_overlays.py -v
           "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_reconstruct_transfer_image.py -v
-          "$RUNNER_TEMP/assembly/venv/bin/python" tools/validate_lucid_preservation.py --root "$GITHUB_WORKSPACE" --report report/lucid-preservation-manifest.json
+          "$RUNNER_TEMP/assembly/venv/bin/python" tools/validate_lucid_preservation.py --root "$GITHUB_WORKSPACE" --output report/lucid-preservation-manifest.json
           df -h "$RUNNER_TEMP" | tee report/disk-before-build.txt
 
       - name: Download and pin clean base plus original Lucid release
@@ -156,23 +156,52 @@ jobs:
             echo "The kernels differ or Lucid DTBO is absent; do not transplant the old DTBO. The base installer leaves device DTBO unchanged." | tee report/dtbo-decision.txt
           fi
 
-      - name: Download theme artifact and build LucidOS About app
+      - name: Build LucidSetup, About, Wallpapers, and boot animation from source
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          THEME_RUN_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/lucid-theme-overlay.yml/runs?status=success&per_page=10" --jq '.workflow_runs[0].id')"
-          [[ -n "$THEME_RUN_ID" && "$THEME_RUN_ID" != "null" ]]
-          gh run download "$THEME_RUN_ID" --repo "$GITHUB_REPOSITORY" --name lucid-theme-overlay-prototype --dir "$RUNNER_TEMP/assembly/theme"
-          test -s "$RUNNER_TEMP/assembly/theme/out/LucidWallpapers.apk"
-          test -s "$RUNNER_TEMP/assembly/theme/out/LucidOS-bootanimation.zip"
-          chmod +x tools/build_lucid_about.sh
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          mkdir -p out "$RUNNER_TEMP/assembly/wallpaper-classes" "$RUNNER_TEMP/assembly/wallpaper-dex" theme/wallpaper-app/assets
+          cp theme/assets/lucid-wallpaper-dusk.jpg theme/wallpaper-app/assets/
+          cp theme/assets/lucid-wallpaper-alpine.jpg theme/wallpaper-app/assets/
+          "$BUILD_TOOLS/aapt2" compile --dir theme/wallpaper-app/res -o "$RUNNER_TEMP/assembly/wallpaper-resources.zip"
+          "$BUILD_TOOLS/aapt2" link --manifest theme/wallpaper-app/AndroidManifest.xml -I "$ANDROID_JAR" -A theme/wallpaper-app/assets -o "$RUNNER_TEMP/assembly/LucidWallpapers-unsigned.apk" "$RUNNER_TEMP/assembly/wallpaper-resources.zip"
+          mapfile -t WALLPAPER_SOURCES < <(find theme/wallpaper-app/src -name '*.java' -print | sort)
+          javac -source 8 -target 8 -bootclasspath "$ANDROID_JAR" -d "$RUNNER_TEMP/assembly/wallpaper-classes" "${WALLPAPER_SOURCES[@]}"
+          mapfile -t WALLPAPER_CLASSES < <(find "$RUNNER_TEMP/assembly/wallpaper-classes" -name '*.class' -print | sort)
+          "$BUILD_TOOLS/d8" --lib "$ANDROID_JAR" --output "$RUNNER_TEMP/assembly/wallpaper-dex" "${WALLPAPER_CLASSES[@]}"
+          (cd "$RUNNER_TEMP/assembly/wallpaper-dex" && zip -q "$RUNNER_TEMP/assembly/LucidWallpapers-unsigned.apk" classes.dex)
+          keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/assembly/wallpaper.jks" -storepass 'lucid-wallpaper-build' -keypass 'lucid-wallpaper-build' -alias lucid-wallpaper -keyalg RSA -keysize 2048 -validity 3650 -dname 'CN=LucidOS Wallpapers Development'
+          "$BUILD_TOOLS/zipalign" -f 4 "$RUNNER_TEMP/assembly/LucidWallpapers-unsigned.apk" "$RUNNER_TEMP/assembly/LucidWallpapers-aligned.apk"
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/assembly/wallpaper.jks" --ks-key-alias lucid-wallpaper --ks-pass pass:lucid-wallpaper-build --key-pass pass:lucid-wallpaper-build --out out/LucidWallpapers.apk "$RUNNER_TEMP/assembly/LucidWallpapers-aligned.apk"
+          "$BUILD_TOOLS/apksigner" verify --verbose out/LucidWallpapers.apk
+          "$BUILD_TOOLS/aapt" dump badging out/LucidWallpapers.apk > report/wallpaper-app-badging.txt
+          grep -q "package: name='com.lucid.os.wallpapers'" report/wallpaper-app-badging.txt
+          sha256sum out/LucidWallpapers.apk > report/wallpaper-app-sha256.txt
+
+          chmod +x tools/build_lucid_setup.sh tools/build_lucid_about.sh
+          tools/build_lucid_setup.sh "$GITHUB_WORKSPACE/out/LucidSetup.apk"
           tools/build_lucid_about.sh "$GITHUB_WORKSPACE/out/LucidAbout.apk"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging out/LucidAbout.apk > report/lucid-about-badging.txt
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose out/LucidAbout.apk > report/lucid-about-signature.txt
-          sha256sum out/LucidAbout.apk > report/lucid-about-sha256.txt
-          echo "THEME_DIR=$RUNNER_TEMP/assembly/theme/out" >> "$GITHUB_ENV"
+          "$BUILD_TOOLS/aapt" dump badging out/LucidSetup.apk > report/setup-app-badging.txt
+          "$BUILD_TOOLS/aapt" dump badging out/LucidAbout.apk > report/about-app-badging.txt
+          grep -q "package: name='com.cosmos.setup'" report/setup-app-badging.txt
+          grep -q "package: name='com.lucid.os.about'" report/about-app-badging.txt
+          "$BUILD_TOOLS/apksigner" verify --verbose out/LucidSetup.apk > report/setup-app-signature.txt
+          "$BUILD_TOOLS/apksigner" verify --verbose out/LucidAbout.apk > report/about-app-signature.txt
+          grep -q 'android.permission.WRITE_SECURE_SETTINGS' setup-app/AndroidManifest.xml
+          grep -q '<privapp-permissions package="com.cosmos.setup">' system-tree/system/etc/permissions/lucid-privapp-permissions.xml
+          grep -q 'android.permission.WRITE_SECURE_SETTINGS' system-tree/system/etc/permissions/lucid-privapp-permissions.xml
+
+          python3 -m venv "$RUNNER_TEMP/assembly/pillow-venv"
+          "$RUNNER_TEMP/assembly/pillow-venv/bin/pip" install --quiet Pillow
+          "$RUNNER_TEMP/assembly/pillow-venv/bin/python" tools/generate_bootanimation.py theme/assets/lucid-wallpaper-dusk.jpg out/LucidOS-bootanimation.zip
+          unzip -t out/LucidOS-bootanimation.zip > report/bootanimation-zip-test.txt
+          sha256sum out/LucidOS-bootanimation.zip > report/bootanimation-sha256.txt
+          sha256sum out/LucidSetup.apk out/LucidAbout.apk out/LucidWallpapers.apk > report/lucid-apk-sha256.txt
+          echo "THEME_DIR=$GITHUB_WORKSPACE/out" >> "$GITHUB_ENV"
+          printf 'static_framework_rro=excluded\nreason=runtime idmap2 and target policy are not yet verified\n' > report/rro-decision.txt
+          ls -lh out/LucidSetup.apk out/LucidAbout.apk out/LucidWallpapers.apk out/LucidOS-bootanimation.zip > report/built-assets.txt
 
       - name: Reconstruct all base partition trees
         shell: bash
