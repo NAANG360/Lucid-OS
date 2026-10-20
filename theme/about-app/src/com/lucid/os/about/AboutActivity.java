@@ -39,7 +39,14 @@ public final class AboutActivity extends Activity {
         page.addView(title, tp);
 
         ImageView hero = new ImageView(this);
-        hero.setImageResource(getResources().getIdentifier("lucid_wallpaper", "drawable", getPackageName()));
+        int wallpaperId = getResources().getIdentifier("lucid_wallpaper", "drawable", getPackageName());
+        if (wallpaperId != 0) {
+            hero.setImageResource(wallpaperId);
+        } else {
+            // Keep the page usable if an alternate packaging pipeline omits the image.
+            hero.setBackground(shape(PANEL, 28));
+            hero.setContentDescription("LucidOS wallpaper unavailable in this build");
+        }
         hero.setScaleType(ImageView.ScaleType.CENTER_CROP);
         hero.setBackground(shape(PANEL, 28));
         hero.setClipToOutline(true);
