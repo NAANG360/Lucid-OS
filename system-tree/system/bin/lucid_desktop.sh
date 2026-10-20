@@ -107,15 +107,41 @@ set -e
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y xfce4 xfce4-goodies plank dbus-x11 adb wget curl git desktop-file-utils hicolor-icon-theme
-# WhiteSur gives the GNOME/macOS visual direction; XFCE keeps this usable on ARM64.
-if [ ! -d /opt/WhiteSur-gtk-theme/.git ]; then
-    git clone --depth 1 https://github.com/vinceliuice/WhiteSur-gtk-theme.git /opt/WhiteSur-gtk-theme
-fi
-/opt/WhiteSur-gtk-theme/install.sh -c Dark -t default -N glassy
-if [ ! -d /opt/WhiteSur-icon-theme/.git ]; then
-    git clone --depth 1 https://github.com/vinceliuice/WhiteSur-icon-theme.git /opt/WhiteSur-icon-theme
-fi
-/opt/WhiteSur-icon-theme/install.sh
+# Lucid theme is shipped inline: no GitHub clone, installer, or Termux required.
+mkdir -p /usr/share/themes/Lucid-Dark/gtk-3.0 /usr/share/themes/Lucid-Dark/gtk-4.0
+cat >/usr/share/themes/Lucid-Dark/gtk-3.0/gtk.css <<'LUCID_GTK'
+@define-color theme_bg_color #10131d;
+@define-color theme_fg_color #e9edff;
+@define-color theme_base_color #171b29;
+@define-color theme_text_color #e9edff;
+@define-color theme_selected_bg_color #8b5cf6;
+@define-color theme_selected_fg_color #ffffff;
+@define-color accent_color #8b5cf6;
+@define-color accent_bg_color #8b5cf6;
+@define-color accent_fg_color #ffffff;
+window, .background { background-color: #10131d; color: #e9edff; }
+headerbar, .titlebar { background: #191e2d; color: #f5f6ff; border: 0; box-shadow: none; }
+button { background: #252b40; color: #e9edff; border: 1px solid #343c58; border-radius: 10px; padding: 6px 12px; }
+button:hover { background: #34304f; border-color: #8b5cf6; }
+button:checked, button:active { background: #6d48c7; color: #fff; }
+entry, textview, spinbutton, combobox, .view { background: #171b29; color: #e9edff; border-color: #343c58; }
+selection { background: #8b5cf6; color: #fff; }
+menu, popover, .popover { background: #191e2d; color: #e9edff; border: 1px solid #343c58; }
+tooltip { background: #242b40; color: #fff; border: 1px solid #8b5cf6; }
+scrollbar slider { background: #555d7c; border-radius: 8px; }
+LUCID_GTK
+cat >/usr/share/themes/Lucid-Dark/gtk-4.0/gtk.css <<'LUCID_GTK4'
+@import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk.css");
+:root { --window-bg-color: #10131d; --window-fg-color: #e9edff; --view-bg-color: #171b29; --view-fg-color: #e9edff; --headerbar-bg-color: #191e2d; --headerbar-fg-color: #f5f6ff; --accent-bg-color: #8b5cf6; --accent-fg-color: #ffffff; --accent-color: #a78bfa; }
+LUCID_GTK4
+mkdir -p /usr/share/icons/Lucid
+cat >/usr/share/icons/Lucid/index.theme <<'LUCID_ICONS'
+[Icon Theme]
+Name=Lucid
+Comment=LucidOS symbolic icon theme with Adwaita fallback
+Inherits=Adwaita,hicolor
+Directories=
+LUCID_ICONS
 mkdir -p /usr/local/bin /usr/local/share/lucid /root/.config/autostart /root/Desktop /root/.local/share/applications
 cat >/usr/local/bin/lucid-android-app <<'ANDROID_APP'
 #!/bin/bash
@@ -158,45 +184,17 @@ done
 SYNC_APPS
 chmod 0755 /usr/local/bin/lucid-sync-android-apps
 
-# Termux:Widget reads executable scripts from ~/.shortcuts. If Termux exists,
-# publish launchers there so Linux GUI apps can be launched from Android's app
-# drawer via the Termux:Widget shortcut surface. Root is required for chroot.
-sync_termux_shortcuts() {
-    TERMUX_DATA="/data/data/com.termux"
-    [ -d "$TERMUX_DATA" ] || return 0
-    TERMUX_UID="$(stat -c '%u' "$TERMUX_DATA" 2>/dev/null)"
-    TERMUX_GID="$(stat -c '%g' "$TERMUX_DATA" 2>/dev/null)"
-    case "$TERMUX_UID:$TERMUX_GID" in *[!0-9:]*|'':*) return 1 ;; esac
-    SHORTCUTS="$TERMUX_DATA/files/home/.shortcuts/lucid-linux"
-    mkdir -p "$SHORTCUTS" || return 1
-    chown "$TERMUX_UID:$TERMUX_GID" "$TERMUX_DATA/files/home/.shortcuts" "$SHORTCUTS" 2>/dev/null || true
-    find "$CHROOT_DIR/usr/share/applications" "$CHROOT_DIR/root/.local/share/applications" -maxdepth 1 -type f -name '*.desktop' 2>/dev/null | while IFS= read -r desktop; do
-        app_id="${desktop##*/}"
-        app_id="${app_id%.desktop}"
-        case "$app_id" in *[!A-Za-z0-9_.-]*|'') continue ;; esac
-        title="$(sed -n 's/^Name=//p' "$desktop" | head -n 1 | tr -cd 'A-Za-z0-9 ._()-' | cut -c1-60)"
-        [ -n "$title" ] || title="$app_id"
-        shortcut="$SHORTCUTS/$app_id"
-        cat >"$shortcut" <<EOF_SHORTCUT
-#!/system/bin/sh
-su -c '/system/bin/lucid-linux-app "$app_id"'
-EOF_SHORTCUT
-        chmod 0755 "$shortcut"
-        chown "$TERMUX_UID:$TERMUX_GID" "$shortcut" 2>/dev/null || true
-    done
-    # Termux:Widget must be installed for these scripts to appear as launchable shortcuts.
-    log_msg "Synced Linux desktop app launchers to Termux shortcuts; Termux:Widget is required to expose them in Android."
-}
-
+# Linux apps are launched from the Linux desktop itself. Android-side launching
+# is provided by the Lucid bridge when installed; Termux/Termux:Widget is optional.
 # Keep a native app menu and panel rather than relying on one-time generated icons.
 mkdir -p /root/.config/xfce4/xfconf/xfce-perchannel-xml /root/.config/autostart
 cat >/root/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml <<'XSETTINGS'
 <?xml version="1.0" encoding="UTF-8"?>
 <channel name="xsettings" version="1.0">
   <property name="Net" type="empty">
-    <property name="ThemeName" type="string" value="WhiteSur-Dark"/>
-    <property name="IconThemeName" type="string" value="WhiteSur"/>
-    <property name="CursorThemeName" type="string" value="WhiteSur-cursors"/>
+    <property name="ThemeName" type="string" value="Lucid-Dark"/>
+    <property name="IconThemeName" type="string" value="Lucid"/>
+    <property name="CursorThemeName" type="string" value="Adwaita"/>
   </property>
 </channel>
 XSETTINGS
@@ -217,10 +215,10 @@ Exec=/usr/local/bin/lucid-sync-android-apps
 Terminal=false
 OnlyShowIn=XFCE;
 AUTOSYNC
-# WhiteSur installs can vary by release; use a reliable dark base when the exact theme name differs.
-xfconf-query -c xsettings -p /Net/ThemeName -s WhiteSur-Dark --create -t string 2>/dev/null || true
-xfconf-query -c xsettings -p /Net/IconThemeName -s WhiteSur --create -t string 2>/dev/null || true
-xfconf-query -c xfwm4 -p /general/theme -s WhiteSur-Dark --create -t string 2>/dev/null || true
+# Lucid installs can vary by release; use a reliable dark base when the exact theme name differs.
+xfconf-query -c xsettings -p /Net/ThemeName -s Lucid-Dark --create -t string 2>/dev/null || true
+xfconf-query -c xsettings -p /Net/IconThemeName -s Lucid --create -t string 2>/dev/null || true
+xfconf-query -c xfwm4 -p /general/theme -s Lucid-Dark --create -t string 2>/dev/null || true
 # Put the Plank dock at the bottom, with a clean macOS-like icon zoom.
 mkdir -p /root/.config/plank/dock1
 cat >/root/.config/plank/dock1/settings <<'PLANK_SETTINGS'
@@ -248,7 +246,6 @@ CHROOT_SETUP
 fi
 
 # Start Android bridge only with loopback-only firewall protection.
-sync_termux_shortcuts || log_msg "Could not publish Termux Linux-app shortcuts."
 if start_local_adbd; then
     chroot "$CHROOT_DIR" /usr/local/bin/lucid-sync-android-apps >/dev/null 2>&1 || true
 else
@@ -257,10 +254,8 @@ fi
 
 # A low-frequency background sync catches installs/uninstalls after boot.
 (
-    echo $$ > "$SYNC_PID_FILE"
     while true; do
         sleep 60
-        sync_termux_shortcuts || true
         if protect_adb_listener; then
             chroot "$CHROOT_DIR" /usr/local/bin/lucid-sync-android-apps >/dev/null 2>&1 || true
         fi
@@ -273,4 +268,4 @@ echo "$SYNC_PID" > "$SYNC_PID_FILE"
 am start -n com.termux.x11/com.termux.x11.MainActivity >/dev/null 2>&1 || log_msg "Termux:X11 launch failed; install/enable Termux:X11 to display the Linux desktop."
 # startxfce4 expects a session bus; dbus-x11 is installed during provisioning.
 # Keep the session in the foreground so init can stop/restart the desktop service.
-chroot "$CHROOT_DIR" /bin/bash -lc 'export DISPLAY=:0; export XDG_RUNTIME_DIR=/run/user/0; mkdir -p "$XDG_RUNTIME_DIR"; chmod 0700 "$XDG_RUNTIME_DIR"; exec dbus-launch --exit-with-session startxfce4' 
+chroot "$CHROOT_DIR" /bin/bash -lc 'export DISPLAY="${DISPLAY:-:0}"; export XDG_RUNTIME_DIR=/run/user/0; mkdir -p "$XDG_RUNTIME_DIR"; chmod 0700 "$XDG_RUNTIME_DIR"; exec dbus-launch --exit-with-session startxfce4' 
