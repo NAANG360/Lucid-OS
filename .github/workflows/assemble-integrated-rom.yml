@@ -49,6 +49,7 @@ jobs:
           "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_validate_lucid_preservation.py -v
           "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_stage_lucid_overlays.py -v
           "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_reconstruct_transfer_image.py -v
+          python3 -m py_compile tools/purge_rising_customizations.py
           "$RUNNER_TEMP/assembly/venv/bin/python" tools/validate_lucid_preservation.py --root "$GITHUB_WORKSPACE" --output report/lucid-preservation-manifest.json
           df -h "$RUNNER_TEMP" | tee report/disk-before-build.txt
 
@@ -309,6 +310,19 @@ jobs:
           grep -Eq '^(ro.build.version.release|ro.system.build.version.release)=15(\.0)?$' "$ROOT/system/build.prop"
           cp "$RUNNER_TEMP/assembly/dynamic_partitions_op_list" report/dynamic_partitions_op_list.txt
           df -h "$RUNNER_TEMP" | tee report/disk-after-extraction.txt
+
+      - name: Purge explicitly identified RisingOS apps and branding
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          test -x "$AAPT"
+          sudo python3 tools/purge_rising_customizations.py \
+            --base-root "$BASE_ROOT" \
+            --aapt "$AAPT" \
+            --report "$GITHUB_WORKSPACE/report/rising-purge-report.json" \
+            --apply
+          echo "RisingOS purge report generated; unresolved review items block packaging."
 
       - name: Apply Lucid system, setup, theme, and branding overlays
         shell: bash
