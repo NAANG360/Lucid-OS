@@ -89,3 +89,19 @@ This is still a device-dependent mechanism, not a verified root solution: Androi
 The desktop launcher previously treated the mere existence of `/data/local/lucid_desktop/bin` as proof that first-run provisioning had completed. If apt/theme setup failed halfway through, later launches skipped provisioning permanently. It now uses a completion marker written only after the chroot provisioning command exits successfully, reuses already-cloned theme repositories on retries, avoids failing when no third-party app shortcuts exist, and binds `/dev`, `/proc`, and `/sys` at most once per activation. Exit/signal cleanup attempts to unmount those bind mounts.
 
 The launcher now installs IPv4 and IPv6 INPUT rules that drop port 5555 traffic arriving on non-loopback interfaces before enabling TCP ADB. If either firewall tool or rule insertion is unavailable, it refuses to enable the TCP listener and logs that app bridging is disabled. The rules are not removed on desktop shutdown, so port 5555 remains protected if another service later attempts to use it. This is a fail-closed mitigation, not runtime proof: verify iptables/ip6tables behavior, packet filtering order, and the local chroot bridge on the actual Android 15 base before release.
+
+## Lucid DeX + chroot desktop bridge (implementation update)
+
+The desktop launcher now provisions an Ubuntu ARM64 chroot with XFCE, Plank, WhiteSur dark GTK/icon themes, and a dock autostart. XFCE remains the lightweight session engine; this is a DeX-inspired freeform desktop, not Samsung's proprietary DeX implementation or a full GNOME session.
+
+### App discovery and launch paths
+
+- **Android → Linux desktop:** after the loopback-only ADB bridge comes up, `lucid-sync-android-apps` inventories third-party Android packages and creates/removes generated `.desktop` entries under the chroot's `/root/.local/share/applications`. The generated launcher resolves a real MAIN/LAUNCHER component and requests Android freeform window mode. A 60-second sync catches package installs and removals.
+- **Linux → Android:** `system-tree/system/bin/lucid-linux-app` is an Android-side launcher for a Linux `.desktop` app ID. When Termux is installed, the desktop setup publishes shortcuts under Termux's `~/.shortcuts/lucid-linux`; **Termux:Widget and working root access are required** for those shortcuts to be surfaced and execute the chroot app. Linux GUI output requires the Termux:X11 display session to be active. This is a bridge path, not automatic publication as native Android launcher icons.
+- **Visual design:** WhiteSur Dark + WhiteSur icons, XFCE session, Plank dock with zoom, and a continuously refreshed Android app menu aim for the requested GNOME/macOS-like appearance while remaining usable on Snapdragon 660.
+
+### Important validation boundaries
+
+The script and integration hooks are in the repository, but they have not yet been validated on the Redmi Note 7. Android package names alone do not provide reliable human-readable labels/icons; this initial sync uses package IDs as labels and a generic phone icon. Some Android apps refuse freeform mode, and some Linux applications need extra packages, audio/DBus configuration, or GPU acceleration. The Android-side Linux launcher reads the `Exec=` field and rejects common shell metacharacters, but desktop files can contain complex field codes; do not treat this as a security boundary for untrusted desktop files. The chroot runs as root, so only trusted package repositories and trusted desktop files should be used.
+
+The setup script currently installs desktop packages over the network during first activation. First boot therefore needs working internet, enough free storage, and patience; the Ubuntu archive itself does not contain the complete XFCE/WhiteSur package set.
