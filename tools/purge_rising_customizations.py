@@ -32,7 +32,7 @@ def main() -> int:
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
     root = args.base_root.resolve()
-    report = {"schema":1,"mode":"apply" if args.apply else "dry-run","removed":[],"branding_edits":[],"unresolved":[]}
+    report = {"schema":1,"mode":"apply" if args.apply else "dry-run","removed":[],"removed_config":[],"branding_edits":[],"unresolved":[]}
     app_candidates = []
     for part in PARTITIONS:
         tree = root / part
@@ -60,10 +60,24 @@ def main() -> int:
             if removed:
                 report["branding_edits"].append({"file":str(prop),"removed_lines":removed})
                 if args.apply: prop.write_text("\n".join(kept)+"\n")
+    removed_packages = {package for _, _, _, package, _ in app_candidates if package}
+    for part in PARTITIONS:
+        tree = root / part
+        if not tree.is_dir():
+            continue
         for p in tree.rglob("*"):
-            if p.is_symlink() or not p.is_file(): continue
+            if p.is_symlink() or not p.is_file():
+                continue
             rel = p.relative_to(tree).as_posix()
-            if (RISING.search(p.name) and ("/overlay/" in "/"+rel or p.suffix.lower() in (".rc",".xml",".json"))) and not p.name.endswith(".apk"):
+            if not (RISING.search(p.name) and ("/overlay/" in "/"+rel or p.suffix.lower() in (".rc", ".xml", ".json")) and not p.name.endswith(".apk")):
+                continue
+            package_match = next((pkg for pkg in removed_packages if pkg and pkg in p.name), None)
+            package_config = "/etc/permissions/" in "/"+rel or "/etc/default-permissions/" in "/"+rel
+            if package_match and package_config:
+                report["removed_config"].append({"partition":part,"path":rel,"package":package_match})
+                if args.apply:
+                    p.unlink()
+            else:
                 report["unresolved"].append(f"Rising-named non-APK configuration requires review: {part}/{rel}")
     for apk, part, rel, package, label in app_candidates:
         report["removed"].append({"partition":part,"path":rel,"package":package,"label":label})
@@ -80,6 +94,7 @@ def main() -> int:
     args.report.write_text(json.dumps(report, indent=2)+"\n")
     print(json.dumps({"mode":report["mode"],"removed_apps":len(report["removed"]),
                       "branding_files_edited":len(report["branding_edits"]),
+                      "removed_package_configs":len(report["removed_config"]),
                       "unresolved_review_items":len(report["unresolved"])},indent=2))
     return 1 if report["unresolved"] else 0
 
