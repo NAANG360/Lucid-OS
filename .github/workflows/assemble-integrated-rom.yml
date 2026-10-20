@@ -319,7 +319,7 @@ jobs:
               raise SystemExit(f'Base system build identity changed unexpectedly: release={release!r} sdk={sdk!r}')
           build_id=props.get('ro.build.id',props.get('ro.system.build.id','BP1A.250505.005'))
           incremental='LucidOS-20261020'
-          fingerprint=f'LucidOS/lavender/lavender:15/{build_id}/{incremental}:userdebug/test-keys'
+          fingerprint=f'Lucid/lucid_lavender/lavender:15/{build_id}/{incremental}:userdebug/test-keys'
           updates={
               'ro.product.system.brand':'Lucid',
               'ro.product.system.device':'lavender',
