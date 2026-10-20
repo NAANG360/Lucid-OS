@@ -189,10 +189,11 @@ jobs:
             "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
               --image "$RUNNER_TEMP/assembly/update/vbmeta.img" > report/selected-vbmeta-info.txt
             grep -q '^Flags: 3' report/selected-vbmeta-info.txt
-            echo "VBMETA_REPLACEMENT=1" >> "$GITHUB_ENV"
+            VBMETA_REPLACEMENT=1
           else
-            echo "VBMETA_REPLACEMENT=0" >> "$GITHUB_ENV"
+            VBMETA_REPLACEMENT=0
           fi
+          echo "VBMETA_REPLACEMENT=$VBMETA_REPLACEMENT" >> "$GITHUB_ENV"
 
       - name: Build LucidSetup, About, Wallpapers, and boot animation from source
         shell: bash
@@ -468,6 +469,10 @@ jobs:
           done
           entries+=("META-INF/com/android/metadata" "META-INF/com/google/android/updater-script")
           zip -q -d "$OUTPUT_ZIP" "${entries[@]}"
+          if [[ "$VBMETA_REPLACEMENT" == "1" ]]; then
+            zip -q -d "$OUTPUT_ZIP" vbmeta.img
+            (cd "$UPDATE" && zip -0 -q "$OUTPUT_ZIP" vbmeta.img)
+          fi
           for part in system vendor product system_ext odm; do
             : > "$UPDATE/$part.patch.dat"
           done
@@ -537,6 +542,10 @@ jobs:
             unzip -p "$OUTPUT_ZIP" "$part.transfer.list" | grep -q "new 2,0,"
           done
           grep -q "post-build=$FINGERPRINT" <(unzip -p "$OUTPUT_ZIP" META-INF/com/android/metadata)
+          unzip -p "$OUTPUT_ZIP" vbmeta.img > report/final-vbmeta.img
+          "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+            --image report/final-vbmeta.img > report/final-vbmeta-info.txt
+          grep -q '^Flags: 3' report/final-vbmeta-info.txt
           sha256sum "$OUTPUT_ZIP" | tee report/final-rom-sha256.txt
           stat -c 'final_rom_bytes=%s' "$OUTPUT_ZIP" | tee report/final-rom-size.txt
           df -h "$RUNNER_TEMP" | tee report/disk-after-package.txt
