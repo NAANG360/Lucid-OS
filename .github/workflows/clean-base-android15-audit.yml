@@ -42,7 +42,8 @@ jobs:
 
       - name: Test transfer-list reconstruction and coverage logic
         run: |
-          python3 -m pip install --user brotli
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3-brotli
           python3 tests/test_reconstruct_transfer_image.py -v
 
       - name: Snapshot mandatory LucidOS preservation payload
