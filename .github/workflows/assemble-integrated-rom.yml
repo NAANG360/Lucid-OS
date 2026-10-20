@@ -447,6 +447,394 @@ jobs:
             sudo e2fsck -fy "$IMAGE" 2>&1 | tee "report/e2fsck-repair-$part.txt" || true
             sudo e2fsck -fn "$IMAGE" 2>&1 | tee "report/e2fsck-final-$part.txt"
             [[ "$(stat -c %s "$IMAGE")" == "$SIZE" ]]
+            if [[ "$part" == "system" ]]; then
+              debugfs -R 'cat /build.prop' "$IMAGE" > report/rebuilt-system-build.prop
+              grep -Eq '^(ro.build.version.sdk|ro.system.build.version.sdk)=35            brotli -q 6 -c "$IMAGE" > "$RUNNER_TEMP/assembly/update/$part.new.dat.br"
+            : > "$RUNNER_TEMP/assembly/update/$part.patch.dat"
+            ROUNDTRIP="$RUNNER_TEMP/assembly/images/$part-roundtrip.img"
+            "$RUNNER_TEMP/assembly/venv/bin/python" tools/reconstruct_transfer_image.py \
+              "$RUNNER_TEMP/assembly/update/$part.transfer.list" \
+              "$RUNNER_TEMP/assembly/update/$part.new.dat.br" "$ROUNDTRIP" > "report/roundtrip-$part.txt" 2>&1
+            grep -q 'transfer_covers_full_filesystem_by_operations=True' "report/roundtrip-$part.txt"
+            cmp -s "$IMAGE" "$ROUNDTRIP"
+            printf '%s size=%s blocks=%s sha256=%s roundtrip=exact\n' "$part" "$SIZE" "$BLOCKS" "$(sha256sum "$IMAGE" | cut -d' ' -f1)" \
+              | tee -a report/rebuilt-partition-hashes.txt
+            rm -f "$ROUNDTRIP" "$IMAGE"
+          done
+
+      - name: Repack the full OTA package and verify every payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$OUTPUT_ZIP")"
+          cp "$BASE_ZIP" "$OUTPUT_ZIP"
+          rm -f "$BASE_ZIP"
+          UPDATE="$UPDATE_DIR"
+          entries=()
+          for part in system vendor product system_ext odm; do
+            entries+=("$part.transfer.list" "$part.new.dat.br" "$part.patch.dat")
+          done
+          entries+=("META-INF/com/android/metadata" "META-INF/com/google/android/updater-script")
+          zip -q -d "$OUTPUT_ZIP" "${entries[@]}"
+          if [[ "$VBMETA_REPLACEMENT" == "1" ]]; then
+            zip -q -d "$OUTPUT_ZIP" vbmeta.img
+            (cd "$UPDATE" && zip -0 -q "$OUTPUT_ZIP" vbmeta.img)
+          fi
+          for part in system vendor product system_ext odm; do
+            : > "$UPDATE/$part.patch.dat"
+          done
+          FINGERPRINT="$(cat "$RUNNER_TEMP/assembly/build-fingerprint.txt")"
+          INCREMENTAL="LucidOS-20261020"
+          unzip -p "$OUTPUT_ZIP" META-INF/com/android/metadata > "$UPDATE/metadata"
+          python3 - "$UPDATE/metadata" "$FINGERPRINT" "$INCREMENTAL" <<'PY'
+          import pathlib,re,sys
+          path=pathlib.Path(sys.argv[1]); fingerprint=sys.argv[2]; incremental=sys.argv[3]
+          lines=path.read_text(errors='replace').splitlines()
+          out=[]
+          for line in lines:
+              if line.startswith('ota-property-files='):
+                  continue
+              elif line.startswith('post-build='):
+                  out.append('post-build='+fingerprint)
+              elif line.startswith('post-build-incremental='):
+                  out.append('post-build-incremental='+incremental)
+              else:
+                  out.append(line)
+          if not any(line.startswith('post-build=') for line in out):
+              out.append('post-build='+fingerprint)
+          if not any(line.startswith('post-build-incremental=') for line in out):
+              out.append('post-build-incremental='+incremental)
+          path.write_text('\n'.join(out)+'\n')
+          PY
+          cp "$RUNNER_TEMP/assembly/updater-script" "$UPDATE/updater-script"
+          python3 - "$UPDATE/updater-script" "$FINGERPRINT" "$KERNEL_MATCH" "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" <<'PY'
+          import pathlib,re,sys
+          path=pathlib.Path(sys.argv[1]); fingerprint=sys.argv[2]; kernel_match=sys.argv[3]=='1'; dtbo=pathlib.Path(sys.argv[4])
+          text=path.read_text(errors='replace')
+          text=re.sub(r'ui_print\("Target: [^"]+"\);',f'ui_print("Target: {fingerprint}");',text,count=1)
+          if kernel_match and dtbo.is_file() and 'by-name/dtbo' not in text:
+              marker='package_extract_file("vbmeta.img", "/dev/block/bootdevice/by-name/vbmeta");'
+              if marker not in text:
+                  raise SystemExit('Cannot safely insert DTBO flash: expected vbmeta flash line not found')
+              text=text.replace(marker,marker+'\npackage_extract_file("dtbo.img", "/dev/block/bootdevice/by-name/dtbo");',1)
+          path.write_text(text)
+          PY
+          if [[ "$KERNEL_MATCH" == "1" && -s "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" ]]; then
+            cp "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" "$UPDATE/dtbo.img"
+            zip -0 -q "$OUTPUT_ZIP" -j "$UPDATE/dtbo.img"
+          fi
+          for part in system vendor product system_ext odm; do
+            test -s "$UPDATE/$part.transfer.list"
+            test -s "$UPDATE/$part.new.dat.br"
+            test -f "$UPDATE/$part.patch.dat"
+          done
+          (
+            cd "$UPDATE"
+            zip -0 -q "$OUTPUT_ZIP" \
+              system.transfer.list system.new.dat.br system.patch.dat \
+              vendor.transfer.list vendor.new.dat.br vendor.patch.dat \
+              product.transfer.list product.new.dat.br product.patch.dat \
+              system_ext.transfer.list system_ext.new.dat.br system_ext.patch.dat \
+              odm.transfer.list odm.new.dat.br odm.patch.dat
+          )
+          mkdir -p "$UPDATE/META-INF/com/android" "$UPDATE/META-INF/com/google/android"
+          cp "$UPDATE/metadata" "$UPDATE/META-INF/com/android/metadata"
+          cp "$UPDATE/updater-script" "$UPDATE/META-INF/com/google/android/updater-script"
+          (cd "$UPDATE" && zip -0 -q "$OUTPUT_ZIP" META-INF/com/android/metadata META-INF/com/google/android/updater-script)
+          zip -T "$OUTPUT_ZIP" > report/zip-test.txt
+          unzip -t "$OUTPUT_ZIP" > report/unzip-test.txt
+          unzip -Z1 "$OUTPUT_ZIP" > report/final-zip-entry-list.txt
+          for part in system vendor product system_ext odm; do
+            grep -qx "$part.transfer.list" report/final-zip-entry-list.txt
+            grep -qx "$part.new.dat.br" report/final-zip-entry-list.txt
+            grep -qx "$part.patch.dat" report/final-zip-entry-list.txt
+            unzip -p "$OUTPUT_ZIP" "$part.transfer.list" | grep -q "new 2,0,"
+          done
+          grep -q "post-build=$FINGERPRINT" <(unzip -p "$OUTPUT_ZIP" META-INF/com/android/metadata)
+          unzip -p "$OUTPUT_ZIP" vbmeta.img > report/final-vbmeta.img
+          "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+            --image report/final-vbmeta.img > report/final-vbmeta-info.txt
+          grep -q '^Flags: 3' report/final-vbmeta-info.txt
+          sha256sum "$OUTPUT_ZIP" | tee report/final-rom-sha256.txt
+          stat -c 'final_rom_bytes=%s' "$OUTPUT_ZIP" | tee report/final-rom-size.txt
+          df -h "$RUNNER_TEMP" | tee report/disk-after-package.txt
+
+      - name: Upload integrated ROM and build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-integrated-android15-rom
+          path: |
+            out/LucidOS-Android15-lavender-unsigned.zip
+            report/
+          if-no-files-found: warn
+          retention-days: 30
+ report/rebuilt-system-build.prop
+              grep -Eq '^(ro.build.version.release|ro.system.build.version.release)=15(\.0)?            brotli -q 6 -c "$IMAGE" > "$RUNNER_TEMP/assembly/update/$part.new.dat.br"
+            : > "$RUNNER_TEMP/assembly/update/$part.patch.dat"
+            ROUNDTRIP="$RUNNER_TEMP/assembly/images/$part-roundtrip.img"
+            "$RUNNER_TEMP/assembly/venv/bin/python" tools/reconstruct_transfer_image.py \
+              "$RUNNER_TEMP/assembly/update/$part.transfer.list" \
+              "$RUNNER_TEMP/assembly/update/$part.new.dat.br" "$ROUNDTRIP" > "report/roundtrip-$part.txt" 2>&1
+            grep -q 'transfer_covers_full_filesystem_by_operations=True' "report/roundtrip-$part.txt"
+            cmp -s "$IMAGE" "$ROUNDTRIP"
+            printf '%s size=%s blocks=%s sha256=%s roundtrip=exact\n' "$part" "$SIZE" "$BLOCKS" "$(sha256sum "$IMAGE" | cut -d' ' -f1)" \
+              | tee -a report/rebuilt-partition-hashes.txt
+            rm -f "$ROUNDTRIP" "$IMAGE"
+          done
+
+      - name: Repack the full OTA package and verify every payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$OUTPUT_ZIP")"
+          cp "$BASE_ZIP" "$OUTPUT_ZIP"
+          rm -f "$BASE_ZIP"
+          UPDATE="$UPDATE_DIR"
+          entries=()
+          for part in system vendor product system_ext odm; do
+            entries+=("$part.transfer.list" "$part.new.dat.br" "$part.patch.dat")
+          done
+          entries+=("META-INF/com/android/metadata" "META-INF/com/google/android/updater-script")
+          zip -q -d "$OUTPUT_ZIP" "${entries[@]}"
+          if [[ "$VBMETA_REPLACEMENT" == "1" ]]; then
+            zip -q -d "$OUTPUT_ZIP" vbmeta.img
+            (cd "$UPDATE" && zip -0 -q "$OUTPUT_ZIP" vbmeta.img)
+          fi
+          for part in system vendor product system_ext odm; do
+            : > "$UPDATE/$part.patch.dat"
+          done
+          FINGERPRINT="$(cat "$RUNNER_TEMP/assembly/build-fingerprint.txt")"
+          INCREMENTAL="LucidOS-20261020"
+          unzip -p "$OUTPUT_ZIP" META-INF/com/android/metadata > "$UPDATE/metadata"
+          python3 - "$UPDATE/metadata" "$FINGERPRINT" "$INCREMENTAL" <<'PY'
+          import pathlib,re,sys
+          path=pathlib.Path(sys.argv[1]); fingerprint=sys.argv[2]; incremental=sys.argv[3]
+          lines=path.read_text(errors='replace').splitlines()
+          out=[]
+          for line in lines:
+              if line.startswith('ota-property-files='):
+                  continue
+              elif line.startswith('post-build='):
+                  out.append('post-build='+fingerprint)
+              elif line.startswith('post-build-incremental='):
+                  out.append('post-build-incremental='+incremental)
+              else:
+                  out.append(line)
+          if not any(line.startswith('post-build=') for line in out):
+              out.append('post-build='+fingerprint)
+          if not any(line.startswith('post-build-incremental=') for line in out):
+              out.append('post-build-incremental='+incremental)
+          path.write_text('\n'.join(out)+'\n')
+          PY
+          cp "$RUNNER_TEMP/assembly/updater-script" "$UPDATE/updater-script"
+          python3 - "$UPDATE/updater-script" "$FINGERPRINT" "$KERNEL_MATCH" "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" <<'PY'
+          import pathlib,re,sys
+          path=pathlib.Path(sys.argv[1]); fingerprint=sys.argv[2]; kernel_match=sys.argv[3]=='1'; dtbo=pathlib.Path(sys.argv[4])
+          text=path.read_text(errors='replace')
+          text=re.sub(r'ui_print\("Target: [^"]+"\);',f'ui_print("Target: {fingerprint}");',text,count=1)
+          if kernel_match and dtbo.is_file() and 'by-name/dtbo' not in text:
+              marker='package_extract_file("vbmeta.img", "/dev/block/bootdevice/by-name/vbmeta");'
+              if marker not in text:
+                  raise SystemExit('Cannot safely insert DTBO flash: expected vbmeta flash line not found')
+              text=text.replace(marker,marker+'\npackage_extract_file("dtbo.img", "/dev/block/bootdevice/by-name/dtbo");',1)
+          path.write_text(text)
+          PY
+          if [[ "$KERNEL_MATCH" == "1" && -s "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" ]]; then
+            cp "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" "$UPDATE/dtbo.img"
+            zip -0 -q "$OUTPUT_ZIP" -j "$UPDATE/dtbo.img"
+          fi
+          for part in system vendor product system_ext odm; do
+            test -s "$UPDATE/$part.transfer.list"
+            test -s "$UPDATE/$part.new.dat.br"
+            test -f "$UPDATE/$part.patch.dat"
+          done
+          (
+            cd "$UPDATE"
+            zip -0 -q "$OUTPUT_ZIP" \
+              system.transfer.list system.new.dat.br system.patch.dat \
+              vendor.transfer.list vendor.new.dat.br vendor.patch.dat \
+              product.transfer.list product.new.dat.br product.patch.dat \
+              system_ext.transfer.list system_ext.new.dat.br system_ext.patch.dat \
+              odm.transfer.list odm.new.dat.br odm.patch.dat
+          )
+          mkdir -p "$UPDATE/META-INF/com/android" "$UPDATE/META-INF/com/google/android"
+          cp "$UPDATE/metadata" "$UPDATE/META-INF/com/android/metadata"
+          cp "$UPDATE/updater-script" "$UPDATE/META-INF/com/google/android/updater-script"
+          (cd "$UPDATE" && zip -0 -q "$OUTPUT_ZIP" META-INF/com/android/metadata META-INF/com/google/android/updater-script)
+          zip -T "$OUTPUT_ZIP" > report/zip-test.txt
+          unzip -t "$OUTPUT_ZIP" > report/unzip-test.txt
+          unzip -Z1 "$OUTPUT_ZIP" > report/final-zip-entry-list.txt
+          for part in system vendor product system_ext odm; do
+            grep -qx "$part.transfer.list" report/final-zip-entry-list.txt
+            grep -qx "$part.new.dat.br" report/final-zip-entry-list.txt
+            grep -qx "$part.patch.dat" report/final-zip-entry-list.txt
+            unzip -p "$OUTPUT_ZIP" "$part.transfer.list" | grep -q "new 2,0,"
+          done
+          grep -q "post-build=$FINGERPRINT" <(unzip -p "$OUTPUT_ZIP" META-INF/com/android/metadata)
+          unzip -p "$OUTPUT_ZIP" vbmeta.img > report/final-vbmeta.img
+          "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+            --image report/final-vbmeta.img > report/final-vbmeta-info.txt
+          grep -q '^Flags: 3' report/final-vbmeta-info.txt
+          sha256sum "$OUTPUT_ZIP" | tee report/final-rom-sha256.txt
+          stat -c 'final_rom_bytes=%s' "$OUTPUT_ZIP" | tee report/final-rom-size.txt
+          df -h "$RUNNER_TEMP" | tee report/disk-after-package.txt
+
+      - name: Upload integrated ROM and build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-integrated-android15-rom
+          path: |
+            out/LucidOS-Android15-lavender-unsigned.zip
+            report/
+          if-no-files-found: warn
+          retention-days: 30
+ report/rebuilt-system-build.prop
+              grep -q '^ro.build.display.id=LucidOS-0.1            brotli -q 6 -c "$IMAGE" > "$RUNNER_TEMP/assembly/update/$part.new.dat.br"
+            : > "$RUNNER_TEMP/assembly/update/$part.patch.dat"
+            ROUNDTRIP="$RUNNER_TEMP/assembly/images/$part-roundtrip.img"
+            "$RUNNER_TEMP/assembly/venv/bin/python" tools/reconstruct_transfer_image.py \
+              "$RUNNER_TEMP/assembly/update/$part.transfer.list" \
+              "$RUNNER_TEMP/assembly/update/$part.new.dat.br" "$ROUNDTRIP" > "report/roundtrip-$part.txt" 2>&1
+            grep -q 'transfer_covers_full_filesystem_by_operations=True' "report/roundtrip-$part.txt"
+            cmp -s "$IMAGE" "$ROUNDTRIP"
+            printf '%s size=%s blocks=%s sha256=%s roundtrip=exact\n' "$part" "$SIZE" "$BLOCKS" "$(sha256sum "$IMAGE" | cut -d' ' -f1)" \
+              | tee -a report/rebuilt-partition-hashes.txt
+            rm -f "$ROUNDTRIP" "$IMAGE"
+          done
+
+      - name: Repack the full OTA package and verify every payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$OUTPUT_ZIP")"
+          cp "$BASE_ZIP" "$OUTPUT_ZIP"
+          rm -f "$BASE_ZIP"
+          UPDATE="$UPDATE_DIR"
+          entries=()
+          for part in system vendor product system_ext odm; do
+            entries+=("$part.transfer.list" "$part.new.dat.br" "$part.patch.dat")
+          done
+          entries+=("META-INF/com/android/metadata" "META-INF/com/google/android/updater-script")
+          zip -q -d "$OUTPUT_ZIP" "${entries[@]}"
+          if [[ "$VBMETA_REPLACEMENT" == "1" ]]; then
+            zip -q -d "$OUTPUT_ZIP" vbmeta.img
+            (cd "$UPDATE" && zip -0 -q "$OUTPUT_ZIP" vbmeta.img)
+          fi
+          for part in system vendor product system_ext odm; do
+            : > "$UPDATE/$part.patch.dat"
+          done
+          FINGERPRINT="$(cat "$RUNNER_TEMP/assembly/build-fingerprint.txt")"
+          INCREMENTAL="LucidOS-20261020"
+          unzip -p "$OUTPUT_ZIP" META-INF/com/android/metadata > "$UPDATE/metadata"
+          python3 - "$UPDATE/metadata" "$FINGERPRINT" "$INCREMENTAL" <<'PY'
+          import pathlib,re,sys
+          path=pathlib.Path(sys.argv[1]); fingerprint=sys.argv[2]; incremental=sys.argv[3]
+          lines=path.read_text(errors='replace').splitlines()
+          out=[]
+          for line in lines:
+              if line.startswith('ota-property-files='):
+                  continue
+              elif line.startswith('post-build='):
+                  out.append('post-build='+fingerprint)
+              elif line.startswith('post-build-incremental='):
+                  out.append('post-build-incremental='+incremental)
+              else:
+                  out.append(line)
+          if not any(line.startswith('post-build=') for line in out):
+              out.append('post-build='+fingerprint)
+          if not any(line.startswith('post-build-incremental=') for line in out):
+              out.append('post-build-incremental='+incremental)
+          path.write_text('\n'.join(out)+'\n')
+          PY
+          cp "$RUNNER_TEMP/assembly/updater-script" "$UPDATE/updater-script"
+          python3 - "$UPDATE/updater-script" "$FINGERPRINT" "$KERNEL_MATCH" "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" <<'PY'
+          import pathlib,re,sys
+          path=pathlib.Path(sys.argv[1]); fingerprint=sys.argv[2]; kernel_match=sys.argv[3]=='1'; dtbo=pathlib.Path(sys.argv[4])
+          text=path.read_text(errors='replace')
+          text=re.sub(r'ui_print\("Target: [^"]+"\);',f'ui_print("Target: {fingerprint}");',text,count=1)
+          if kernel_match and dtbo.is_file() and 'by-name/dtbo' not in text:
+              marker='package_extract_file("vbmeta.img", "/dev/block/bootdevice/by-name/vbmeta");'
+              if marker not in text:
+                  raise SystemExit('Cannot safely insert DTBO flash: expected vbmeta flash line not found')
+              text=text.replace(marker,marker+'\npackage_extract_file("dtbo.img", "/dev/block/bootdevice/by-name/dtbo");',1)
+          path.write_text(text)
+          PY
+          if [[ "$KERNEL_MATCH" == "1" && -s "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" ]]; then
+            cp "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" "$UPDATE/dtbo.img"
+            zip -0 -q "$OUTPUT_ZIP" -j "$UPDATE/dtbo.img"
+          fi
+          for part in system vendor product system_ext odm; do
+            test -s "$UPDATE/$part.transfer.list"
+            test -s "$UPDATE/$part.new.dat.br"
+            test -f "$UPDATE/$part.patch.dat"
+          done
+          (
+            cd "$UPDATE"
+            zip -0 -q "$OUTPUT_ZIP" \
+              system.transfer.list system.new.dat.br system.patch.dat \
+              vendor.transfer.list vendor.new.dat.br vendor.patch.dat \
+              product.transfer.list product.new.dat.br product.patch.dat \
+              system_ext.transfer.list system_ext.new.dat.br system_ext.patch.dat \
+              odm.transfer.list odm.new.dat.br odm.patch.dat
+          )
+          mkdir -p "$UPDATE/META-INF/com/android" "$UPDATE/META-INF/com/google/android"
+          cp "$UPDATE/metadata" "$UPDATE/META-INF/com/android/metadata"
+          cp "$UPDATE/updater-script" "$UPDATE/META-INF/com/google/android/updater-script"
+          (cd "$UPDATE" && zip -0 -q "$OUTPUT_ZIP" META-INF/com/android/metadata META-INF/com/google/android/updater-script)
+          zip -T "$OUTPUT_ZIP" > report/zip-test.txt
+          unzip -t "$OUTPUT_ZIP" > report/unzip-test.txt
+          unzip -Z1 "$OUTPUT_ZIP" > report/final-zip-entry-list.txt
+          for part in system vendor product system_ext odm; do
+            grep -qx "$part.transfer.list" report/final-zip-entry-list.txt
+            grep -qx "$part.new.dat.br" report/final-zip-entry-list.txt
+            grep -qx "$part.patch.dat" report/final-zip-entry-list.txt
+            unzip -p "$OUTPUT_ZIP" "$part.transfer.list" | grep -q "new 2,0,"
+          done
+          grep -q "post-build=$FINGERPRINT" <(unzip -p "$OUTPUT_ZIP" META-INF/com/android/metadata)
+          unzip -p "$OUTPUT_ZIP" vbmeta.img > report/final-vbmeta.img
+          "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+            --image report/final-vbmeta.img > report/final-vbmeta-info.txt
+          grep -q '^Flags: 3' report/final-vbmeta-info.txt
+          sha256sum "$OUTPUT_ZIP" | tee report/final-rom-sha256.txt
+          stat -c 'final_rom_bytes=%s' "$OUTPUT_ZIP" | tee report/final-rom-size.txt
+          df -h "$RUNNER_TEMP" | tee report/disk-after-package.txt
+
+      - name: Upload integrated ROM and build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-integrated-android15-rom
+          path: |
+            out/LucidOS-Android15-lavender-unsigned.zip
+            report/
+          if-no-files-found: warn
+          retention-days: 30
+ report/rebuilt-system-build.prop
+              grep -q '^ro.build.fingerprint=Lucid/lucid_lavender/lavender:15/' report/rebuilt-system-build.prop
+              debugfs -R 'cat /etc/init/init.lucid.rc' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-init-lucid.rc"
+              debugfs -R 'cat /bin/lucid-linux-app' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-lucid-linux-app"
+              debugfs -R 'cat /usr/lucid/ubuntu-base-arm64.tar.gz' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-ubuntu-base.tar.gz"
+              debugfs -R 'cat /priv-app/LucidSetup/LucidSetup.apk' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-LucidSetup.apk"
+              cmp -s "$RUNNER_TEMP/assembly/verify-init-lucid.rc" "$OVERLAY_SOURCE/system-tree/system/etc/init/init.lucid.rc"
+              cmp -s "$RUNNER_TEMP/assembly/verify-lucid-linux-app" "$OVERLAY_SOURCE/system-tree/system/bin/lucid-linux-app"
+              cmp -s "$RUNNER_TEMP/assembly/verify-ubuntu-base.tar.gz" "$OVERLAY_SOURCE/system-tree/system/usr/lucid/ubuntu-base-arm64.tar.gz"
+              cmp -s "$RUNNER_TEMP/assembly/verify-LucidSetup.apk" out/LucidSetup.apk
+              rm -f "$RUNNER_TEMP/assembly/verify-init-lucid.rc" "$RUNNER_TEMP/assembly/verify-lucid-linux-app" \
+                "$RUNNER_TEMP/assembly/verify-ubuntu-base.tar.gz" "$RUNNER_TEMP/assembly/verify-LucidSetup.apk"
+            elif [[ "$part" == "product" ]]; then
+              debugfs -R 'cat /priv-app/LucidWallpapers/LucidWallpapers.apk' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-LucidWallpapers.apk"
+              debugfs -R 'cat /app/LucidAbout/LucidAbout.apk' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-LucidAbout.apk"
+              debugfs -R 'cat /media/bootanimation.zip' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-bootanimation.zip"
+              debugfs -R 'cat /etc/permissions/privapp-permissions-lucid.xml' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-wallpaper-permissions.xml"
+              cmp -s "$RUNNER_TEMP/assembly/verify-LucidWallpapers.apk" out/LucidWallpapers.apk
+              cmp -s "$RUNNER_TEMP/assembly/verify-LucidAbout.apk" out/LucidAbout.apk
+              cmp -s "$RUNNER_TEMP/assembly/verify-bootanimation.zip" out/LucidOS-bootanimation.zip
+              cmp -s "$RUNNER_TEMP/assembly/verify-wallpaper-permissions.xml" theme/privapp-permissions-lucid.xml
+              rm -f "$RUNNER_TEMP/assembly/verify-LucidWallpapers.apk" "$RUNNER_TEMP/assembly/verify-LucidAbout.apk" \
+                "$RUNNER_TEMP/assembly/verify-bootanimation.zip" "$RUNNER_TEMP/assembly/verify-wallpaper-permissions.xml"
+            fi
             printf '4\n%s\n0\n0\nnew 2,0,%s\n' "$BLOCKS" "$BLOCKS" > "$RUNNER_TEMP/assembly/update/$part.transfer.list"
             brotli -q 6 -c "$IMAGE" > "$RUNNER_TEMP/assembly/update/$part.new.dat.br"
             : > "$RUNNER_TEMP/assembly/update/$part.patch.dat"
