@@ -230,7 +230,7 @@ fi
     while true; do
         sleep 60
         sync_termux_shortcuts || true
-        if start_local_adbd; then
+        if protect_adb_listener; then
             chroot "$CHROOT_DIR" /usr/local/bin/lucid-sync-android-apps >/dev/null 2>&1 || true
         fi
     done
