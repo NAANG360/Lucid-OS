@@ -274,6 +274,11 @@ jobs:
               'ro.build.display.id':'LucidOS-0.1',
               'ro.build.fingerprint':fingerprint,
               'ro.system.build.fingerprint':fingerprint,
+              'ro.product.system.fingerprint':fingerprint,
+              'ro.build.description':f'lavender-user 15 {build_id} {incremental} userdebug/test-keys',
+              'ro.system.build.description':f'lavender-user 15 {build_id} {incremental} userdebug/test-keys',
+              'ro.build.tags':'test-keys',
+              'ro.system.build.tags':'test-keys',
               'ro.build.version.incremental':incremental,
               'ro.system.build.version.incremental':incremental,
               'ro.lucid.version':'0.1-android15-lavender',
@@ -439,10 +444,10 @@ jobs:
           PY
           cp "$RUNNER_TEMP/assembly/updater-script" "$UPDATE/updater-script"
           python3 - "$UPDATE/updater-script" "$FINGERPRINT" "$KERNEL_MATCH" "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" <<'PY'
-          import pathlib,sys
+          import pathlib,re,sys
           path=pathlib.Path(sys.argv[1]); fingerprint=sys.argv[2]; kernel_match=sys.argv[3]=='1'; dtbo=pathlib.Path(sys.argv[4])
           text=path.read_text(errors='replace')
-          text=text.replace('ui_print("Target: xiaomi/lavender/lavender:10/QKQ1.190910.002/V12.5.3.0.QFGCNXM:user/release-keys");',f'ui_print("Target: {fingerprint}");')
+          text=re.sub(r'ui_print\("Target: [^"]+"\);',f'ui_print("Target: {fingerprint}");',text,count=1)
           if kernel_match and dtbo.is_file() and 'by-name/dtbo' not in text:
               marker='package_extract_file("vbmeta.img", "/dev/block/bootdevice/by-name/vbmeta");'
               if marker not in text:
