@@ -1,170 +1,233 @@
 #!/system/bin/sh
+# Lucid Desktop: Android freeform + Ubuntu chroot, with a continuously synced app menu.
+# This launcher is intentionally conservative: it never exposes TCP ADB unless
+# IPv4 and IPv6 non-loopback traffic is blocked, and never marks partial setup complete.
 set -u
 
 TAG="LucidDesktop"
 CHROOT_DIR="/data/local/lucid_desktop"
 TAR_PATH="/system/usr/lucid/ubuntu-base-arm64.tar.gz"
 INIT_MARKER="$CHROOT_DIR/.lucid_initialized"
+SYNC_PID_FILE="$CHROOT_DIR/.lucid-app-sync.pid"
+BRIDGE_PORT=5555
+ANDROID_UID="$(id -u)"
+ANDROID_GID="$(id -g)"
+
+log_msg() { log -t "$TAG" "$*"; }
+is_mounted() { awk -v target="$1" '$2 == target { found=1 } END { exit !found }' /proc/mounts; }
 
 bind_once() {
     source_path="$1"
     target_path="$2"
     mkdir -p "$target_path"
-    if awk -v target="$target_path" '$2 == target { found=1 } END { exit !found }' /proc/mounts; then
-        return 0
-    fi
+    if is_mounted "$target_path"; then return 0; fi
     mount -o bind,nosuid,nodev "$source_path" "$target_path"
 }
 
-start_local_adbd() {
-    # adbd's TCP listener may bind to every interface. Protect both stacks before
-    # enabling it; fail closed if the firewall cannot enforce loopback-only access.
+protect_adb_listener() {
     for firewall in iptables ip6tables; do
         if ! command -v "$firewall" >/dev/null 2>&1; then
-            log -t "$TAG" "$firewall is unavailable; refusing to expose ADB TCP."
+            log_msg "$firewall unavailable; TCP ADB remains disabled."
             return 1
         fi
-        if ! "$firewall" -C INPUT -p tcp --dport 5555 ! -i lo -j DROP >/dev/null 2>&1; then
-            if ! "$firewall" -I INPUT 1 -p tcp --dport 5555 ! -i lo -j DROP; then
-                log -t "$TAG" "Could not install $firewall loopback-only guard; refusing to expose ADB TCP."
+        if ! "$firewall" -C INPUT -p tcp --dport "$BRIDGE_PORT" ! -i lo -j DROP >/dev/null 2>&1; then
+            "$firewall" -I INPUT 1 -p tcp --dport "$BRIDGE_PORT" ! -i lo -j DROP || {
+                log_msg "Could not install $firewall protection; TCP ADB remains disabled."
                 return 1
-            fi
+            }
         fi
     done
-    setprop service.adb.tcp.port 5555
+    return 0
+}
+
+start_local_adbd() {
+    protect_adb_listener || return 1
+    setprop service.adb.tcp.port "$BRIDGE_PORT"
     stop adbd
     start adbd
-    sleep 3
+    sleep 2
     return 0
 }
 
 cleanup_mounts() {
     for target in "$CHROOT_DIR/sys" "$CHROOT_DIR/proc" "$CHROOT_DIR/dev"; do
-        if awk -v target="$target" '$2 == target { found=1 } END { exit !found }' /proc/mounts; then
-            umount "$target" 2>/dev/null || log -t "$TAG" "Could not unmount $target during desktop shutdown."
+        if is_mounted "$target"; then
+            umount "$target" 2>/dev/null || log_msg "Could not unmount $target."
         fi
     done
 }
+stop_app_sync() {
+    if [ -s "$SYNC_PID_FILE" ]; then
+        old_pid="$(cat "$SYNC_PID_FILE" 2>/dev/null)"
+        case "$old_pid" in ''|*[!0-9]*) ;; *) kill "$old_pid" 2>/dev/null || true ;; esac
+        rm -f "$SYNC_PID_FILE"
+    fi
+}
 trap cleanup_mounts EXIT
-trap 'cleanup_mounts; exit 143' TERM
-trap 'cleanup_mounts; exit 130' INT
+trap 'stop_app_sync; cleanup_mounts; exit 143' TERM
+trap 'stop_app_sync; cleanup_mounts; exit 130' INT
 
-
-# Force enable Android Freeform Windows at the system level
+# Enable Android's resizable/freeform activities; this is DeX-like windowing,
+# not a replacement for OEM desktop-mode support.
 settings put global enable_freeform_support 1
 settings put global force_resizable_activities 1
 
-if [ ! -f "$INIT_MARKER" ]; then
-    cmd notification post -S default -t "LucidOS" "setup" "Generating Dynamic Desktop... Stand by."
-
-    mkdir -p "$CHROOT_DIR"
-    if [ ! -x "$CHROOT_DIR/bin/bash" ]; then
-        if [ ! -s "$TAR_PATH" ]; then
-            log -t "$TAG" "Ubuntu base archive missing: $TAR_PATH"
-            exit 1
-        fi
-        if ! tar -xf "$TAR_PATH" -C "$CHROOT_DIR"; then
-            log -t "$TAG" "Ubuntu base extraction failed; setup marker was not written."
-            exit 1
-        fi
+mkdir -p "$CHROOT_DIR"
+if [ ! -x "$CHROOT_DIR/bin/bash" ]; then
+    if [ ! -s "$TAR_PATH" ]; then
+        log_msg "Ubuntu base archive missing: $TAR_PATH"
+        exit 1
     fi
+    log_msg "Extracting Ubuntu base; this can take several minutes."
+    if ! tar -xf "$TAR_PATH" -C "$CHROOT_DIR"; then
+        log_msg "Ubuntu extraction failed."
+        exit 1
+    fi
+fi
 
-    bind_once /dev "$CHROOT_DIR/dev"
-    bind_once /proc "$CHROOT_DIR/proc"
-    bind_once /sys "$CHROOT_DIR/sys"
-    echo "nameserver 8.8.8.8" > "$CHROOT_DIR/etc/resolv.conf"
+bind_once /dev "$CHROOT_DIR/dev" || exit 1
+bind_once /proc "$CHROOT_DIR/proc" || exit 1
+bind_once /sys "$CHROOT_DIR/sys" || exit 1
+mkdir -p "$CHROOT_DIR/etc"
+if [ -w "$CHROOT_DIR/etc/resolv.conf" ] || [ -d "$CHROOT_DIR/etc" ]; then
+    printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' > "$CHROOT_DIR/etc/resolv.conf" 2>/dev/null || log_msg "Could not update chroot DNS."
+fi
 
-    # Keep the chroot bridge local-only; do not expose the ADB listener on Wi-Fi.
-    start_local_adbd || log -t "$TAG" "Desktop can start, but Android app bridging is disabled until local-only ADB protection is available."
-
-    # 2. The Automated Installer & Shortcut Generator
-    chroot "$CHROOT_DIR" /bin/bash << 'EOF'
+# Provisioning uses a real completion marker; a failed apt/theme run will retry.
+if [ ! -f "$INIT_MARKER" ]; then
+    cmd notification post -S default -t "LucidOS" "desktop-setup" "Preparing Lucid Desktop. First boot needs network access."
+    chroot "$CHROOT_DIR" /bin/bash <<'CHROOT_SETUP'
 set -e
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y xfce4 xfce4-goodies plank git dbus-x11 adb wget
-
-# Theme Installations
-if [ ! -d /tmp/theme/.git ]; then
-    git clone https://github.com/vinceliuice/WhiteSur-gtk-theme.git /tmp/theme
+apt-get install -y xfce4 xfce4-goodies plank dbus-x11 adb wget curl git desktop-file-utils hicolor-icon-theme
+# WhiteSur gives the GNOME/macOS visual direction; XFCE keeps this usable on ARM64.
+if [ ! -d /opt/WhiteSur-gtk-theme/.git ]; then
+    git clone --depth 1 https://github.com/vinceliuice/WhiteSur-gtk-theme.git /opt/WhiteSur-gtk-theme
 fi
-/tmp/theme/install.sh -c Dark -t all -N glassy
-if [ ! -d /tmp/icons/.git ]; then
-    git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git /tmp/icons
+/opt/WhiteSur-gtk-theme/install.sh -c Dark -t default -N glassy
+if [ ! -d /opt/WhiteSur-icon-theme/.git ]; then
+    git clone --depth 1 https://github.com/vinceliuice/WhiteSur-icon-theme.git /opt/WhiteSur-icon-theme
 fi
-/tmp/icons/install.sh
-
-# Build the Advanced Freeform ADB Bridge
-cat << 'BRIDGE' > /usr/local/bin/android-app
+/opt/WhiteSur-icon-theme/install.sh
+mkdir -p /usr/local/bin /usr/local/share/lucid /root/.config/autostart /root/Desktop /root/.local/share/applications
+cat >/usr/local/bin/lucid-android-app <<'ANDROID_APP'
 #!/bin/bash
-adb connect 127.0.0.1:5555 > /dev/null 2>&1
-PKG="\$1"
+set -u
+PKG="${1:-}"
+[[ "$PKG" =~ ^[A-Za-z0-9_.]+$ ]] || { echo "Usage: lucid-android-app package.name" >&2; exit 2; }
+adb connect 127.0.0.1:5555 >/dev/null 2>&1 || true
+SERIAL=127.0.0.1:5555
+adb -s "$SERIAL" get-state >/dev/null 2>&1 || { notify-send "Lucid Desktop" "Android bridge is offline"; exit 1; }
+COMPONENT="$(adb -s "$SERIAL" shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER "$PKG" 2>/dev/null | tr -d '\r' | tail -n 1)"
+if [[ "$COMPONENT" != */* ]]; then
+  COMPONENT="$(adb -s "$SERIAL" shell cmd package resolve-activity --brief "$PKG" 2>/dev/null | tr -d '\r' | tail -n 1)"
+fi
+[[ "$COMPONENT" == */* ]] || { notify-send "Lucid Desktop" "No launchable activity found for $PKG"; exit 1; }
+adb -s "$SERIAL" shell am start --windowingMode 5 -n "$COMPONENT"
+ANDROID_APP
+chmod 0755 /usr/local/bin/lucid-android-app
 
-# Ask Android for the exact launch component of the app
-ACTIVITY=\$(adb -s 127.0.0.1:5555 shell cmd package resolve-activity --brief \$PKG | tail -n 1)
-
-# Launch the app in Freeform Window Mode (windowingMode 5)
-adb -s 127.0.0.1:5555 shell am start --windowingMode 5 -n \$ACTIVITY > /dev/null 2>&1
-BRIDGE
-chmod +x /usr/local/bin/android-app
-
-# Dynamically generate shortcuts for ALL installed third-party Android apps
-adb connect 127.0.0.1:5555 > /dev/null 2>&1
-PACKAGES=$(adb -s 127.0.0.1:5555 shell pm list packages -3 | cut -d':' -f2)
-
-mkdir -p /root/Desktop
-for PKG in $PACKAGES; do
-    # Creates a shortcut using the package name (e.g., com.spotify.music)
-    cat << APP > "/root/Desktop/${PKG}.desktop"
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=$PKG
-Icon=android
-Exec=android-app $PKG
-Terminal=false
-APP
+cat >/usr/local/bin/lucid-sync-android-apps <<'SYNC_APPS'
+#!/bin/bash
+set -u
+OUT=/root/.local/share/applications
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+adb connect 127.0.0.1:5555 >/dev/null 2>&1 || true
+adb -s 127.0.0.1:5555 get-state >/dev/null 2>&1 || exit 0
+adb -s 127.0.0.1:5555 shell pm list packages -3 2>/dev/null | tr -d '\r' | sed 's/^package://' | sort -u >"$TMP/packages"
+while IFS= read -r pkg; do
+  [[ "$pkg" =~ ^[A-Za-z0-9_.]+$ ]] || continue
+  file="$OUT/lucid-android-$pkg.desktop"
+  printf '[Desktop Entry]\nType=Application\nName=%s (Android)\nComment=Launch Android app in a Lucid freeform window\nExec=/usr/local/bin/lucid-android-app %s\nIcon=phone\nTerminal=false\nCategories=Network;Utility;\nStartupNotify=true\n' "$pkg" "$pkg" >"$TMP/$pkg.desktop"
+  if [ ! -f "$file" ] || ! cmp -s "$TMP/$pkg.desktop" "$file"; then install -m 0644 "$TMP/$pkg.desktop" "$file"; fi
+done <"$TMP/packages"
+# Remove only stale shortcuts created by this bridge.
+find "$OUT" -maxdepth 1 -type f -name 'lucid-android-*.desktop' -print0 | while IFS= read -r -d '' file; do
+  pkg="${file##*/lucid-android-}"
+  pkg="${pkg%.desktop}"
+  grep -Fxq "$pkg" "$TMP/packages" || rm -f "$file"
 done
-chmod +x /root/Desktop/*.desktop 2>/dev/null || true
+SYNC_APPS
+chmod 0755 /usr/local/bin/lucid-sync-android-apps
 
-# ---------------------------------------------------------
-# AUTO-APPLY THE MACOS THEME ON FIRST BOOT
-# ---------------------------------------------------------
-mkdir -p /root/.config/autostart
+# Provide desktop-to-Android launch helpers for users that have Termux + Termux:Widget.
+# The widget invokes this Android-side entry point with a .desktop basename.
+cat >/system/bin/lucid-linux-app <<'ANDROID_LINUX'
+#!/system/bin/sh
+set -u
+ROOT=/data/local/lucid_desktop
+APP="${1:-}"
+case "$APP" in *[!A-Za-z0-9_.-]*|'') echo "Invalid desktop app id" >&2; exit 2 ;; esac
+DESKTOP="$ROOT/usr/share/applications/$APP.desktop"
+[ -f "$DESKTOP" ] || DESKTOP="$ROOT/root/.local/share/applications/$APP.desktop"
+[ -f "$DESKTOP" ] || { echo "Desktop app not found: $APP" >&2; exit 1; }
+EXEC="$(sed -n 's/^Exec=//p' "$DESKTOP" | head -n 1 | sed 's/ --[^ ]*//g')"
+[ -n "$EXEC" ] || { echo "No Exec entry in $DESKTOP" >&2; exit 1; }
+# Desktop GUI applications are shown through Termux:X11 when that session is running.
+export DISPLAY=:0
+export XDG_RUNTIME_DIR="$ROOT/run/user/0"
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 0700 "$XDG_RUNTIME_DIR"
+chroot "$ROOT" /usr/sbin/runuser -u root -- /bin/bash -lc "export DISPLAY=:0; export XDG_RUNTIME_DIR=/run/user/0; $EXEC" >/dev/null 2>&1 &
+ANDROID_LINUX
+chmod 0755 /system/bin/lucid-linux-app
 
-cat << 'THEMER' > /root/.config/autostart/mac-theme-setup.desktop
+# Keep a native app menu and panel rather than relying on one-time generated icons.
+mkdir -p /root/.config/xfce4/xfconf/xfce-perchannel-xml /root/.config/autostart
+cat >/root/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml <<'XSETTINGS'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xsettings" version="1.0">
+  <property name="Net" type="empty">
+    <property name="ThemeName" type="string" value="WhiteSur-Dark"/>
+    <property name="IconThemeName" type="string" value="WhiteSur"/>
+    <property name="CursorThemeName" type="string" value="WhiteSur-cursors"/>
+  </property>
+</channel>
+XSETTINGS
+cat >/root/.config/autostart/lucid-app-sync.desktop <<'AUTOSYNC'
 [Desktop Entry]
 Type=Application
-Name=MacThemeSetup
-Exec=bash -c "sleep 2 && xfconf-query -c xsettings -p /Net/ThemeName -s 'WhiteSur-Dark' --create -t string && xfconf-query -c xsettings -p /Net/IconThemeName -s 'WhiteSur' --create -t string && xfconf-query -c xfwm4 -p /general/theme -s 'WhiteSur-Dark' --create -t string && rm /root/.config/autostart/mac-theme-setup.desktop"
-Hidden=false
-NoDisplay=false
-X-GNOME-Autostart-enabled=true
-THEMER
-
-chmod +x /root/.config/autostart/*.desktop
-# ---------------------------------------------------------
-
-EOF
+Name=Lucid Android App Sync
+Exec=/usr/local/bin/lucid-sync-android-apps
+Terminal=false
+OnlyShowIn=XFCE;
+AUTOSYNC
+# WhiteSur installs can vary by release; use a reliable dark base when the exact theme name differs.
+xfconf-query -c xsettings -p /Net/ThemeName -s WhiteSur-Dark --create -t string 2>/dev/null || true
+xfconf-query -c xsettings -p /Net/IconThemeName -s WhiteSur --create -t string 2>/dev/null || true
+xfconf-query -c xfwm4 -p /general/theme -s WhiteSur-Dark --create -t string 2>/dev/null || true
+CHROOT_SETUP
     SETUP_STATUS=$?
     if [ "$SETUP_STATUS" -ne 0 ]; then
-        log -t "$TAG" "Desktop provisioning failed (exit $SETUP_STATUS); setup will retry next activation."
+        log_msg "Desktop provisioning failed (exit $SETUP_STATUS); will retry next activation."
         exit "$SETUP_STATUS"
     fi
-    touch "$INIT_MARKER" || {
-        log -t "$TAG" "Could not write desktop setup marker."
-        exit 1
-    }
-    cmd notification post -S default -t "LucidOS" "setup" "Desktop initialized. All apps bridged."
-else
-    # Standard activation: bind each pseudo-filesystem at most once.
-    bind_once /dev "$CHROOT_DIR/dev"
-    bind_once /proc "$CHROOT_DIR/proc"
-    bind_once /sys "$CHROOT_DIR/sys"
-    
-    start_local_adbd || log -t "$TAG" "Desktop can start, but Android app bridging is disabled until local-only ADB protection is available."
+    touch "$INIT_MARKER" || { log_msg "Could not write setup marker."; exit 1; }
+    cmd notification post -S default -t "LucidOS" "desktop-ready" "Lucid Desktop initialized."
 fi
 
-# 3. Auto-Launch the ecosystem
-am start -n com.termux.x11/com.termux.x11.MainActivity
-chroot $CHROOT_DIR /bin/su - root -c "export DISPLAY=:0 && startxfce4 & plank"
+# Start Android bridge only with loopback-only firewall protection.
+if start_local_adbd; then
+    chroot "$CHROOT_DIR" /usr/local/bin/lucid-sync-android-apps >/dev/null 2>&1 || true
+else
+    log_msg "Android app mirroring unavailable; Linux desktop can still run."
+fi
+
+# A low-frequency background sync catches installs/uninstalls after boot.
+(
+    echo $$ > "$SYNC_PID_FILE"
+    while true; do
+        sleep 60
+        if start_local_adbd; then
+            chroot "$CHROOT_DIR" /usr/local/bin/lucid-sync-android-apps >/dev/null 2>&1 || true
+        fi
+    done
+) &
+SYNC_PID=$!
+echo "$SYNC_PID" > "$SYNC_PID_FILE"
+
+# Start Termux:X11 and the desktop session.
+am start -n com.termux.x11/com.termux.x11.MainActivity >/dev/null 2>&1 || log_msg "Termux:X11 launch failed; install/enable Termux:X11 to display the Linux desktop."
+chroot "$CHROOT_DIR" /bin/bash -lc 'export DISPLAY=:0; export XDG_RUNTIME_DIR=/run/user/0; mkdir -p "$XDG_RUNTIME_DIR"; chmod 0700 "$XDG_RUNTIME_DIR"; exec startxfce4' 
