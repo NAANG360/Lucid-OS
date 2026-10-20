@@ -12,10 +12,6 @@ service lucid_desktop /system/bin/lucid_desktop.sh
 on property:sys.lucid.casting=1 && property:persist.lucid.chroot_root=1
     start lucid_desktop
 
-# Turning the gate on while casting is already active starts the desktop.
-on property:persist.lucid.chroot_root=1 && property:sys.lucid.casting=1
-    start lucid_desktop
-
 # Turning off the chroot-root setting immediately tears down the privileged session.
 on property:persist.lucid.chroot_root=0
     stop lucid_desktop
