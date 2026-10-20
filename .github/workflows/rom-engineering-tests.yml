@@ -7,9 +7,11 @@ on:
       - "tools/stage_lucid_overlays.py"
       - "tools/validate_lucid_preservation.py"
       - "tools/reconstruct_transfer_image.py"
+      - "tools/purge_rising_customizations.py"
       - "tests/test_stage_lucid_overlays.py"
       - "tests/test_validate_lucid_preservation.py"
       - "tests/test_reconstruct_transfer_image.py"
+      - "tests/test_purge_rising_customizations.py"
       - ".github/workflows/rom-engineering-tests.yml"
       - ".github/workflows/clean-base-android15-audit.yml"
       - ".github/workflows/assemble-integrated-rom.yml"
@@ -42,6 +44,11 @@ jobs:
       - name: Test preservation manifest
         run: |
           "$RUNNER_TEMP/lucid-test-venv/bin/python" tests/test_validate_lucid_preservation.py -v
+
+      - name: Test RisingOS purge safety
+        run: |
+          python3 -m py_compile tools/purge_rising_customizations.py
+          "$RUNNER_TEMP/lucid-test-venv/bin/python" tests/test_purge_rising_customizations.py -v
 
       - name: Test OTA reconstruction and full-write coverage
         run: |
