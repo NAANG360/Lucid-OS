@@ -50,7 +50,8 @@ start_local_adbd() {
 }
 
 cleanup_mounts() {
-    for target in "$CHROOT_DIR/sys" "$CHROOT_DIR/proc" "$CHROOT_DIR/dev"; do
+    # Unmount nested mounts before their parent; otherwise /dev can stay busy.
+    for target in "$CHROOT_DIR/dev/pts" "$CHROOT_DIR/sys" "$CHROOT_DIR/proc" "$CHROOT_DIR/dev"; do
         if is_mounted "$target"; then
             umount "$target" 2>/dev/null || log_msg "Could not unmount $target."
         fi
@@ -86,10 +87,15 @@ if [ ! -x "$CHROOT_DIR/bin/bash" ]; then
 fi
 
 bind_once /dev "$CHROOT_DIR/dev" || exit 1
+# A plain bind of /dev does not reliably carry the devpts submount into chroot.
+mkdir -p "$CHROOT_DIR/dev/pts"
+bind_once /dev/pts "$CHROOT_DIR/dev/pts" || { log_msg "Could not bind /dev/pts; PTY-based apps may fail."; exit 1; }
 bind_once /proc "$CHROOT_DIR/proc" || exit 1
 bind_once /sys "$CHROOT_DIR/sys" || exit 1
 mkdir -p "$CHROOT_DIR/etc"
-if [ -w "$CHROOT_DIR/etc/resolv.conf" ] || [ -d "$CHROOT_DIR/etc" ]; then
+# Avoid writing through a resolv.conf symlink into a host/system path.
+if [ -L "$CHROOT_DIR/etc/resolv.conf" ]; then rm -f "$CHROOT_DIR/etc/resolv.conf"; fi
+if [ ! -e "$CHROOT_DIR/etc/resolv.conf" ] || [ -w "$CHROOT_DIR/etc/resolv.conf" ]; then
     printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' > "$CHROOT_DIR/etc/resolv.conf" 2>/dev/null || log_msg "Could not update chroot DNS."
 fi
 
@@ -119,9 +125,9 @@ PKG="${1:-}"
 adb connect 127.0.0.1:5555 >/dev/null 2>&1 || true
 SERIAL=127.0.0.1:5555
 adb -s "$SERIAL" get-state >/dev/null 2>&1 || { notify-send "Lucid Desktop" "Android bridge is offline"; exit 1; }
-COMPONENT="$(adb -s "$SERIAL" shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER "$PKG" 2>/dev/null | tr -d '\r' | tail -n 1)"
+COMPONENT="$(adb -s "$SERIAL" shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PKG" 2>/dev/null | tr -d '\r' | tail -n 1)"
 if [[ "$COMPONENT" != */* ]]; then
-  COMPONENT="$(adb -s "$SERIAL" shell cmd package resolve-activity --brief "$PKG" 2>/dev/null | tr -d '\r' | tail -n 1)"
+  COMPONENT="$(adb -s "$SERIAL" shell cmd package resolve-activity --brief -p "$PKG" 2>/dev/null | tr -d '\r' | tail -n 1)"
 fi
 [[ "$COMPONENT" == */* ]] || { notify-send "Lucid Desktop" "No launchable activity found for $PKG"; exit 1; }
 adb -s "$SERIAL" shell am start --windowingMode 5 -n "$COMPONENT"
@@ -136,7 +142,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 adb connect 127.0.0.1:5555 >/dev/null 2>&1 || true
 adb -s 127.0.0.1:5555 get-state >/dev/null 2>&1 || exit 0
-adb -s 127.0.0.1:5555 shell pm list packages -3 2>/dev/null | tr -d '\r' | sed 's/^package://' | sort -u >"$TMP/packages"
+adb -s 127.0.0.1:5555 shell pm list packages 2>/dev/null | tr -d '\r' | sed 's/^package://' | sort -u >"$TMP/packages"
 while IFS= read -r pkg; do
   [[ "$pkg" =~ ^[A-Za-z0-9_.]+$ ]] || continue
   file="$OUT/lucid-android-$pkg.desktop"
@@ -265,4 +271,6 @@ echo "$SYNC_PID" > "$SYNC_PID_FILE"
 
 # Start Termux:X11 and the desktop session.
 am start -n com.termux.x11/com.termux.x11.MainActivity >/dev/null 2>&1 || log_msg "Termux:X11 launch failed; install/enable Termux:X11 to display the Linux desktop."
-chroot "$CHROOT_DIR" /bin/bash -lc 'export DISPLAY=:0; export XDG_RUNTIME_DIR=/run/user/0; mkdir -p "$XDG_RUNTIME_DIR"; chmod 0700 "$XDG_RUNTIME_DIR"; exec startxfce4' 
+# startxfce4 expects a session bus; dbus-x11 is installed during provisioning.
+# Keep the session in the foreground so init can stop/restart the desktop service.
+chroot "$CHROOT_DIR" /bin/bash -lc 'export DISPLAY=:0; export XDG_RUNTIME_DIR=/run/user/0; mkdir -p "$XDG_RUNTIME_DIR"; chmod 0700 "$XDG_RUNTIME_DIR"; exec dbus-launch --exit-with-session startxfce4' 
