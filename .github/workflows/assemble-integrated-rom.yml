@@ -6,7 +6,7 @@ on:
       base_rom_url:
         description: Direct URL to the validated Android 15 dynamic lavender base ZIP
         required: true
-        default: https://sourceforge.net/projects/termux-lavender/files/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip/download
+        default: https://downloads.sourceforge.net/project/termux-lavender/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip
         type: string
       expected_filename:
         description: Base ZIP filename
