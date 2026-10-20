@@ -152,28 +152,6 @@ done
 SYNC_APPS
 chmod 0755 /usr/local/bin/lucid-sync-android-apps
 
-# Provide desktop-to-Android launch helpers for users that have Termux + Termux:Widget.
-# The widget invokes this Android-side entry point with a .desktop basename.
-cat >/system/bin/lucid-linux-app <<'ANDROID_LINUX'
-#!/system/bin/sh
-set -u
-ROOT=/data/local/lucid_desktop
-APP="${1:-}"
-case "$APP" in *[!A-Za-z0-9_.-]*|'') echo "Invalid desktop app id" >&2; exit 2 ;; esac
-DESKTOP="$ROOT/usr/share/applications/$APP.desktop"
-[ -f "$DESKTOP" ] || DESKTOP="$ROOT/root/.local/share/applications/$APP.desktop"
-[ -f "$DESKTOP" ] || { echo "Desktop app not found: $APP" >&2; exit 1; }
-EXEC="$(sed -n 's/^Exec=//p' "$DESKTOP" | head -n 1 | sed 's/ --[^ ]*//g')"
-[ -n "$EXEC" ] || { echo "No Exec entry in $DESKTOP" >&2; exit 1; }
-# Desktop GUI applications are shown through Termux:X11 when that session is running.
-export DISPLAY=:0
-export XDG_RUNTIME_DIR="$ROOT/run/user/0"
-mkdir -p "$XDG_RUNTIME_DIR"
-chmod 0700 "$XDG_RUNTIME_DIR"
-chroot "$ROOT" /usr/sbin/runuser -u root -- /bin/bash -lc "export DISPLAY=:0; export XDG_RUNTIME_DIR=/run/user/0; $EXEC" >/dev/null 2>&1 &
-ANDROID_LINUX
-chmod 0755 /system/bin/lucid-linux-app
-
 # Termux:Widget reads executable scripts from ~/.shortcuts. If Termux exists,
 # publish launchers there so Linux GUI apps can be launched from Android's app
 # drawer via the Termux:Widget shortcut surface. Root is required for chroot.
