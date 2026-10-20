@@ -316,7 +316,18 @@ jobs:
             SYSTEM_SAR=0
           fi
           test -s "$SYSTEM_BUILD_PROP"
-          grep -Eq '^(ro.build.version.sdk|ro.system.build.version.sdk)=35
+          grep -Eq '^(ro.build.version.sdk|ro.system.build.version.sdk)=35$' "$SYSTEM_BUILD_PROP"
+          grep -Eq '^(ro.build.version.release|ro.system.build.version.release)=15(\.0)?$' "$SYSTEM_BUILD_PROP"
+          {
+            echo "SYSTEM_FS_ROOT=$SYSTEM_FS_ROOT"
+            echo "SYSTEM_BUILD_PROP=$SYSTEM_BUILD_PROP"
+            echo "SYSTEM_SAR=$SYSTEM_SAR"
+          } >> "$GITHUB_ENV"
+          cp "$RUNNER_TEMP/assembly/dynamic_partitions_op_list" report/dynamic_partitions_op_list.txt
+          printf 'system_as_root=%s\n' "$SYSTEM_SAR" | tee report/system-layout.txt
+          df -h "$RUNNER_TEMP" | tee report/disk-after-extraction.txt
+
+      
       - name: Purge explicitly identified RisingOS apps and branding
         shell: bash
         run: |
