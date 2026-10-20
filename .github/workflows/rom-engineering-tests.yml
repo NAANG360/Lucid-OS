@@ -8,6 +8,8 @@ on:
       - "tools/validate_lucid_preservation.py"
       - "tools/reconstruct_transfer_image.py"
       - "tools/purge_rising_customizations.py"
+      - "tools/build_lucid_setup.sh"
+      - "tools/build_lucid_about.sh"
       - "tests/test_stage_lucid_overlays.py"
       - "tests/test_validate_lucid_preservation.py"
       - "tests/test_reconstruct_transfer_image.py"
@@ -35,6 +37,8 @@ jobs:
           "$RUNNER_TEMP/lucid-test-venv/bin/pip" install --quiet brotli
           sudo apt-get update -qq
           sudo apt-get install -y -qq shellcheck
+          bash -n tools/build_lucid_setup.sh tools/build_lucid_about.sh
+          shellcheck tools/build_lucid_setup.sh tools/build_lucid_about.sh
           go run github.com/rhysd/actionlint/cmd/actionlint@latest .github/workflows/clean-base-android15-audit.yml .github/workflows/assemble-integrated-rom.yml .github/workflows/rom-engineering-tests.yml
 
       - name: Test overlay staging safety
