@@ -8,6 +8,7 @@ on:
       - "docs/CLEAN_BASE_MIGRATION.md"
       - "tools/stage_lucid_overlays.py"
       - "tools/validate_lucid_preservation.py"
+      - "tools/reconstruct_transfer_image.py"
       - "tests/test_validate_lucid_preservation.py"
   workflow_dispatch:
     inputs:
@@ -136,7 +137,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p clean-base/audit/product-check "$RUNNER_TEMP/base-product"
-          BASE_ZIP="clean-base/${{ inputs.expected_filename }}"
+          EXPECTED_FILENAME="${{ inputs.expected_filename || 'RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip' }}"
+          BASE_ZIP="clean-base/$EXPECTED_FILENAME"
           if ! unzip -Z1 "$BASE_ZIP" | grep -qx 'product.transfer.list' ||
              ! unzip -Z1 "$BASE_ZIP" | grep -qx 'product.new.dat.br'; then
             echo "Selected archive does not expose product.transfer.list + product.new.dat.br; image-format-specific inspection is required." | tee clean-base/audit/product-check/RESULT.txt
