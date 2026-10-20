@@ -195,9 +195,23 @@ jobs:
           unzip -t out/LucidOS-bootanimation.zip > report/bootanimation-zip-test.txt
           sha256sum out/LucidOS-bootanimation.zip > report/bootanimation-sha256.txt
           sha256sum out/LucidSetup.apk out/LucidAbout.apk out/LucidWallpapers.apk > report/lucid-apk-sha256.txt
-          echo "THEME_DIR=$GITHUB_WORKSPACE/out" >> "$GITHUB_ENV"
           printf 'static_framework_rro=excluded\nreason=runtime idmap2 and target policy are not yet verified\n' > report/rro-decision.txt
           ls -lh out/LucidSetup.apk out/LucidAbout.apk out/LucidWallpapers.apk out/LucidOS-bootanimation.zip > report/built-assets.txt
+          OVERLAY_SOURCE="$RUNNER_TEMP/assembly/overlay-source"
+          mkdir -p "$OVERLAY_SOURCE/system-tree/system/etc/init" \
+            "$OVERLAY_SOURCE/system-tree/system/etc/permissions" \
+            "$OVERLAY_SOURCE/system-tree/system/bin" \
+            "$OVERLAY_SOURCE/system-tree/system/priv-app/LucidSetup" \
+            "$OVERLAY_SOURCE/system-tree/system/usr"
+          cp system-tree/system/etc/init/init.lucid.rc "$OVERLAY_SOURCE/system-tree/system/etc/init/"
+          cp system-tree/system/etc/permissions/lucid-privapp-permissions.xml "$OVERLAY_SOURCE/system-tree/system/etc/permissions/"
+          cp system-tree/system/bin/lucid_desktop.sh system-tree/system/bin/lucid_firstboot.sh \
+            system-tree/system/bin/lucid_root_toggle.sh system-tree/system/bin/lucid-linux-app \
+            "$OVERLAY_SOURCE/system-tree/system/bin/"
+          cp -a system-tree/system/usr/lucid "$OVERLAY_SOURCE/system-tree/system/usr/"
+          cp out/LucidSetup.apk "$OVERLAY_SOURCE/system-tree/system/priv-app/LucidSetup/LucidSetup.apk"
+          echo "OVERLAY_SOURCE=$OVERLAY_SOURCE" >> "$GITHUB_ENV"
+          rm -rf system-tree
 
       - name: Reconstruct all base partition trees
         shell: bash
@@ -237,6 +251,7 @@ jobs:
           ROOT="$BASE_ROOT"
           sudo python3 tools/stage_lucid_overlays.py \
             --repo-root "$GITHUB_WORKSPACE" \
+            --source-root "$OVERLAY_SOURCE" \
             --base-root "$ROOT" \
             --apply \
             --report "$GITHUB_WORKSPACE/report/system-overlay-plan.json"
