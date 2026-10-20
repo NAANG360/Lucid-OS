@@ -1,10 +1,6 @@
 name: Clean Android 15 Base Audit
 
 on:
-  push:
-    branches: [fix/chroot-desktop-runtime]
-    paths:
-      - "tools/run-clean-base-audit.once"
   workflow_dispatch:
     inputs:
       base_rom_url:
