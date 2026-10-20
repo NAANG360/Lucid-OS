@@ -138,15 +138,20 @@ def main() -> int:
     repo = args.repo_root.resolve()
     overlay_source_root = (args.source_root or repo).resolve()
     base = args.base_root.resolve()
+    system_as_root = (base / "system/system").is_dir() and not (base / "system/build.prop").is_file()
+    def adjusted_destination(value: str) -> str:
+        if system_as_root and value.startswith("system/"):
+            return "system/system/" + value[len("system/"):]
+        return value
     rows, missing = [], []
     try:
         if not (base / "system").is_dir():
             raise ValueError(f"base root does not contain system/: {base}")
         reject_symlink_components(base / "system", base)
-        mappings = [(overlay_source_root / source_rel, dest_rel, required) for source_rel, dest_rel, required in OVERLAYS]
+        mappings = [(overlay_source_root / source_rel, adjusted_destination(dest_rel), required) for source_rel, dest_rel, required in OVERLAYS]
         for mapping in args.extra_overlay:
             source, destination_rel = parse_extra_overlay(mapping)
-            mappings.append((source, destination_rel, True))
+            mappings.append((source, adjusted_destination(destination_rel), True))
         for source, dest_rel, required in mappings:
             destination = base / dest_rel
             if not source.exists() and not source.is_symlink():
@@ -165,6 +170,7 @@ def main() -> int:
         "schema": 2,
         "mode": "apply" if args.apply else "dry-run",
         "base_root": str(base),
+        "system_as_root": system_as_root,
         "overlay_count": len(rows),
         "missing_required_sources": missing,
         "actions": {action: sum(row["action"] == action for row in rows)
