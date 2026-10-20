@@ -52,6 +52,7 @@ jobs:
           [[ "$EXPECTED_FILENAME" =~ ^[A-Za-z0-9._-]+\.zip$ ]] || { echo 'Invalid ZIP filename.' >&2; exit 2; }
           case "$BASE_ROM_URL" in https://*) ;; *) echo 'Only HTTPS URLs are accepted.' >&2; exit 2 ;; esac
           mkdir -p clean-base/audit "$RUNNER_TEMP/lucid"
+          echo "EXPECTED_FILENAME=$EXPECTED_FILENAME" >> "$GITHUB_ENV"
           curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 4800 \
             "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME" \
             --write-out 'http_code=%{http_code}\neffective_url=%{url_effective}\ncontent_type=%{content_type}\nsize_download=%{size_download}\n' \
