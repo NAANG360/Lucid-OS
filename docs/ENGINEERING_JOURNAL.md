@@ -47,3 +47,15 @@ The immediate blocker in the clean-base audit was missing workflow input default
 
 ## Completion status
 NOT COMPLETE. No boot-verified ROM exists yet. Device-level boot test remains unverified.
+
+
+## Verified update — 2026-10-20 UTC (run 39383327754)
+- Repository metadata confirms visibility `public`; default branch is `main`. Work branch remains `fix/chroot-desktop-runtime`.
+- Clean Android 15 Base Audit run `39383327754` completed successfully at commit `b79ab7d2d6cec463a4b1725fea5cec5f3d4d54c4`.
+- Job `118497240160`: checkout, preservation-manifest test, preservation-payload snapshot, base download, product reconstruction, evidence upload, and candidate gate all completed successfully.
+- Selected archive filename: `RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip`.
+- Reconstructed product image identified by `file` as ext2/3/4-family filesystem with volume name `product`; SHA-256 `45e4ebb2020584d772e9f5d642ec8510a24610407fe56ad224cd908d7de85e9a`; read-only `e2fsck -fn` exit code 0. This verifies product-image reconstruction/integrity only, not ROM compatibility or bootability.
+- Evidence artifact: `lucid-clean-base-intake`, artifact ID `12246961907`, 11,576 bytes, SHA-256 `4187e72136b958db4395253b815c1c81a2549bd42b1a5f27a21e3479eda8cded`; available from run `39383327754`.
+- The earlier run `39379889888` failed; later rerun `39383327754` is the current successful audit result. Privilege-boundary guardrails succeeded at `b0fba1d7e66da85cff9bdf258a81bf179835e124`.
+- Important scope correction: product validation is one diagnostic gate, not the objective. Next prioritize auditing the whole base ZIP (boot/vendor/system/system_ext/odm, installer, dynamic-partition metadata, kernel/ramdisk/fstab and device compatibility) and then integrate the full Lucid-OS component set into a reproducible complete ROM package. Do not treat a passing product check as acceptance.
+- Unresolved: no complete integrated Lucid-OS ZIP has been built and no physical-device boot test has been performed.
