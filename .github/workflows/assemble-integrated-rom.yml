@@ -73,6 +73,12 @@ jobs:
             curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 7200 \
               "$BASE_ROM_URL" --output "$BASE_ZIP"
           fi
+          if ! printf '%s  %s\n' "$EXPECTED_SHA256" "$BASE_ZIP" | sha256sum --check - >/dev/null 2>&1; then
+            echo "Parallel base download failed SHA-256 validation; retrying once with curl." | tee report/base-download-fallback.txt
+            rm -f "$BASE_ZIP"
+            curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 7200 \
+              "$BASE_ROM_URL" --output "$BASE_ZIP"
+          fi
           printf '%s  %s\n' "$EXPECTED_SHA256" "$BASE_ZIP" | sha256sum --check -
           sha256sum "$BASE_ZIP" | tee report/base-sha256.txt
           LUCID_ZIP="$RUNNER_TEMP/assembly/lucid/LucidOS-unsigned.zip"
