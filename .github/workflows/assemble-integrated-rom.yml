@@ -398,7 +398,7 @@ jobs:
             "$SYSTEM_FS_ROOT/bin/lucid_firstboot.sh" "$SYSTEM_FS_ROOT/bin/lucid_root_toggle.sh" \
             "$SYSTEM_FS_ROOT/bin/lucid-linux-app"
           sudo chown -hR 0:0 "$SYSTEM_FS_ROOT/usr/lucid"
-          mkdir -p "$ROOT/product/priv-app/LucidWallpapers" "$ROOT/product/app/LucidAbout" \
+          sudo mkdir -p "$ROOT/product/priv-app/LucidWallpapers" "$ROOT/product/app/LucidAbout" \
             "$ROOT/product/media" "$ROOT/product/etc/permissions"
           sudo cp "$THEME_DIR/LucidWallpapers.apk" "$ROOT/product/priv-app/LucidWallpapers/LucidWallpapers.apk"
           sudo cp "$GITHUB_WORKSPACE/out/LucidAbout.apk" "$ROOT/product/app/LucidAbout/LucidAbout.apk"
