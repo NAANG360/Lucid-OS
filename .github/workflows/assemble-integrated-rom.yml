@@ -287,7 +287,8 @@ jobs:
           sudo chmod 0644 "$ROOT/system/priv-app/LucidSetup/LucidSetup.apk" \
             "$ROOT/system/etc/permissions/lucid-privapp-permissions.xml" "$ROOT/system/etc/init/init.lucid.rc"
           sudo chmod 0755 "$ROOT/system/bin/lucid_desktop.sh" \
-            "$ROOT/system/bin/lucid_firstboot.sh" "$ROOT/system/bin/lucid_root_toggle.sh"
+            "$ROOT/system/bin/lucid_firstboot.sh" "$ROOT/system/bin/lucid_root_toggle.sh" \
+            "$ROOT/system/bin/lucid-linux-app"
           sudo chown -hR 0:0 "$ROOT/system/usr/lucid"
           mkdir -p "$ROOT/product/priv-app/LucidWallpapers" "$ROOT/product/app/LucidAbout" \
             "$ROOT/product/media" "$ROOT/product/etc/permissions"
@@ -306,6 +307,7 @@ jobs:
           test -s "$ROOT/system/bin/lucid_desktop.sh"
           test -s "$ROOT/system/bin/lucid_firstboot.sh"
           test -s "$ROOT/system/bin/lucid_root_toggle.sh"
+          test -x "$ROOT/system/bin/lucid-linux-app"
           grep -Eq '^ro.build.version.sdk=35$|^ro.system.build.version.sdk=35$' "$ROOT/system/build.prop"
           grep -Eq '^ro.build.version.release=15$|^ro.system.build.version.release=15$' "$ROOT/system/build.prop"
           cp "$RUNNER_TEMP/assembly/build-fingerprint.txt" report/lucid-build-fingerprint.txt
@@ -386,9 +388,15 @@ jobs:
             printf '4\n%s\n0\n0\nnew 2,0,%s\n' "$BLOCKS" "$BLOCKS" > "$RUNNER_TEMP/assembly/update/$part.transfer.list"
             brotli -q 6 -c "$IMAGE" > "$RUNNER_TEMP/assembly/update/$part.new.dat.br"
             : > "$RUNNER_TEMP/assembly/update/$part.patch.dat"
-            printf '%s size=%s blocks=%s sha256=%s\n' "$part" "$SIZE" "$BLOCKS" "$(sha256sum "$IMAGE" | cut -d' ' -f1)" \
+            ROUNDTRIP="$RUNNER_TEMP/assembly/images/$part-roundtrip.img"
+            "$RUNNER_TEMP/assembly/venv/bin/python" tools/reconstruct_transfer_image.py \
+              "$RUNNER_TEMP/assembly/update/$part.transfer.list" \
+              "$RUNNER_TEMP/assembly/update/$part.new.dat.br" "$ROUNDTRIP" > "report/roundtrip-$part.txt" 2>&1
+            grep -q 'transfer_covers_full_filesystem_by_operations=True' "report/roundtrip-$part.txt"
+            cmp -s "$IMAGE" "$ROUNDTRIP"
+            printf '%s size=%s blocks=%s sha256=%s roundtrip=exact\n' "$part" "$SIZE" "$BLOCKS" "$(sha256sum "$IMAGE" | cut -d' ' -f1)" \
               | tee -a report/rebuilt-partition-hashes.txt
-            rm -f "$IMAGE"
+            rm -f "$ROUNDTRIP" "$IMAGE"
           done
 
       - name: Repack the full OTA package and verify every payload
