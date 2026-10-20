@@ -65,13 +65,13 @@ class TransferImageReconstructionTests(unittest.TestCase):
             # original filesystem is fully represented just because it has
             # an erase operation for that range.
             with open(transfer, "w", encoding="utf-8") as stream:
-                stream.write("4\\n2\\n0\\n0\\n"
-                             "new 2,0,2\\n"
-                             "erase 2,2,3\\n")
+                stream.write("4\n2\n0\n0\n"
+                             "new 2,0,2\n"
+                             "erase 2,2,3\n")
             first_block = bytearray(b"A" * BLOCK)
             struct.pack_into("<I", first_block, 1028, 12)
             struct.pack_into("<I", first_block, 1048, 0)
-            first_block[1080:1082] = b"\\x53\\xef"
+            first_block[1080:1082] = b"\x53\xef"
             first_block[1360:1364] = bytes(4)
             with open(compressed, "wb") as stream:
                 stream.write(brotli.compress(bytes(first_block) + b"B" * BLOCK))
