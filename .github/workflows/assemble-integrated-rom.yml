@@ -187,7 +187,7 @@ jobs:
             echo "Using original Lucid vbmeta: flags=3 and exact size match." | tee report/vbmeta-decision.txt
           else
             "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" make_vbmeta_image \
-              --flags 3 --padding_size "$BASE_VBMETA_SIZE" \
+              --algorithm NONE --flags 3 --padding_size "$BASE_VBMETA_SIZE" \
               --output "$RUNNER_TEMP/assembly/update/vbmeta.img"
             "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
               --image "$RUNNER_TEMP/assembly/update/vbmeta.img" > report/generated-vbmeta-info.txt
