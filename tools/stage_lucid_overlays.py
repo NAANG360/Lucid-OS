@@ -21,6 +21,7 @@ OVERLAYS = [
     ("system-tree/system/bin/lucid_desktop.sh", "system/bin/lucid_desktop.sh", True),
     ("system-tree/system/bin/lucid_firstboot.sh", "system/bin/lucid_firstboot.sh", True),
     ("system-tree/system/bin/lucid_root_toggle.sh", "system/bin/lucid_root_toggle.sh", True),
+    ("system-tree/system/bin/lucid-linux-app", "system/bin/lucid-linux-app", True),
     ("system-tree/system/etc/permissions/lucid-privapp-permissions.xml", "system/etc/permissions/lucid-privapp-permissions.xml", True),
     ("system-tree/system/priv-app/LucidSetup/LucidSetup.apk", "system/priv-app/LucidSetup/LucidSetup.apk", True),
     ("system-tree/system/usr/lucid", "system/usr/lucid", True),
