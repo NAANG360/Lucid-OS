@@ -51,12 +51,22 @@ jobs:
           set -euo pipefail
           [[ "$EXPECTED_FILENAME" =~ ^[A-Za-z0-9._-]+\.zip$ ]] || { echo 'Invalid ZIP filename.' >&2; exit 2; }
           case "$BASE_ROM_URL" in https://*) ;; *) echo 'Only HTTPS URLs are accepted.' >&2; exit 2 ;; esac
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2
           mkdir -p clean-base/audit "$RUNNER_TEMP/lucid"
           echo "EXPECTED_FILENAME=$EXPECTED_FILENAME" >> "$GITHUB_ENV"
-          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 4800 \
-            "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME" \
-            --write-out 'http_code=%{http_code}\neffective_url=%{url_effective}\ncontent_type=%{content_type}\nsize_download=%{size_download}\n' \
-            | tee clean-base/audit/base-download-response.txt
+          if ! aria2c --max-connection-per-server=8 --split=8 --min-split-size=1M \
+            --file-allocation=none --retry-wait=5 --max-tries=5 --timeout=60 --connect-timeout=30 \
+            --console-log-level=warn --summary-interval=30 --dir=clean-base --out="$EXPECTED_FILENAME" "$BASE_ROM_URL"; then
+            rm -f "clean-base/$EXPECTED_FILENAME"
+            curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 4800 \
+              "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME"
+            echo "download_method=curl-fallback" > clean-base/audit/base-download-response.txt
+          else
+            echo "download_method=aria2c-parallel" > clean-base/audit/base-download-response.txt
+          fi
+          printf 'requested_url=%s\nsize_download=%s\n' "$BASE_ROM_URL" "$(stat -c %s "clean-base/$EXPECTED_FILENAME")" \
+            >> clean-base/audit/base-download-response.txt
           test -s "clean-base/$EXPECTED_FILENAME"
           sha256sum "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-sha256.txt
           stat -c 'filename=%n bytes=%s' "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-file.txt
