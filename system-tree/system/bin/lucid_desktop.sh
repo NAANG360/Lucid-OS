@@ -275,14 +275,22 @@ fi
 SYNC_PID=$!
 echo "$SYNC_PID" > "$SYNC_PID_FILE"
 
-# Start Termux:X11 and the desktop session.
-# A native Android X server is required to remove the final Termux:X11 dependency.
-# Do not silently claim desktop mode is available if no display server is present.
-if ! pm path com.termux.x11 >/dev/null 2>&1; then
-    log_msg "No compatible X11 display provider installed. Chroot is prepared, but GUI session cannot be displayed."
+# Select an Android-side X server. Termux:X11 is optional; XServer XSDL is
+# supported as a non-Termux alternative. The chroot itself does not use Termux.
+DISPLAY_VALUE=""
+if pm path com.termux.x11 >/dev/null 2>&1; then
+    am start -n com.termux.x11/com.termux.x11.MainActivity >/dev/null 2>&1 || log_msg "Termux:X11 launch failed."
+    DISPLAY_VALUE=":0"
+elif pm path x.org.server >/dev/null 2>&1; then
+    monkey -p x.org.server 1 >/dev/null 2>&1 || log_msg "XServer XSDL launch failed."
+    # XSDL exposes its X display over localhost TCP after its Android UI starts.
+    DISPLAY_VALUE="127.0.0.1:0"
+else
+    log_msg "No supported Android X server found. Install either Termux:X11 or XServer XSDL; neither is bundled in this ROM."
     exit 1
 fi
-am start -n com.termux.x11/com.termux.x11.MainActivity >/dev/null 2>&1 || log_msg "X11 display provider launch failed."
+# Give the Android X server a moment to initialize before starting XFCE.
+sleep 3
 # startxfce4 expects a session bus; dbus-x11 is installed during provisioning.
 # Keep the session in the foreground so init can stop/restart the desktop service.
-chroot "$CHROOT_DIR" /bin/bash -lc 'export DISPLAY="${DISPLAY:-:0}"; export XDG_RUNTIME_DIR=/run/user/0; mkdir -p "$XDG_RUNTIME_DIR"; chmod 0700 "$XDG_RUNTIME_DIR"; exec dbus-launch --exit-with-session startxfce4' 
+LUCID_DISPLAY="$DISPLAY_VALUE" chroot "$CHROOT_DIR" /bin/bash -lc 'export DISPLAY="$LUCID_DISPLAY"; export XDG_RUNTIME_DIR=/run/user/0; mkdir -p "$XDG_RUNTIME_DIR"; chmod 0700 "$XDG_RUNTIME_DIR"; exec dbus-launch --exit-with-session startxfce4' 
