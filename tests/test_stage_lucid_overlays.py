@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for explicit Lucid overlay staging."""
 import importlib.util
+import json
 import tempfile
 import unittest
 from unittest import mock
