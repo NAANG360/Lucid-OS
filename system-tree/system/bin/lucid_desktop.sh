@@ -194,6 +194,15 @@ cat >/root/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml <<'XSETTINGS'
   </property>
 </channel>
 XSETTINGS
+cat >/root/.config/autostart/lucid-plank.desktop <<'PLANK'
+[Desktop Entry]
+Type=Application
+Name=Lucid Dock
+Exec=plank
+Terminal=false
+OnlyShowIn=XFCE;
+X-GNOME-Autostart-enabled=true
+PLANK
 cat >/root/.config/autostart/lucid-app-sync.desktop <<'AUTOSYNC'
 [Desktop Entry]
 Type=Application
@@ -206,6 +215,22 @@ AUTOSYNC
 xfconf-query -c xsettings -p /Net/ThemeName -s WhiteSur-Dark --create -t string 2>/dev/null || true
 xfconf-query -c xsettings -p /Net/IconThemeName -s WhiteSur --create -t string 2>/dev/null || true
 xfconf-query -c xfwm4 -p /general/theme -s WhiteSur-Dark --create -t string 2>/dev/null || true
+# Put the Plank dock at the bottom, with a clean macOS-like icon zoom.
+mkdir -p /root/.config/plank/dock1
+cat >/root/.config/plank/dock1/settings <<'PLANK_SETTINGS'
+[PlankDockItemPreferences]
+PinnedOnly=false
+ShowDockItem=false
+LockItems=true
+IconSize=48
+ZoomEnabled=true
+ZoomPercent=140
+Alignment=3
+ItemsAlignment=3
+HideMode=1
+Position=bottom
+Theme=Gtk+
+PLANK_SETTINGS
 CHROOT_SETUP
     SETUP_STATUS=$?
     if [ "$SETUP_STATUS" -ne 0 ]; then
