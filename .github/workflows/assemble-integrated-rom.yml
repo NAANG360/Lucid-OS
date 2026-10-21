@@ -723,7 +723,7 @@ jobs:
           unzip -p "$OUTPUT_ZIP" vbmeta.img > report/final-vbmeta.img
           "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
             --image report/final-vbmeta.img > report/final-vbmeta-info.txt
-          grep -q '^Flags: 3' report/final-vbmeta-info.txt
+          grep -Eq '^Flags:[[:space:]]*3([[:space:]]|$)' report/final-vbmeta-info.txt
           echo "REPACK_STAGE=final-hash"
           sha256sum "$OUTPUT_ZIP" | tee report/final-rom-sha256.txt
           stat -c 'final_rom_bytes=%s' "$OUTPUT_ZIP" | tee report/final-rom-size.txt
