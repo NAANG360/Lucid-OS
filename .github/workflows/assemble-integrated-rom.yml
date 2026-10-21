@@ -325,7 +325,6 @@ jobs:
             echo "SYSTEM_BUILD_PROP=$SYSTEM_BUILD_PROP"
             echo "SYSTEM_SAR=$SYSTEM_SAR"
           } >> "$GITHUB_ENV"
-          cp "$RUNNER_TEMP/assembly/dynamic_partitions_op_list" report/dynamic_partitions_op_list.txt
           printf 'system_as_root=%s\n' "$SYSTEM_SAR" | tee report/system-layout.txt
           df -h "$RUNNER_TEMP" | tee report/disk-after-extraction.txt
 
@@ -505,6 +504,14 @@ jobs:
           }
           factors={'system':1.10,'vendor':1.25,'product':1.15,'system_ext':1.15,'odm':1.25}
           original=dict(sizes)
+          group_limits={}
+          for line in lines:
+              fields=line.split()
+              if len(fields)==3 and fields[0]=='add_group':
+                  group_limits[fields[1]]=int(fields[2])
+          group_name='xiaomi_dynamic_partitions'
+          if group_name not in group_limits:
+              raise SystemExit(f'Missing dynamic partition group size for {group_name}')
           tree_sizes={part:tree_bytes(part) for part in required}
           floors={part:math.ceil((tree_sizes[part]*factors[part]+overhead[part])/4096)*4096 for part in required}
           for part in required:
@@ -512,6 +519,10 @@ jobs:
                   sizes[part]=floors[part]
           delta=sum(sizes[p]-original[p] for p in required if p!='system')
           sizes['system']=original['system']-delta
+          group_limit=group_limits[group_name]
+          total_required=sum(sizes[p] for p in required)
+          if total_required > group_limit:
+              raise SystemExit(f'Rebuilt partitions require {total_required} bytes, exceeding {group_name} maximum {group_limit}')
           system_floor=floors['system']
           print('partition_tree_bytes='+json.dumps(tree_sizes,sort_keys=True))
           print('partition_safe_floors='+json.dumps(floors,sort_keys=True))
@@ -524,11 +535,28 @@ jobs:
                   line=f'resize {fields[1]} {sizes[fields[1]]}'
               out.append(line)
           open(ops_path,'w').write('\n'.join(out)+'\n')
+          # Reparse the exact op-list that will ship in the ZIP; the report must
+          # never show the stale stock sizes from before filesystem expansion.
+          written={}
+          for line in open(ops_path,errors='replace'):
+              fields=line.split()
+              if len(fields)==3 and fields[0]=='resize':
+                  written[fields[1]]=int(fields[2])
+          mismatches={p:{'planned':sizes[p],'op_list':written.get(p)} for p in required if written.get(p)!=sizes[p]}
+          if mismatches:
+              raise SystemExit('Final dynamic partition op-list sizes differ from rebuilt image sizes: '+json.dumps(mismatches,sort_keys=True))
+          if sum(written[p] for p in required) > group_limit:
+              raise SystemExit('Final dynamic partition op-list exceeds group maximum')
           json.dump({p:sizes[p] for p in required},open(sizes_path,'w'),indent=2)
+          print('dynamic_partition_group='+group_name)
+          print('dynamic_partition_group_max_bytes='+str(group_limit))
+          print('dynamic_partition_total_bytes='+str(sum(written[p] for p in required)))
           print('partition_sizes_original='+json.dumps(original,sort_keys=True))
           print('partition_sizes_rebuilt='+json.dumps({p:sizes[p] for p in required},sort_keys=True))
           print(f'bytes_rebalanced_from_system={delta}')
           PY
+          cp "$RUNNER_TEMP/assembly/dynamic_partitions_op_list" report/dynamic_partitions_op_list.txt
+          cp "$RUNNER_TEMP/assembly/partition-sizes.json" report/partition-sizes.json
           mkdir -p "$RUNNER_TEMP/assembly/images" "$RUNNER_TEMP/assembly/update"
           for part in system vendor product system_ext odm; do
             SIZE="$(python3 - "$RUNNER_TEMP/assembly/partition-sizes.json" "$part" <<'PY'
