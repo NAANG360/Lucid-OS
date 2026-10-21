@@ -500,7 +500,7 @@ jobs:
               dumpe2fs -h "$IMAGE" 2>&1 | tee "report/dumpe2fs-$part.txt"
             sudo e2fsck -fn "$IMAGE" 2>&1 | tee "report/e2fsck-prepopulate-$part.txt"
             sudo env LD_LIBRARY_PATH="$AOSP_TOOLS_ROOT/lib64:$AOSP_TOOLS_ROOT/lib" \
-              "$E2FSDROID" -f "$ROOT/$part" -a "$IMAGE_MOUNTPOINT" -T "$BUILD_EPOCH" -S "$CONTEXTS" "$IMAGE" \
+              "$E2FSDROID" -e -f "$ROOT/$part" -a "$IMAGE_MOUNTPOINT" -T "$BUILD_EPOCH" -S "$CONTEXTS" "$IMAGE" \
               2>&1 | tee "report/e2fsdroid-$part.txt"
             sudo e2fsck -fy "$IMAGE" 2>&1 | tee "report/e2fsck-repair-$part.txt" || true
             sudo e2fsck -fn "$IMAGE" 2>&1 | tee "report/e2fsck-final-$part.txt"
