@@ -1,9 +1,6 @@
 name: Promote Validated LucidOS ROM Artifact
 
 on:
-  push:
-    paths:
-      - 'tools/promote-integrated-rom.once'
   workflow_dispatch:
     inputs:
       source_run_id:
