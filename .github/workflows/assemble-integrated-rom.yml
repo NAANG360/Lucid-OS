@@ -497,20 +497,24 @@ jobs:
                           pass
               return total
           overhead={
-              'system':128*1024*1024,
-              'vendor':128*1024*1024,
-              'product':64*1024*1024,
-              'system_ext':32*1024*1024,
-              'odm':16*1024*1024,
+              'system':192*1024*1024,
+              'vendor':192*1024*1024,
+              'product':128*1024*1024,
+              'system_ext':96*1024*1024,
+              'odm':32*1024*1024,
           }
+          factors={'system':1.10,'vendor':1.25,'product':1.15,'system_ext':1.15,'odm':1.25}
           original=dict(sizes)
+          tree_sizes={part:tree_bytes(part) for part in required}
+          floors={part:math.ceil((tree_sizes[part]*factors[part]+overhead[part])/4096)*4096 for part in required}
           for part in required:
-              floor=math.ceil((tree_bytes(part)*1.10+overhead[part])/4096)*4096
-              if sizes[part] < floor:
-                  sizes[part]=floor
+              if sizes[part] < floors[part]:
+                  sizes[part]=floors[part]
           delta=sum(sizes[p]-original[p] for p in required if p!='system')
           sizes['system']=original['system']-delta
-          system_floor=math.ceil((tree_bytes('system')*1.05+overhead['system'])/4096)*4096
+          system_floor=floors['system']
+          print('partition_tree_bytes='+json.dumps(tree_sizes,sort_keys=True))
+          print('partition_safe_floors='+json.dumps(floors,sort_keys=True))
           if sizes['system'] < system_floor:
               raise SystemExit(f'Insufficient dynamic-partition group space: system would shrink to {sizes["system"]}, below safe minimum {system_floor}; required increases={delta}')
           out=[]
