@@ -27,6 +27,8 @@ jobs:
   assemble:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -639,7 +641,7 @@ jobs:
           done
           FINGERPRINT="$(cat "$RUNNER_TEMP/assembly/build-fingerprint.txt")"
           INCREMENTAL="LucidOS-20261020"
-          unzip -p "$OUTPUT_ZIP" META-INF/com/android/metadata > "$UPDATE/metadata"
+          cp report/base-ota-metadata.txt "$UPDATE/metadata"
           python3 - "$UPDATE/metadata" "$FINGERPRINT" "$INCREMENTAL" <<'PY'
           import pathlib,re,sys
           path=pathlib.Path(sys.argv[1]); fingerprint=sys.argv[2]; incremental=sys.argv[3]
@@ -695,6 +697,9 @@ jobs:
           cp "$UPDATE/metadata" "$UPDATE/META-INF/com/android/metadata"
           cp "$UPDATE/updater-script" "$UPDATE/META-INF/com/google/android/updater-script"
           (cd "$UPDATE" && zip -0 -q "$OUTPUT_ZIP" META-INF/com/android/metadata META-INF/com/google/android/updater-script)
+          unzip -Z1 "$OUTPUT_ZIP" > report/final-zip-entry-list.txt
+          grep -qx "META-INF/com/android/metadata" report/final-zip-entry-list.txt
+          grep -qx "META-INF/com/google/android/updater-script" report/final-zip-entry-list.txt
           zip -T "$OUTPUT_ZIP" > report/zip-test.txt
           unzip -t "$OUTPUT_ZIP" > report/unzip-test.txt
           unzip -Z1 "$OUTPUT_ZIP" > report/final-zip-entry-list.txt
