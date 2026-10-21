@@ -517,7 +517,7 @@ jobs:
               if len(fields)==3 and fields[0]=='resize' and fields[1] in sizes:
                   line=f'resize {fields[1]} {sizes[fields[1]]}'
               out.append(line)
-          open(ops_path,'w').write('\\n'.join(out)+'\\n')
+          open(ops_path,'w').write('\n'.join(out)+'\n')
           json.dump({p:sizes[p] for p in required},open(sizes_path,'w'),indent=2)
           print('partition_sizes_original='+json.dumps(original,sort_keys=True))
           print('partition_sizes_rebuilt='+json.dumps({p:sizes[p] for p in required},sort_keys=True))
