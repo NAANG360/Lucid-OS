@@ -1,12 +1,15 @@
 name: Promote Validated LucidOS ROM Artifact
 
 on:
+  push:
+    paths:
+      - 'tools/promote-integrated-rom.once'
   workflow_dispatch:
     inputs:
       source_run_id:
         description: Successful partition-build run whose ZIP should be revalidated
         required: true
-        default: '39542102496'
+        default: '39542844531'
         type: string
 
 permissions:
@@ -19,7 +22,7 @@ jobs:
     timeout-minutes: 45
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      SOURCE_RUN_ID: ${{ inputs.source_run_id || '39542102496' }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id || '39542844531' }}
     steps:
       - uses: actions/checkout@v4
 
