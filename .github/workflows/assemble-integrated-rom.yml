@@ -208,14 +208,14 @@ jobs:
               --output "$RUNNER_TEMP/assembly/update/vbmeta.img"
             "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
               --image "$RUNNER_TEMP/assembly/update/vbmeta.img" > report/generated-vbmeta-info.txt
-            grep -q '^Flags: 3' report/generated-vbmeta-info.txt
+            grep -Eq '^Flags:[[:space:]]*3([[:space:]]|$)' report/generated-vbmeta-info.txt
             echo "Generated an unsigned vbmeta image with AVB verification and hashtree disabled; flashing requires an unlocked bootloader." | tee report/vbmeta-decision.txt
           fi
           if [[ -s "$RUNNER_TEMP/assembly/update/vbmeta.img" ]]; then
             [[ "$(stat -c %s "$RUNNER_TEMP/assembly/update/vbmeta.img")" == "$BASE_VBMETA_SIZE" ]]
             "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
               --image "$RUNNER_TEMP/assembly/update/vbmeta.img" > report/selected-vbmeta-info.txt
-            grep -q '^Flags: 3' report/selected-vbmeta-info.txt
+            grep -Eq '^Flags:[[:space:]]*3([[:space:]]|$)' report/selected-vbmeta-info.txt
             VBMETA_REPLACEMENT=1
           else
             VBMETA_REPLACEMENT=0
