@@ -664,7 +664,7 @@ jobs:
           for part in system vendor product system_ext odm; do
             entries+=("$part.transfer.list" "$part.new.dat.br" "$part.patch.dat")
           done
-          entries+=("META-INF/com/android/metadata" "META-INF/com/google/android/updater-script" "dynamic_partitions_op_list")
+          # dynamic_partitions_op_list was already replaced above; do not delete it with the old payload entries.
           zip -q -d "$OUTPUT_ZIP" "${entries[@]}"
           if [[ "$VBMETA_REPLACEMENT" == "1" ]]; then
             zip -q -d "$OUTPUT_ZIP" vbmeta.img
@@ -734,6 +734,7 @@ jobs:
           unzip -Z1 "$OUTPUT_ZIP" > report/final-zip-entry-list.txt
           grep -qx "META-INF/com/android/metadata" report/final-zip-entry-list.txt
           grep -qx "META-INF/com/google/android/updater-script" report/final-zip-entry-list.txt
+          grep -qx "dynamic_partitions_op_list" report/final-zip-entry-list.txt
           echo "REPACK_STAGE=zip-integrity"
           zip -T "$OUTPUT_ZIP" > report/zip-test.txt
           unzip -t "$OUTPUT_ZIP" > report/unzip-test.txt
