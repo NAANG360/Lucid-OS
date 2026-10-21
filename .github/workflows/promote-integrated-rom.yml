@@ -57,7 +57,7 @@ jobs:
               bad=z.testzip()
               if bad: raise SystemExit(f'ZIP CRC failure: {bad}')
               names=set(z.namelist())
-              (report/'actual-zip-entry-list.txt').write_text('\n'.join(sorted(names))+'\n')
+              pathlib.Path('report/actual-zip-entry-list.txt').write_text('\n'.join(sorted(names))+'\n')
               for name in ('boot.img','recovery.img','super_dummy.img','unsparse_super_empty.img','vbmeta.img','dynamic_partitions_op_list','META-INF/com/google/android/updater-script'):
                   if name not in names:
                       raise SystemExit(f'Missing boot/install-critical entry: {name}; actual ZIP entries={sorted(names)}')
@@ -75,6 +75,7 @@ jobs:
               if total>groups[group]: raise SystemExit(f'Partition sizes {total} exceed group maximum {groups[group]}')
               checks=[]
               updater=z.read('META-INF/com/google/android/updater-script').decode('utf-8','replace')
+              pathlib.Path('report/actual-updater-script.txt').write_text(updater)
               if 'dynamic_partitions_op_list' not in updater:
                   raise SystemExit('Installer script does not consume dynamic_partitions_op_list')
               for p in required:
