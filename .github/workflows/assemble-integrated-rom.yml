@@ -481,13 +481,8 @@ jobs:
           missing=[p for p in required if p not in sizes]
           if missing:
               raise SystemExit('Missing partition resize entries: '+', '.join(missing))
-          # Rebuilt trees can require more blocks than the original transfer list
-          # (notably sparse-file expansion). Reserve 15% extra for vendor and
-          # rebalance the exact same byte count out of system, preserving group total.
-          vendor_old=sizes['vendor']
-          vendor_new=math.ceil((vendor_old*1.15)/4096)*4096
-          delta=vendor_new-vendor_old
-          system_new=sizes['system']-delta
+          # Rebuilt ext4 images need space for real file payloads plus filesystem metadata.
+          # Keep the dynamic-partition group byte total fixed by allocating extra space from system.
           def tree_bytes(part):
               total=0
               for base,dirs,files in os.walk(os.path.join(root,part),followlinks=False):
@@ -499,25 +494,34 @@ jobs:
                       except OSError:
                           pass
               return total
-          system_floor=math.ceil((tree_bytes('system')*1.05+128*1024*1024)/4096)*4096
-          vendor_floor=math.ceil((tree_bytes('vendor')*1.05+128*1024*1024)/4096)*4096
-          if vendor_new < vendor_floor:
-              vendor_new=vendor_floor
-              delta=vendor_new-vendor_old
-              system_new=sizes['system']-delta
-          if system_new < system_floor:
-              raise SystemExit(f'Cannot safely grow vendor image: system would shrink to {system_new}, below estimated safe minimum {system_floor}')
-          sizes['vendor']=vendor_new
-          sizes['system']=system_new
+          overhead={
+              'system':128*1024*1024,
+              'vendor':128*1024*1024,
+              'product':64*1024*1024,
+              'system_ext':32*1024*1024,
+              'odm':16*1024*1024,
+          }
+          original=dict(sizes)
+          for part in required:
+              floor=math.ceil((tree_bytes(part)*1.10+overhead[part])/4096)*4096
+              if sizes[part] < floor:
+                  sizes[part]=floor
+          delta=sum(sizes[p]-original[p] for p in required if p!='system')
+          sizes['system']=original['system']-delta
+          system_floor=math.ceil((tree_bytes('system')*1.05+overhead['system'])/4096)*4096
+          if sizes['system'] < system_floor:
+              raise SystemExit(f'Insufficient dynamic-partition group space: system would shrink to {sizes["system"]}, below safe minimum {system_floor}; required increases={delta}')
           out=[]
           for line in lines:
               fields=line.split()
-              if len(fields)==3 and fields[0]=='resize' and fields[1] in ('system','vendor'):
+              if len(fields)==3 and fields[0]=='resize' and fields[1] in sizes:
                   line=f'resize {fields[1]} {sizes[fields[1]]}'
               out.append(line)
-          open(ops_path,'w').write('\n'.join(out)+'\n')
+          open(ops_path,'w').write('\\n'.join(out)+'\\n')
           json.dump({p:sizes[p] for p in required},open(sizes_path,'w'),indent=2)
-          print(f'vendor_partition_resize: {vendor_old} -> {vendor_new}; system: {sizes["system"]+delta} -> {system_new}; bytes_rebalanced={delta}')
+          print('partition_sizes_original='+json.dumps(original,sort_keys=True))
+          print('partition_sizes_rebuilt='+json.dumps({p:sizes[p] for p in required},sort_keys=True))
+          print(f'bytes_rebalanced_from_system={delta}')
           PY
           mkdir -p "$RUNNER_TEMP/assembly/images" "$RUNNER_TEMP/assembly/update"
           for part in system vendor product system_ext odm; do
