@@ -623,7 +623,7 @@ jobs:
           mkdir -p "$(dirname "$OUTPUT_ZIP")"
           cp "$BASE_ZIP" "$OUTPUT_ZIP"
           rm -f "$BASE_ZIP"
-          (cd "$RUNNER_TEMP/assembly" && zip -q -d "$OUTPUT_ZIP" dynamic_partitions_op_list || true)
+          if ! zip -q -d "$OUTPUT_ZIP" dynamic_partitions_op_list 2>/dev/null; then :; fi
           (cd "$RUNNER_TEMP/assembly" && zip -0 -q "$OUTPUT_ZIP" dynamic_partitions_op_list)
           UPDATE="$UPDATE_DIR"
           entries=()
