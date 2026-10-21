@@ -495,9 +495,10 @@ jobs:
             IMAGE="$RUNNER_TEMP/assembly/images/$part.img"
             truncate -s "$SIZE" "$IMAGE"
             sudo env LD_LIBRARY_PATH="$AOSP_TOOLS_ROOT/lib64:$AOSP_TOOLS_ROOT/lib" \
-              "$MKE2FS" -F -t ext4 -b 4096 -O '^orphan_file,^metadata_csum_seed' -L "$part" -m 0 "$IMAGE" "$BLOCKS" 2>&1 | tee "report/mke2fs-$part.txt"
+              "$MKE2FS" -F -t ext4 -b 4096 -O '^metadata_csum_seed' -L "$part" -m 0 "$IMAGE" "$BLOCKS" 2>&1 | tee "report/mke2fs-$part.txt"
             sudo env LD_LIBRARY_PATH="$AOSP_TOOLS_ROOT/lib64:$AOSP_TOOLS_ROOT/lib" \
               dumpe2fs -h "$IMAGE" 2>&1 | tee "report/dumpe2fs-$part.txt"
+            sudo e2fsck -fn "$IMAGE" 2>&1 | tee "report/e2fsck-prepopulate-$part.txt"
             sudo env LD_LIBRARY_PATH="$AOSP_TOOLS_ROOT/lib64:$AOSP_TOOLS_ROOT/lib" \
               "$E2FSDROID" -f "$ROOT/$part" -a "$IMAGE_MOUNTPOINT" -T "$BUILD_EPOCH" -S "$CONTEXTS" "$IMAGE" \
               2>&1 | tee "report/e2fsdroid-$part.txt"
