@@ -624,6 +624,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          trap 'rc=$?; printf "REPACK_FAILURE line=%s rc=%s command=%q\\n" "$LINENO" "$rc" "$BASH_COMMAND" >&2; exit "$rc"' ERR
+          echo "REPACK_STAGE=initialize"
           mkdir -p "$(dirname "$OUTPUT_ZIP")"
           cp "$BASE_ZIP" "$OUTPUT_ZIP"
           rm -f "$BASE_ZIP"
@@ -704,6 +706,7 @@ jobs:
           unzip -Z1 "$OUTPUT_ZIP" > report/final-zip-entry-list.txt
           grep -qx "META-INF/com/android/metadata" report/final-zip-entry-list.txt
           grep -qx "META-INF/com/google/android/updater-script" report/final-zip-entry-list.txt
+          echo "REPACK_STAGE=zip-integrity"
           zip -T "$OUTPUT_ZIP" > report/zip-test.txt
           unzip -t "$OUTPUT_ZIP" > report/unzip-test.txt
           unzip -Z1 "$OUTPUT_ZIP" > report/final-zip-entry-list.txt
@@ -711,16 +714,30 @@ jobs:
             grep -qx "$part.transfer.list" report/final-zip-entry-list.txt
             grep -qx "$part.new.dat.br" report/final-zip-entry-list.txt
             grep -qx "$part.patch.dat" report/final-zip-entry-list.txt
-            unzip -p "$OUTPUT_ZIP" "$part.transfer.list" | grep -q "new 2,0,"
+            unzip -p "$OUTPUT_ZIP" "$part.transfer.list" > "$RUNNER_TEMP/assembly/check-$part.transfer.list"
+            grep -q '^new 2,0,' "$RUNNER_TEMP/assembly/check-$part.transfer.list"
           done
+          echo "REPACK_STAGE=metadata-validation"
           grep -q "post-build=$FINGERPRINT" <(unzip -p "$OUTPUT_ZIP" META-INF/com/android/metadata)
+          echo "REPACK_STAGE=vbmeta-validation"
           unzip -p "$OUTPUT_ZIP" vbmeta.img > report/final-vbmeta.img
           "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
             --image report/final-vbmeta.img > report/final-vbmeta-info.txt
           grep -q '^Flags: 3' report/final-vbmeta-info.txt
+          echo "REPACK_STAGE=final-hash"
           sha256sum "$OUTPUT_ZIP" | tee report/final-rom-sha256.txt
           stat -c 'final_rom_bytes=%s' "$OUTPUT_ZIP" | tee report/final-rom-size.txt
           df -h "$RUNNER_TEMP" | tee report/disk-after-package.txt
+
+      - name: Upload build diagnostics separately
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-build-diagnostics
+          path: report/
+          if-no-files-found: warn
+          retention-days: 30
+          compression-level: 6
 
       - name: Upload integrated ROM and build evidence
         if: always()
