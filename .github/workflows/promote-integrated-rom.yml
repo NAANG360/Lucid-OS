@@ -1,0 +1,97 @@
+name: Promote Validated LucidOS ROM Artifact
+
+on:
+  push:
+    paths:
+      - 'tools/run-promote-rom.once'
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful partition-build run whose ZIP should be revalidated
+        required: true
+        default: '39542102496'
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  validate-and-promote:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      SOURCE_RUN_ID: ${{ inputs.source_run_id || '39542102496' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the already-built ROM and evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: lucid-integrated-android15-rom
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          path: incoming
+
+      - name: Revalidate ZIP, partition payloads, fingerprint, and AVB flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'rc=$?; printf "PROMOTION_FAILURE line=%s rc=%s command=%q\\n" "$LINENO" "$rc" "$BASH_COMMAND" >&2; exit "$rc"' ERR
+          ROM="incoming/out/LucidOS-Android15-lavender-unsigned.zip"
+          REPORT="incoming/report"
+          test -s "$ROM"
+          test -s "$REPORT/rebuilt-partition-hashes.txt"
+          [[ "$(grep -c 'roundtrip=exact' "$REPORT/rebuilt-partition-hashes.txt")" == "5" ]]
+          mkdir -p report out
+          cp "$REPORT/rebuilt-partition-hashes.txt" report/
+          cp "$REPORT/lucid-build-fingerprint.txt" report/
+          cp "$REPORT/rebuilt-system-build.prop" report/
+          cp "$REPORT/integration-summary.txt" report/
+          cp "$REPORT/dynamic_partitions_op_list.txt" report/
+          cp "$REPORT/vbmeta-decision.txt" report/
+          cp "$REPORT/partition-sizes.json" report/ 2>/dev/null || true
+          zip -T "$ROM" > report/promoted-zip-test.txt
+          unzip -t "$ROM" > report/promoted-unzip-test.txt
+          unzip -Z1 "$ROM" > report/promoted-entry-list.txt
+          for part in system vendor product system_ext odm; do
+            grep -qx "$part.transfer.list" report/promoted-entry-list.txt
+            grep -qx "$part.new.dat.br" report/promoted-entry-list.txt
+            grep -qx "$part.patch.dat" report/promoted-entry-list.txt
+            unzip -p "$ROM" "$part.transfer.list" > "report/$part.transfer.list"
+            grep -q '^new 2,0,' "report/$part.transfer.list"
+          done
+          FINGERPRINT="$(cat "$REPORT/lucid-build-fingerprint.txt")"
+          unzip -p "$ROM" META-INF/com/android/metadata > report/promoted-ota-metadata.txt
+          grep -Fqx "post-build=$FINGERPRINT" <(grep '^post-build=' report/promoted-ota-metadata.txt)
+          unzip -p "$ROM" vbmeta.img > report/promoted-vbmeta.img
+          curl --fail --location --retry 3 --retry-all-errors \
+            "https://android.googlesource.com/platform/external/avb/+/refs/heads/main/avbtool.py?format=TEXT" \
+            --output "$RUNNER_TEMP/avbtool.py.b64
+          base64 --decode "$RUNNER_TEMP/avbtool.py.b64" > "$RUNNER_TEMP/avbtool.py"
+          python3 "$RUNNER_TEMP/avbtool.py" info_image --image report/promoted-vbmeta.img > report/promoted-vbmeta-info.txt
+          grep -Eq '^Flags:[[:space:]]*3([[:space:]]|$)' report/promoted-vbmeta-info.txt
+          sha256sum "$ROM" | tee report/promoted-rom-sha256.txt
+          stat -c 'final_rom_bytes=%s' "$ROM" | tee report/promoted-rom-size.txt
+          cp "$ROM" out/LucidOS-Android15-lavender-unsigned.zip
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-promotion-diagnostics
+          path: report/
+          if-no-files-found: warn
+          retention-days: 30
+          compression-level: 6
+
+      - name: Publish revalidated ROM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-android15-lavender-unsigned-validated
+          path: out/LucidOS-Android15-lavender-unsigned.zip
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
