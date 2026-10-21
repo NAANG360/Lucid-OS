@@ -468,10 +468,12 @@ jobs:
           /product/media/bootanimation\.zip u:object_r:system_file:s0
           /product/etc/permissions/privapp-permissions-lucid\.xml u:object_r:system_file:s0
           EOF
-          python3 - "$RUNNER_TEMP/assembly/dynamic_partitions_op_list" "$RUNNER_TEMP/assembly/partition-sizes.json" <<'PY'
-          import json,sys
+          python3 - "$RUNNER_TEMP/assembly/dynamic_partitions_op_list" "$RUNNER_TEMP/assembly/partition-sizes.json" "$ROOT" <<'PY'
+          import json,math,os,sys
+          ops_path,sizes_path,root=sys.argv[1:]
+          lines=open(ops_path,errors='replace').read().splitlines()
           sizes={}
-          for line in open(sys.argv[1],errors='replace'):
+          for line in lines:
               fields=line.split()
               if len(fields)==3 and fields[0]=='resize':
                   sizes[fields[1]]=int(fields[2])
@@ -479,7 +481,43 @@ jobs:
           missing=[p for p in required if p not in sizes]
           if missing:
               raise SystemExit('Missing partition resize entries: '+', '.join(missing))
-          json.dump({p:sizes[p] for p in required},open(sys.argv[2],'w'),indent=2)
+          # Rebuilt trees can require more blocks than the original transfer list
+          # (notably sparse-file expansion). Reserve 15% extra for vendor and
+          # rebalance the exact same byte count out of system, preserving group total.
+          vendor_old=sizes['vendor']
+          vendor_new=math.ceil((vendor_old*1.15)/4096)*4096
+          delta=vendor_new-vendor_old
+          system_new=sizes['system']-delta
+          def tree_bytes(part):
+              total=0
+              for base,dirs,files in os.walk(os.path.join(root,part),followlinks=False):
+                  for name in files:
+                      path=os.path.join(base,name)
+                      try:
+                          if not os.path.islink(path):
+                              total+=os.stat(path,follow_symlinks=False).st_size
+                      except OSError:
+                          pass
+              return total
+          system_floor=math.ceil((tree_bytes('system')*1.05+128*1024*1024)/4096)*4096
+          vendor_floor=math.ceil((tree_bytes('vendor')*1.05+128*1024*1024)/4096)*4096
+          if vendor_new < vendor_floor:
+              vendor_new=vendor_floor
+              delta=vendor_new-vendor_old
+              system_new=sizes['system']-delta
+          if system_new < system_floor:
+              raise SystemExit(f'Cannot safely grow vendor image: system would shrink to {system_new}, below estimated safe minimum {system_floor}')
+          sizes['vendor']=vendor_new
+          sizes['system']=system_new
+          out=[]
+          for line in lines:
+              fields=line.split()
+              if len(fields)==3 and fields[0]=='resize' and fields[1] in ('system','vendor'):
+                  line=f'resize {fields[1]} {sizes[fields[1]]}'
+              out.append(line)
+          open(ops_path,'w').write('\n'.join(out)+'\n')
+          json.dump({p:sizes[p] for p in required},open(sizes_path,'w'),indent=2)
+          print(f'vendor_partition_resize: {vendor_old} -> {vendor_new}; system: {sizes["system"]+delta} -> {system_new}; bytes_rebalanced={delta}')
           PY
           mkdir -p "$RUNNER_TEMP/assembly/images" "$RUNNER_TEMP/assembly/update"
           for part in system vendor product system_ext odm; do
@@ -495,7 +533,9 @@ jobs:
             IMAGE="$RUNNER_TEMP/assembly/images/$part.img"
             truncate -s "$SIZE" "$IMAGE"
             sudo env LD_LIBRARY_PATH="$AOSP_TOOLS_ROOT/lib64:$AOSP_TOOLS_ROOT/lib" \
-              "$MKE2FS" -F -t ext4 -b 4096 -O '^64bit,^metadata_csum,^metadata_csum_seed' -L "$part" -m 0 "$IMAGE" "$BLOCKS" 2>&1 | tee "report/mke2fs-$part.txt"
+              INODES="$(find "$ROOT/$part" -xdev -print | wc -l)"
+            INODES=$(( INODES + INODES / 10 + 4096 ))
+            "$MKE2FS" -F -t ext4 -b 4096 -N "$INODES" -O '^64bit,^metadata_csum,^metadata_csum_seed' -L "$part" -m 0 "$IMAGE" "$BLOCKS" 2>&1 | tee "report/mke2fs-$part.txt"
             sudo env LD_LIBRARY_PATH="$AOSP_TOOLS_ROOT/lib64:$AOSP_TOOLS_ROOT/lib" \
               dumpe2fs -h "$IMAGE" 2>&1 | tee "report/dumpe2fs-$part.txt"
             sudo e2fsck -fn "$IMAGE" 2>&1 | tee "report/e2fsck-prepopulate-$part.txt"
@@ -577,12 +617,14 @@ jobs:
           mkdir -p "$(dirname "$OUTPUT_ZIP")"
           cp "$BASE_ZIP" "$OUTPUT_ZIP"
           rm -f "$BASE_ZIP"
+          (cd "$RUNNER_TEMP/assembly" && zip -q -d "$OUTPUT_ZIP" dynamic_partitions_op_list || true)
+          (cd "$RUNNER_TEMP/assembly" && zip -0 -q "$OUTPUT_ZIP" dynamic_partitions_op_list)
           UPDATE="$UPDATE_DIR"
           entries=()
           for part in system vendor product system_ext odm; do
             entries+=("$part.transfer.list" "$part.new.dat.br" "$part.patch.dat")
           done
-          entries+=("META-INF/com/android/metadata" "META-INF/com/google/android/updater-script")
+          entries+=("META-INF/com/android/metadata" "META-INF/com/google/android/updater-script" "dynamic_partitions_op_list")
           zip -q -d "$OUTPUT_ZIP" "${entries[@]}"
           if [[ "$VBMETA_REPLACEMENT" == "1" ]]; then
             zip -q -d "$OUTPUT_ZIP" vbmeta.img
