@@ -75,6 +75,8 @@ jobs:
               if total>groups[group]: raise SystemExit(f'Partition sizes {total} exceed group maximum {groups[group]}')
               checks=[]
               updater=z.read('META-INF/com/google/android/updater-script').decode('utf-8','replace')
+              if 'dynamic_partitions_op_list' not in updater:
+                  raise SystemExit('Installer script does not consume dynamic_partitions_op_list')
               for p in required:
                   tl=z.read(f'{p}.transfer.list').decode('utf-8','replace').splitlines()
                   if len(tl)<5: raise SystemExit(f'{p}: incomplete transfer list')
