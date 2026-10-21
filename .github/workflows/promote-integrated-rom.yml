@@ -57,8 +57,10 @@ jobs:
               bad=z.testzip()
               if bad: raise SystemExit(f'ZIP CRC failure: {bad}')
               names=set(z.namelist())
+              (report/'actual-zip-entry-list.txt').write_text('\n'.join(sorted(names))+'\n')
               for name in ('boot.img','recovery.img','super_dummy.img','unsparse_super_empty.img','vbmeta.img','dynamic_partitions_op_list','META-INF/com/google/android/updater-script'):
-                  if name not in names: raise SystemExit(f'Missing boot/install-critical entry: {name}')
+                  if name not in names:
+                      raise SystemExit(f'Missing boot/install-critical entry: {name}; actual ZIP entries={sorted(names)}')
               ops=z.read('dynamic_partitions_op_list').decode('utf-8','replace').splitlines()
               groups={}; sizes={}
               for line in ops:
