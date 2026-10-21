@@ -6,7 +6,7 @@ on:
       source_run_id:
         description: Successful partition-build run whose ZIP should be revalidated
         required: true
-        default: '39542844531'
+        default: '39546276881'
         type: string
 
 permissions:
@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 45
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      SOURCE_RUN_ID: ${{ inputs.source_run_id || '39542844531' }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id || '39546276881' }}
     steps:
       - uses: actions/checkout@v4
 
