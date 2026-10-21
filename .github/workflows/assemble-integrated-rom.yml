@@ -1,9 +1,6 @@
 name: Assemble Integrated LucidOS ROM
 
 on:
-  push:
-    paths:
-      - 'tools/run-integrated-rom.once'
   workflow_dispatch:
     inputs:
       base_rom_url:
