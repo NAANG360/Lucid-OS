@@ -48,6 +48,66 @@ jobs:
           cp "$REPORT/rebuilt-system-build.prop" report/
           cp "$REPORT/integration-summary.txt" report/
           cp "$REPORT/dynamic_partitions_op_list.txt" report/
+          cp "$REPORT/base-boot-header.txt" report/ 2>/dev/null || true
+          python3 - "$ROM" "$REPORT" <<'PY'
+          import hashlib,json,pathlib,re,sys,zipfile
+          rom=pathlib.Path(sys.argv[1]); report=pathlib.Path(sys.argv[2])
+          required=('system','vendor','product','system_ext','odm')
+          with zipfile.ZipFile(rom) as z:
+              bad=z.testzip()
+              if bad: raise SystemExit(f'ZIP CRC failure: {bad}')
+              names=set(z.namelist())
+              for name in ('boot.img','recovery.img','super_dummy.img','unsparse_super_empty.img','vbmeta.img','dynamic_partitions_op_list','META-INF/com/google/android/updater-script'):
+                  if name not in names: raise SystemExit(f'Missing boot/install-critical entry: {name}')
+              ops=z.read('dynamic_partitions_op_list').decode('utf-8','replace').splitlines()
+              groups={}; sizes={}
+              for line in ops:
+                  f=line.split()
+                  if len(f)==3 and f[0]=='add_group': groups[f[1]]=int(f[2])
+                  elif len(f)==3 and f[0]=='resize': sizes[f[1]]=int(f[2])
+              group='xiaomi_dynamic_partitions'
+              if group not in groups: raise SystemExit(f'Missing {group} in shipped op-list')
+              missing=[p for p in required if p not in sizes]
+              if missing: raise SystemExit('Missing resize entries: '+', '.join(missing))
+              total=sum(sizes[p] for p in required)
+              if total>groups[group]: raise SystemExit(f'Partition sizes {total} exceed group maximum {groups[group]}')
+              checks=[]
+              updater=z.read('META-INF/com/google/android/updater-script').decode('utf-8','replace')
+              for p in required:
+                  tl=z.read(f'{p}.transfer.list').decode('utf-8','replace').splitlines()
+                  if len(tl)<5: raise SystemExit(f'{p}: incomplete transfer list')
+                  declared=int(tl[1]); maxend=0; newblocks=0
+                  for line in tl[4:]:
+                      cmd,sep,rest=line.partition(' ')
+                      if not sep or cmd not in ('new','zero','erase'): continue
+                      vals=[int(v) for v in rest.split(',') if v]
+                      if not vals: continue
+                      n,coords=vals[0],vals[1:]
+                      if n!=len(coords) or n%2: raise SystemExit(f'{p}: malformed transfer ranges')
+                      for start,end in zip(coords[::2],coords[1::2]):
+                          if start<0 or end<start: raise SystemExit(f'{p}: invalid transfer range')
+                          maxend=max(maxend,end)
+                          if cmd=='new': newblocks+=end-start
+                  if maxend>sizes[p]//4096: raise SystemExit(f'{p}: transfer reaches block {maxend}, allocated size is {sizes[p]//4096}')
+                  if sizes[p]%4096: raise SystemExit(f'{p}: dynamic size not block aligned')
+                  if declared!=sizes[p]//4096: raise SystemExit(f'{p}: transfer header {declared} blocks != op-list {sizes[p]//4096}')
+                  if newblocks!=declared: raise SystemExit(f'{p}: new-data blocks {newblocks} != declared full-image blocks {declared}')
+                  if f'{p}.transfer.list' not in updater: raise SystemExit(f'Installer script does not reference {p}.transfer.list')
+                  checks.append(f'{p}: {sizes[p]} bytes; transfer covers {newblocks} blocks')
+              meta=z.read('META-INF/com/android/metadata').decode('utf-8','replace')
+              fingerprint=next((line.split('=',1)[1] for line in meta.splitlines() if line.startswith('post-build=')),None)
+              if not fingerprint or not fingerprint.startswith('Lucid/lucid_lavender/lavender:15/'):
+                  raise SystemExit(f'OTA post-build fingerprint invalid: {fingerprint!r}')
+              for p in ('system','vendor','product','system_ext','odm'):
+                  if f'{p}.new.dat.br' not in names or f'{p}.patch.dat' not in names:
+                      raise SystemExit(f'Missing payload/patch member for {p}')
+              if 'dtbo.img' not in names:
+                  checks.append('dtbo.img absent: installer relies on compatible device firmware DTBO; no incompatible Lucid DTBO transplanted')
+              print('dynamic_group='+group)
+              print('dynamic_group_max_bytes='+str(groups[group]))
+              print('dynamic_group_used_bytes='+str(total))
+              print('\n'.join(checks))
+          PY
           cp "$REPORT/vbmeta-decision.txt" report/
           cp "$REPORT/partition-sizes.json" report/ 2>/dev/null || true
           zip -T "$ROM" > report/promoted-zip-test.txt
