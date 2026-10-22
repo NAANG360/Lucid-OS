@@ -5,14 +5,14 @@ Native Android first-boot wizard for the Lavender-based LucidOS ROM, rebuilt fro
 ## Screens and behavior
 
 1. **Welcome** — lavender field, cyan and midnight organic shapes, LucidOS label, and magenta start button.
-2. **Wi-Fi** — matching abstract landscape and a button that opens Android's Wi-Fi panel/settings. The offline option continues without pretending that a network was connected.
+2. **Wi-Fi** — matching abstract landscape and a native in-app network list with refresh, SSID selection, password entry, and direct connection attempt; it never launches Android Wi-Fi settings. Direct joining requires platform signing and privileged permission allowlisting on modern Android.
 3. **Account** — purple moon illustration and dark bottom-panel layout with email, phone, Google, and Apple options. These are visual placeholders; they do not collect or send credentials.
 4. **Phone verification placeholder** — dark system-style screen that explicitly states verification is not enabled and does not ask for a number.
 5. **Activation** — animated cyan/magenta dots, then a request to mark `lucid_setup_complete` and return to Android Home.
 
 Back navigation is wired between wizard screens. Authentication, real account creation, and SMS verification are intentionally out of scope for this pass. The visuals are a native approximation of the supplied recordings, not a claim of pixel-perfect Figma parity; exact spacing and small text remain limited by the prototype recording scale.
 
-The package is `com.cosmos.setup`, matching the current first-boot launcher and privileged-permission allowlist. The APK is intended for `/system/priv-app/LucidSetup/LucidSetup.apk`.
+The package is `com.cosmos.setup`, matching the current first-boot launcher and privileged-permission allowlist. Controls use readable 15sp text and 48dp minimum touch targets. The APK is intended for `/system/priv-app/LucidSetup/LucidSetup.apk`.
 
 ## Build
 
