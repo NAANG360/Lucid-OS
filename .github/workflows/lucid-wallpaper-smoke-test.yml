@@ -6,7 +6,6 @@ concurrency:
 
 on:
   push:
-    branches: [main]
     paths:
       - '.github/workflows/lucid-wallpaper-smoke-test.yml'
       - 'theme/**'
@@ -46,6 +45,7 @@ jobs:
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name lucid-theme-overlay-prototype --dir "$GITHUB_WORKSPACE"
           test -s out/LucidWallpapers.apk
+          test -s out/LucidAbout.apk
           echo "source_run=$RUN_ID" > report/emulator/source-run.txt
 
       - name: Boot Android emulator and smoke-test Lucid Wallpapers
@@ -66,6 +66,14 @@ jobs:
             # The CI emulator uses a normal user install. Privileged palette writes are
             # expected to be restricted here; the ROM rebuild installs this APK as a priv-app.
             adb install -r out/LucidWallpapers.apk
+            adb install -r out/LucidAbout.apk
+            adb shell am start -W -n com.lucid.os.about/.MainActivity | tee report/emulator/about-launch.txt
+            sleep 2
+            adb shell uiautomator dump /sdcard/lucid-about.xml >/dev/null
+            adb pull /sdcard/lucid-about.xml report/emulator/about-window.xml
+            grep -q 'About this device' report/emulator/about-window.xml
+            grep -q 'Android version' report/emulator/about-window.xml
+            adb shell input keyevent BACK
             adb shell am start -W -n com.lucid.os.wallpapers/.MainActivity | tee report/emulator/activity-launch.txt
             sleep 4
             adb shell dumpsys activity activities > report/emulator/activities.txt
