@@ -59,6 +59,12 @@ public final class MainActivity extends Activity {
         showWelcome();
     }
 
+    @Override protected void onDestroy() {
+        try { unregisterReceiver(scanReceiver); } catch (Exception ignored) {}
+        if (activationFinish != null) handler.removeCallbacks(activationFinish);
+        super.onDestroy();
+    }
+
     @Override public void onBackPressed() {
         if (activationFinish != null) { handler.removeCallbacks(activationFinish); activationFinish = null; }
         if (screen == 1) showWelcome();
