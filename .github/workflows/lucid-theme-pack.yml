@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   assemble-theme-pack:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') && (github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -44,6 +44,7 @@ jobs:
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name lucid-theme-overlay-prototype --dir "$RUNNER_TEMP/theme-artifacts"
           test -s "$RUNNER_TEMP/theme-artifacts/out/LucidWallpapers.apk"
+          test -s "$RUNNER_TEMP/theme-artifacts/out/LucidAbout.apk"
           test -s "$RUNNER_TEMP/theme-artifacts/out/LucidOS-bootanimation.zip"
           echo "Theme artifact source run: $RUN_ID" > report-source-run.txt
 
@@ -83,7 +84,7 @@ jobs:
         run: |
           set -euo pipefail
           PACK="$RUNNER_TEMP/pack"
-          mkdir -p "$PACK/product/priv-app/LucidWallpapers" "$PACK/product/media" "$PACK/product/etc/permissions"
+          mkdir -p "$PACK/product/priv-app/LucidWallpapers" "$PACK/product/priv-app/LucidAbout" "$PACK/product/media" "$PACK/product/etc/permissions"
           cp "$RUNNER_TEMP/theme-artifacts/out/LucidWallpapers.apk" \
             "$PACK/product/priv-app/LucidWallpapers/LucidWallpapers.apk"
           cp "$RUNNER_TEMP/theme-artifacts/out/LucidOS-bootanimation.zip" \
