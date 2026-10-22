@@ -7,11 +7,11 @@ concurrency:
 on:
   workflow_dispatch:
   push:
-    branches: [main]
     paths:
       - theme/rro/**
       - theme/assets/**
       - theme/wallpaper-app/**
+      - theme/about-app/**
       - theme/scripts/**
       - theme/profiles.json
       - theme/package.json
@@ -149,6 +149,27 @@ jobs:
           "$BUILD_TOOLS/aapt" dump badging out/LucidWallpapers.apk > report/wallpaper-app-badging.txt
           sha256sum out/LucidWallpapers.apk > report/wallpaper-app-sha256.txt
 
+
+      - name: Build About this device app
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          mkdir -p out/about "$RUNNER_TEMP/about-classes" "$RUNNER_TEMP/about-dex"
+          "$BUILD_TOOLS/aapt2" compile --dir theme/about-app/res -o out/about/compiled-resources.zip
+          "$BUILD_TOOLS/aapt2" link --manifest theme/about-app/AndroidManifest.xml -I "$ANDROID_JAR" -o out/LucidAbout-unsigned.apk out/about/compiled-resources.zip
+          mapfile -t JAVA_SOURCES < <(find theme/about-app/src -name '*.java' -print)
+          javac -source 8 -target 8 -bootclasspath "$ANDROID_JAR" -d "$RUNNER_TEMP/about-classes" "${JAVA_SOURCES[@]}"
+          mapfile -t CLASS_FILES < <(find "$RUNNER_TEMP/about-classes" -name '*.class' -print)
+          "$BUILD_TOOLS/d8" --lib "$ANDROID_JAR" --output "$RUNNER_TEMP/about-dex" "${CLASS_FILES[@]}"
+          (cd "$RUNNER_TEMP/about-dex" && zip -q "$GITHUB_WORKSPACE/out/LucidAbout-unsigned.apk" classes.dex)
+          "$BUILD_TOOLS/zipalign" -f 4 out/LucidAbout-unsigned.apk out/LucidAbout-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/lucid-overlay.jks" --ks-key-alias lucid-overlay --ks-pass pass:lucid-overlay-build --key-pass pass:lucid-overlay-build --out out/LucidAbout.apk out/LucidAbout-aligned.apk
+          "$BUILD_TOOLS/apksigner" verify --verbose out/LucidAbout.apk
+          "$BUILD_TOOLS/aapt" dump badging out/LucidAbout.apk > report/about-app-badging.txt
+          sha256sum out/LucidAbout.apk > report/about-app-sha256.txt
+
       - name: Generate LucidOS boot animation
         shell: bash
         run: |
@@ -167,6 +188,7 @@ jobs:
           path: |
             out/LucidOS-Framework-Theme-Overlay.apk
             out/LucidWallpapers.apk
+            out/LucidAbout.apk
             out/LucidOS-bootanimation.zip
             report/
           if-no-files-found: error
