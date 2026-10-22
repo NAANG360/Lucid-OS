@@ -56,7 +56,9 @@ jobs:
         run: |
           set -euo pipefail
           STAGE="$RUNNER_TEMP/stage"
-          mkdir -p "$STAGE/apps/LucidWallpapers" "$STAGE/media" "$STAGE/reports"
+          mkdir -p "$STAGE/apps/LucidWallpapers" "$STAGE/apps/LucidSystemUpdater" "$STAGE/media" "$STAGE/reports"
+          cp "$RUNNER_TEMP/lucid-updater/LucidSystemUpdater.apk" "$STAGE/apps/LucidSystemUpdater/LucidSystemUpdater.apk"
+          cp "$RUNNER_TEMP/lucid-updater/SHA256SUMS.txt" "$STAGE/apps/LucidSystemUpdater/SHA256SUMS.txt"
           cp "$RUNNER_TEMP/lucid-components/out/LucidWallpapers.apk" "$STAGE/apps/LucidWallpapers/LucidWallpapers.apk"
           cp "$RUNNER_TEMP/lucid-components/out/LucidOS-bootanimation.zip" "$STAGE/media/bootanimation.zip"
           if [[ -f "$RUNNER_TEMP/lucid-components/out/LucidOS-Framework-Theme-Overlay.apk" ]]; then
@@ -72,6 +74,7 @@ LucidOS Available Components — DEVELOPMENT BUNDLE
 
 Included:
 - LucidWallpapers.apk: development-signed wallpaper app.
+- LucidSystemUpdater.apk: development-signed updater UI; checks the OTA manifest and verifies downloaded file SHA-256. It does not itself flash an OTA.
 - media/bootanimation.zip: generated LucidOS boot animation.
 - reports/: cloud build and validation reports.
 - optional-test-only/: experimental static framework overlay, if present.
