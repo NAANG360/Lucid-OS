@@ -1,36 +1,26 @@
 # Lucid-OS
 
-Private development repository for Lucid OS targeting the Xiaomi Redmi Note 7 (`lavender`).
+Lucid OS targets the Xiaomi Redmi Note 7 (`lavender`). The current ROM effort has **moved away from the old LineageOS 22.2 reconstruction**. Do not use the abandoned product-partition reconstruction as a build dependency or blocker.
 
-## Project status
+## Current base-ROM direction
 
-This repository currently contains an extracted Android system filesystem and related reconstruction work. It is **not yet a complete, independently buildable ROM source tree**, and the unsigned release archive has not been verified as bootable.
+Use a clean Android 15 ROM ZIP for `lavender` as the new base. The current candidate recorded in project handoff is **Rising-Revived 6.3 / Android 15 / lavender (March 2025)**. This candidate still requires a real archive download and validation before it can be treated as the accepted build input. Never substitute a ROM for another device (for example, `violet`) even if the marketing name/version matches.
 
-## Work areas
+The build process must start from that new ROM archive, inventory its actual installer and partition format, then layer Lucid changes onto it. Do not reconstruct or carry forward the abandoned LineageOS product payload. Preserve the new base's boot-critical files, partition logic, kernel/vendor compatibility, and SELinux metadata unless a tested Lucid change specifically requires a modification.
 
-- `system-tree/` — extracted Android system filesystem.
-- `system_original_metadata.tsv` — original filesystem metadata, if available.
-- `design/LUCIDOS_VISUAL_SYSTEM.md` — Figma-to-Android visual implementation map.
-- `docs/ROM_BASE_FINDINGS.md` — evidence-based notes about the current ROM base.
-- `docs/ROM_INSTALLER_FINDINGS.md` — block-transfer, boot-image, AVB, and product-filesystem findings.
-- `.github/workflows/rom-cloud-audit.yml` — cloud inventory of the unsigned release archive.
-- `.github/workflows/rom-reconstruct-partitions.yml` — reconstructs OTA block images in a cloud runner and inventories the actual Settings/SystemUI/launcher APKs.
-- `.github/workflows/lucid-theme-overlay.yml` — builds the LucidOS Material color resource overlay, wallpaper app, and boot animation.
-- `.github/workflows/rebuild-product-full.yml` — rebuilds the product partition as a complete filesystem and produces a self-contained full product payload.
-- `docs/PRODUCT_REBUILD_INPUT.md` — explains the one required source-tree upload for repairing the incomplete product payload.
-- `theme/assets/` — selected original Figma wallpaper assets (dusk default candidate and alpine alternate).
-- `theme/scripts/generate-palette.mjs` — generates the 65 Android tonal palette resources from the Figma-inspired blue source color.
+## Lucid requirements
 
-## Design direction
+- Original Lucid/Cosmos Figma file is the only source for Lucid branding and artwork. Do not use generated, stock, or substitute wallpapers/art.
+- Integrate the Lucid System Updater into the ROM itself; an add-on ZIP is only a development artifact, not the final ROM.
+- Preserve existing Lucid scripts, setup app, launcher work, chroot/desktop assets, and required init hooks after auditing compatibility with the new base.
+- Audit and implement the requested native UI/apps against the new ROM rather than assuming the extracted legacy system tree matches it.
 
-Use the LucidOS designs in the [Figma file](https://www.figma.com/design/UPUZotxcIfcIdElWklOHFN/cosmosOS) as the visual source, while translating the screens into native Android behavior. Do not ship cosmosOS wordmarks or iPhone mockup frames as ROM assets.
+## Current deliverables and verification
 
-## Device and build constraints
+- `.github/workflows/lucid-system-updater.yml` builds the updater app and a recovery-flashable **add-on** package. It is not a full ROM build.
+- The ROM-base download and archive validation are not yet confirmed successful in this repository.
+- No full Lucid ROM ZIP has been verified as bootable. Do not flash or describe any artifact as bootable until the new base ZIP, installer, partition layout, boot-critical images, integration output, ZIP integrity, and device-target assertions have passed validation.
 
-The committed build properties declare SDK 35 / Android 15 and LineageOS 22.2 while retaining an Android 10 base fingerprint. That mismatch must be resolved from the actual release archive before targeting overlays or rebuilding images.
+## Abandoned work
 
-## Build and safety status
-
-**Current confirmed packaging risk:** the product OTA payload writes only 123,902 of the 601,750 declared filesystem blocks. Reconstructing it from an empty image produces invalid extents and a corrupt root directory, so the payload is not independently reconstructable. The installer does not explicitly discard the physical product partition, however, so whether the original product blocks survive and are mapped as the OTA base remains unverified. Do not reflash while bootability is unresolved. See `docs/ROM_INSTALLER_FINDINGS.md` and `docs/PRODUCT_REBUILD_INPUT.md`.
-
-The framework palette overlay and wallpaper app compile in cloud CI. Runtime framework overlay policy is not yet proven against the custom-signed ROM, so the static overlay is excluded from flashable packages. The privileged Lucid Wallpapers app applies system colors through Android's native dynamic-palette setting. The full product rebuild still requires the complete `product_mod` tree. No artifact should be described as bootable until the rebuilt product filesystem, installer, partition metadata, image contents, and relevant boot configuration have been checked. Prefer reversible overlays and cloud validation before modifying boot-critical images.
+The old LineageOS 22.2/product-payload reconstruction workflow and its product-partition diagnosis are historical only. They are not prerequisites for the current build and must not be used to gate progress on the new ROM base.
