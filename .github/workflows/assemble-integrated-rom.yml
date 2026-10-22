@@ -382,13 +382,11 @@ jobs:
             --apply \
             --report "$GITHUB_WORKSPACE/report/system-overlay-plan.json"
           sudo cp "$GITHUB_WORKSPACE/out/LucidSetup.apk" "$SYSTEM_FS_ROOT/priv-app/LucidSetup/LucidSetup.apk"
-          sudo mkdir -p "$ROOT/system_ext/priv-app/LucidSystemUpdater" "$ROOT/system_ext/etc/permissions"
+          sudo mkdir -p "$ROOT/system_ext/priv-app/LucidSystemUpdater"
           sudo cp "$GITHUB_WORKSPACE/out/LucidSystemUpdater.apk" "$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk"
-          sudo cp "$GITHUB_WORKSPACE/theme/updater/privapp-permissions-lucid-updater.xml" "$ROOT/system_ext/etc/permissions/privapp-permissions-lucid-updater.xml"
-          sudo chmod 0644 "$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk" "$ROOT/system_ext/etc/permissions/privapp-permissions-lucid-updater.xml"
-          sudo chown -hR 0:0 "$ROOT/system_ext/priv-app/LucidSystemUpdater" "$ROOT/system_ext/etc/permissions/privapp-permissions-lucid-updater.xml"
+          sudo chmod 0644 "$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk"
+          sudo chown -hR 0:0 "$ROOT/system_ext/priv-app/LucidSystemUpdater"
           sudo test -s "$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk"
-          sudo test -s "$ROOT/system_ext/etc/permissions/privapp-permissions-lucid-updater.xml"
           sudo python3 - "$SYSTEM_FS_ROOT/build.prop" "$RUNNER_TEMP/assembly/build-fingerprint.txt" <<'PY'
           import pathlib,sys
           prop_path=pathlib.Path(sys.argv[1])
