@@ -55,7 +55,7 @@ public final class MainActivity extends Activity {
         TextView title=text("LucidOS",36,INK,true);LinearLayout.LayoutParams tp=params(-1,-2);tp.topMargin=dp(8);page.addView(title,tp);
         TextView sub=text("A system that feels like yours.",14,MUTED,false);LinearLayout.LayoutParams sp=params(-1,-2);sp.topMargin=dp(4);sp.bottomMargin=dp(20);page.addView(sub,sp);
         LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(18),dp(8),dp(18),dp(8));GradientDrawable gd=new GradientDrawable();gd.setColor(Color.WHITE);gd.setCornerRadius(dp(22));card.setBackground(gd);
-        addInfo(card,"Device","Redmi Note 7 / lavender");addInfo(card,"Operating system","LucidOS");addInfo(card,"Version","0.1 (development)");addInfo(card,"Android version","15");addInfo(card,"Build status","Development build");
+        addInfo(card,"Device","Redmi Note 7 / lavender");addInfo(card,"Operating system","LucidOS");addInfo(card,"Version","0.1 (development)");addInfo(card,"Build status","Development build");
         page.addView(card);
         TextView disclaimer=text("This is the LucidOS identity page. Some device and build details remain dependent on the platform image being finalized.",12,MUTED,false);LinearLayout.LayoutParams np=params(-1,-2);np.topMargin=dp(16);page.addView(disclaimer,np);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.addView(page);setContentView(scroll);
