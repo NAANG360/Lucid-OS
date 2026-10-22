@@ -375,6 +375,8 @@ public final class MainActivity extends Activity {
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
 
+    private static int dpView(Context context, int value) { return Math.round(value * context.getResources().getDisplayMetrics().density); }
+
     private static final class ArtView extends View {
         static final int WELCOME = 0, WIFI = 1, MOON = 2, ACTIVATE = 3;
         private final int kind;
@@ -391,10 +393,10 @@ public final class MainActivity extends Activity {
                 p.setShader(new android.graphics.LinearGradient(0, 0, w, h,
                     Color.rgb(150, 99, 239), Color.rgb(225, 55, 173), android.graphics.Shader.TileMode.CLAMP));
                 c.drawRect(0, 0, w, h, p); p.setShader(null);
-                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(dp(5)); p.setColor(0x55FFFFFF);
+                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(dpView(getContext(), 5)); p.setColor(0x55FFFFFF);
                 for (int i=0;i<5;i++) c.drawCircle(w*(0.15f+i*.22f), h*.2f, w*(.22f+i*.035f), p);
                 p.setStyle(Paint.Style.FILL);
-                p.setShadowLayer(dp(12), 0, dp(8), 0x66531A82);
+                p.setShadowLayer(dpView(getContext(), 12), 0, dpView(getContext(), 8), 0x66531A82);
                 p.setColor(Color.rgb(246, 207, 255));
                 c.save(); c.rotate(-28, w*.5f, h*.6f);
                 c.drawCircle(w*.5f, h*.58f, w*.22f, p);
@@ -407,10 +409,10 @@ public final class MainActivity extends Activity {
                 float pulse = (System.currentTimeMillis()-start)%1000/1000f;
                 for (int i=0;i<7;i++) {
                     float a = (float)(i*Math.PI*2/7);
-                    float radius = w*.22f + (float)Math.sin(pulse*Math.PI*2+i)*dp(4);
+                    float radius = w*.22f + (float)Math.sin(pulse*Math.PI*2+i)*dpView(getContext(), 4);
                     p.setColor(i%2==0 ? Color.rgb(100,224,239) : PINK);
                     c.drawCircle(w*.5f+(float)Math.cos(a)*radius, h*.5f+(float)Math.sin(a)*radius,
-                        dp(7 + (i%3)*2), p);
+                        dpView(getContext(), 7 + (i%3)*2), p);
                 }
                 postInvalidateDelayed(80);
                 return;
