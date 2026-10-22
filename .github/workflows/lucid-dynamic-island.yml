@@ -15,7 +15,7 @@ jobs:
         with: { distribution: temurin, java-version: '17' }
       - uses: gradle/actions/setup-gradle@v4
       - uses: android-actions/setup-android@v3
-        with: { packages: 'build-tools;35.0.0;platforms;android-35' }
+        with: { packages: 'platform-tools,build-tools;35.0.0,platforms;android-35' }
       - name: Build and verify APK
         run: |
           set -euo pipefail
