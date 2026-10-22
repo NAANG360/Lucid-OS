@@ -1,6 +1,14 @@
 name: Assemble Integrated LucidOS ROM
 
 on:
+  push:
+    branches: [fix/chroot-desktop-runtime]
+    paths:
+      - '.github/workflows/assemble-integrated-rom.yml'
+      - 'theme/updater/**'
+      - 'theme/privapp-permissions-lucid.xml'
+      - 'system-tree/**'
+      - 'tools/**'
   workflow_dispatch:
     inputs:
       base_rom_url:
@@ -38,6 +46,13 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: "build-tools;35.0.0 platforms;android-35"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
 
       - name: Install host packages and validate tracked Lucid sources
         shell: bash
@@ -246,6 +261,18 @@ jobs:
           grep -q "package: name='com.lucid.os.wallpapers'" report/wallpaper-app-badging.txt
           sha256sum out/LucidWallpapers.apk > report/wallpaper-app-sha256.txt
 
+          # Build the updater from current repository source and integrate it into
+          # the full system_ext partition; it is not a separate add-on ZIP.
+          gradle -p theme/updater --no-daemon assembleDebug
+          UPDATER_APK=theme/updater/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$UPDATER_APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$UPDATER_APK" > report/updater-app-signature.txt
+          mkdir -p out
+          cp "$UPDATER_APK" out/LucidSystemUpdater.apk
+          "$BUILD_TOOLS/aapt" dump badging out/LucidSystemUpdater.apk > report/updater-app-badging.txt
+          grep -q "package: name='com.lucid.os.updater'" report/updater-app-badging.txt
+          sha256sum out/LucidSystemUpdater.apk > report/updater-app-sha256.txt
+
           chmod +x tools/build_lucid_setup.sh tools/build_lucid_about.sh
           tools/build_lucid_setup.sh "$GITHUB_WORKSPACE/out/LucidSetup.apk"
           tools/build_lucid_about.sh "$GITHUB_WORKSPACE/out/LucidAbout.apk"
@@ -265,6 +292,7 @@ jobs:
           unzip -t out/LucidOS-bootanimation.zip > report/bootanimation-zip-test.txt
           sha256sum out/LucidOS-bootanimation.zip > report/bootanimation-sha256.txt
           sha256sum out/LucidSetup.apk out/LucidAbout.apk out/LucidWallpapers.apk > report/lucid-apk-sha256.txt
+          sha256sum out/LucidSystemUpdater.apk >> report/lucid-apk-sha256.txt
           printf 'static_framework_rro=excluded\nreason=runtime idmap2 and target policy are not yet verified\n' > report/rro-decision.txt
           ls -lh out/LucidSetup.apk out/LucidAbout.apk out/LucidWallpapers.apk out/LucidOS-bootanimation.zip > report/built-assets.txt
           OVERLAY_SOURCE="$RUNNER_TEMP/assembly/overlay-source"
@@ -354,6 +382,13 @@ jobs:
             --apply \
             --report "$GITHUB_WORKSPACE/report/system-overlay-plan.json"
           sudo cp "$GITHUB_WORKSPACE/out/LucidSetup.apk" "$SYSTEM_FS_ROOT/priv-app/LucidSetup/LucidSetup.apk"
+          sudo mkdir -p "$ROOT/system_ext/priv-app/LucidSystemUpdater" "$ROOT/system_ext/etc/permissions"
+          sudo cp "$GITHUB_WORKSPACE/out/LucidSystemUpdater.apk" "$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk"
+          sudo cp "$GITHUB_WORKSPACE/theme/updater/privapp-permissions-lucid-updater.xml" "$ROOT/system_ext/etc/permissions/privapp-permissions-lucid-updater.xml"
+          sudo chmod 0644 "$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk" "$ROOT/system_ext/etc/permissions/privapp-permissions-lucid-updater.xml"
+          sudo chown -hR 0:0 "$ROOT/system_ext/priv-app/LucidSystemUpdater" "$ROOT/system_ext/etc/permissions/privapp-permissions-lucid-updater.xml"
+          sudo test -s "$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk"
+          sudo test -s "$ROOT/system_ext/etc/permissions/privapp-permissions-lucid-updater.xml"
           sudo python3 - "$SYSTEM_FS_ROOT/build.prop" "$RUNNER_TEMP/assembly/build-fingerprint.txt" <<'PY'
           import pathlib,sys
           prop_path=pathlib.Path(sys.argv[1])
@@ -405,6 +440,8 @@ jobs:
           sudo cp "$GITHUB_WORKSPACE/out/LucidAbout.apk" "$ROOT/product/app/LucidAbout/LucidAbout.apk"
           sudo cp "$GITHUB_WORKSPACE/out/LucidOS-bootanimation.zip" "$ROOT/product/media/bootanimation.zip"
           sudo cp theme/privapp-permissions-lucid.xml "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
+          /system_ext/priv-app/LucidSystemUpdater(/.*)? u:object_r:system_file:s0
+          /system_ext/etc/permissions/privapp-permissions-lucid-updater\\.xml u:object_r:system_file:s0
           sudo chmod 0644 "$ROOT/product/priv-app/LucidWallpapers/LucidWallpapers.apk" \
             "$ROOT/product/app/LucidAbout/LucidAbout.apk" "$ROOT/product/media/bootanimation.zip" \
             "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
