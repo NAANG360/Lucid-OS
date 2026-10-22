@@ -1,30 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.lucid.os.wallpapers">
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="35" />
-    <uses-permission android:name="android.permission.SET_WALLPAPER" />
-    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <application
-        android:allowBackup="false"
-        android:label="Lucid Wallpapers"
-        android:icon="@drawable/ic_lucid"
-        android:theme="@style/LucidWallpaperTheme">
-        <activity
-            android:name=".MainActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <receiver
-            android:name=".BootReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-    </application>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.lucid.os.wallpapers">
+ <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="35"/><uses-permission android:name="android.permission.SET_WALLPAPER"/><uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/><uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+ <application android:allowBackup="false" android:label="Wallpapers &amp; style" android:icon="@drawable/ic_lucid" android:theme="@style/LucidWallpaperTheme">
+  <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter><intent-filter><action android:name="android.intent.action.SET_WALLPAPER"/><category android:name="android.intent.category.DEFAULT"/></intent-filter></activity>
+  <receiver android:name=".BootReceiver" android:enabled="true" android:exported="true"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/></intent-filter></receiver>
+ </application>
 </manifest>
