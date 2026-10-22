@@ -1,0 +1,7 @@
+{
+  "device": "lavender",
+  "version": "0.1-dev",
+  "url": "https://github.com/NAANG360/Lucid-OS/releases/download/ota-lavender-stable/LucidOS-lavender.zip",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "changelog": "Development placeholder. No validated stable OTA is published yet. The updater refuses to accept this placeholder hash as a verified package."
+}
