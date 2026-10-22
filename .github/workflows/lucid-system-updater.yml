@@ -16,7 +16,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - uses: android-actions/setup-android@v3
         with: { packages: 'platform-tools,build-tools;35.0.0,platforms;android-35' }
-      - name: Build and verify updater
+      - name: Build, verify and package updater installer
         run: |
           set -euo pipefail
           gradle -p theme/updater --no-daemon assembleDebug
@@ -26,5 +26,25 @@ jobs:
           mkdir -p out
           cp "$APK" out/LucidSystemUpdater.apk
           sha256sum out/LucidSystemUpdater.apk | tee out/SHA256SUMS.txt
+          STAGE="$RUNNER_TEMP/updater-zip"
+          mkdir -p "$STAGE/META-INF/com/google/android" "$STAGE/system_ext/app/LucidSystemUpdater"
+          cp out/LucidSystemUpdater.apk "$STAGE/system_ext/app/LucidSystemUpdater/LucidSystemUpdater.apk"
+          cat > "$STAGE/META-INF/com/google/android/updater-script" <<'EOF'
+          ui_print(" ");
+          ui_print("  L U C I D   O S");
+          ui_print("  System Updater app installer");
+          ui_print(" ");
+          assert(getprop("ro.product.device") == "lavender" || getprop("ro.build.product") == "lavender" || abort("This package is only for Redmi Note 7 (lavender)."));
+          ifelse(is_mounted("/system_ext"), unmount("/system_ext"));
+          mount("ext4", "EMMC", map_partition("system_ext"), "/system_ext");
+          package_extract_dir("system_ext", "/system_ext");
+          set_metadata_recursive("/system_ext/app/LucidSystemUpdater", "uid", 0, "gid", 0, "dmode", 0755, "fmode", 0644, "selabel", "u:object_r:system_file:s0");
+          unmount("/system_ext");
+          ui_print("Lucid System Updater installed. Reboot to Android.");
+          EOF
+          (cd "$STAGE" && zip -qr -X "$GITHUB_WORKSPACE/out/LucidSystemUpdater-lavender-addon.zip" .)
+          unzip -t out/LucidSystemUpdater-lavender-addon.zip
+          unzip -Z -1 out/LucidSystemUpdater-lavender-addon.zip | tee out/installer-files.txt
+          sha256sum out/LucidSystemUpdater-lavender-addon.zip | tee out/installer-sha256.txt
       - uses: actions/upload-artifact@v4
         with: { name: LucidSystemUpdater-debug-apk, path: 'out/*', if-no-files-found: error, retention-days: 30 }
