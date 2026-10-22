@@ -1,4 +1,5 @@
 name: Lucid Theme Overlay
+# Streamlined cloud build: compile, sign, validate, hash and publish available theme components.
 
 concurrency:
   group: lucid-theme-overlay-${{ github.ref }}
