@@ -16,6 +16,14 @@ import android.view.View;
 import android.view.Window;
 import android.content.Context;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ScrollView;
+import android.net.wifi.WifiManager;
+import android.net.wifi.ScanResult;
+import android.net.wifi.WifiConfiguration;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
+import android.text.InputType;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -32,6 +40,14 @@ public final class MainActivity extends Activity {
     private LinearLayout root;
     private int screen = 0;
     private Runnable activationFinish;
+    private WifiManager wifiManager;
+    private LinearLayout networksList;
+    private EditText passwordInput;
+    private String selectedSsid;
+    private TextView wifiStatus;
+    private final BroadcastReceiver scanReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) { renderNetworks(); }
+    };
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -39,6 +55,7 @@ public final class MainActivity extends Activity {
         getWindow().setNavigationBarColor(LAVENDER);
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        wifiManager = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
         showWelcome();
     }
 
@@ -84,29 +101,125 @@ public final class MainActivity extends Activity {
     private void showWifi() {
         shell(LAVENDER, true);
         screen = 1;
-        root.setPadding(dp(0), dp(0), dp(0), dp(20));
-        TextView title = label("Connect to Wi-Fi", 23, Color.BLACK, true);
-        title.setGravity(Gravity.CENTER);
-        root.addView(title, margins(-1, -2, 22, 22, 22, 8));
-        root.addView(new ArtView(this, ArtView.WIFI), new LinearLayout.LayoutParams(-1, 0, 1f));
-        Button wifi = pill("◉    Open Wi-Fi settings", PINK, WHITE, v -> openWifiSettings());
-        root.addView(wifi, margins(-1, 54, 30, 0, 30, 12));
-        Button skip = pill("Set up offline", Color.TRANSPARENT, Color.BLACK, v -> showAccount());
-        skip.setBackground(roundRect(Color.TRANSPARENT, 28, Color.rgb(110, 91, 158), dp(1)));
-        root.addView(skip, margins(-1, 50, 30, 0, 30, 10));
-        root.addView(label("You can connect later in Settings.", 12,
-            Color.rgb(83, 71, 117), false), centeredMargins(-1, -2, 0, 0, 0, 0));
+        root.setPadding(dp(24), dp(14), dp(24), dp(18));
+        root.addView(label("Connect to Wi-Fi", 26, INK, true), margins(-1, -2, 0, 0, 0, 4));
+        root.addView(label("Choose a network to get your phone online.", 14, Color.rgb(70, 59, 101), false), margins(-1, -2, 0, 0, 0, 14));
+        wifiStatus = label("Searching for nearby networks…", 13, Color.rgb(64, 54, 95), false);
+        root.addView(wifiStatus, margins(-1, -2, 0, 0, 0, 8));
+        ScrollView scroll = new ScrollView(this);
+        networksList = new LinearLayout(this);
+        networksList.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(networksList);
+        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+        passwordInput = new EditText(this);
+        passwordInput.setSingleLine(true);
+        passwordInput.setTextSize(16);
+        passwordInput.setHint("Wi-Fi password (if required)");
+        passwordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        passwordInput.setPadding(dp(14), dp(8), dp(14), dp(8));
+        passwordInput.setBackground(roundRect(Color.WHITE, 12, Color.rgb(135, 120, 177), dp(1)));
+        root.addView(passwordInput, margins(-1, 52, 0, 10, 0, 8));
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        Button refresh = pill("Refresh", Color.WHITE, INK, v -> scanNetworks());
+        refresh.setBackground(roundRect(Color.WHITE, 12, Color.rgb(135, 120, 177), dp(1)));
+        Button connect = pill("Connect", PINK, WHITE, v -> connectSelectedNetwork());
+        actions.addView(refresh, new LinearLayout.LayoutParams(0, dp(50), 1f));
+        LinearLayout.LayoutParams connectLp = new LinearLayout.LayoutParams(0, dp(50), 1f);
+        connectLp.leftMargin = dp(10);
+        actions.addView(connect, connectLp);
+        root.addView(actions, margins(-1, 50, 0, 0, 0, 8));
+        Button offline = pill("Set up offline", Color.TRANSPARENT, INK, v -> showAccount());
+        offline.setBackground(roundRect(Color.TRANSPARENT, 12, Color.rgb(110, 91, 158), dp(1)));
+        root.addView(offline, margins(-1, 48, 0, 0, 0, 4));
+        root.addView(label("Your password stays on this device.", 12, Color.rgb(83, 71, 117), false), centeredMargins(-1, -2, 0, 8, 0, 0));
+        try { registerReceiver(scanReceiver, new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)); } catch (Exception ignored) {}
+        renderNetworks();
+        scanNetworks();
     }
 
-    private void openWifiSettings() {
+    private void scanNetworks() {
+        if (wifiManager == null) { wifiStatus.setText("Wi-Fi service is unavailable on this build."); return; }
         try {
-            Intent panel = new Intent("android.settings.panel.action.WIFI");
-            if (panel.resolveActivity(getPackageManager()) != null) startActivity(panel);
-            else startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
-            Toast.makeText(this, "Connect to a network, then return here.", Toast.LENGTH_SHORT).show();
-        } catch (Exception e) {
-            Toast.makeText(this, "Open Settings → Network & internet → Wi-Fi.", Toast.LENGTH_LONG).show();
-        }
+            if (!wifiManager.isWifiEnabled() && !wifiManager.setWifiEnabled(true))
+                wifiStatus.setText("Wi-Fi could not be enabled. Check privileged setup permissions.");
+            boolean started = wifiManager.startScan();
+            if (!started) renderNetworks(); else wifiStatus.setText("Scanning for networks…");
+        } catch (SecurityException e) {
+            wifiStatus.setText("Wi-Fi scan permission missing. Install as the privileged setup app.");
+        } catch (Exception e) { wifiStatus.setText("Could not scan. Tap Refresh to retry."); }
+    }
+
+    private void renderNetworks() {
+        if (networksList == null || wifiManager == null) return;
+        networksList.removeAllViews();
+        try {
+            java.util.LinkedHashMap<String, ScanResult> unique = new java.util.LinkedHashMap<>();
+            java.util.List<ScanResult> results = wifiManager.getScanResults();
+            if (results != null) for (ScanResult result : results) {
+                if (result.SSID != null && !result.SSID.trim().isEmpty()) {
+                    ScanResult old = unique.get(result.SSID);
+                    if (old == null || result.level > old.level) unique.put(result.SSID, result);
+                }
+            }
+            for (ScanResult result : unique.values()) {
+                final String ssid = result.SSID;
+                String caps = result.capabilities == null ? "" : result.capabilities;
+                String security = (caps.contains("WPA") || caps.contains("WEP") || caps.contains("SAE")) ? "Password required" : "Open network";
+                Button item = pill((ssid.equals(selectedSsid) ? "✓  " : "") + ssid + "   ·   " + security,
+                    ssid.equals(selectedSsid) ? Color.rgb(225, 215, 255) : Color.WHITE, INK, v -> { selectedSsid = ssid; renderNetworks(); });
+                item.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
+                item.setPadding(dp(14), 0, dp(10), 0);
+                item.setTextSize(14);
+                item.setBackground(roundRect(ssid.equals(selectedSsid) ? Color.rgb(225, 215, 255) : Color.WHITE, 12, Color.rgb(195, 183, 225), dp(1)));
+                networksList.addView(item, margins(-1, 52, 0, 0, 0, 7));
+            }
+            if (unique.isEmpty()) {
+                networksList.addView(label("No networks found yet. Make sure Wi-Fi is on, then tap Refresh.", 14, INK, false), margins(-1, -2, 2, 10, 2, 10));
+                wifiStatus.setText("No networks found.");
+            } else wifiStatus.setText(unique.size() + " networks found · select one below");
+        } catch (SecurityException e) { wifiStatus.setText("Wi-Fi scan results require privileged permissions."); }
+    }
+
+    @SuppressWarnings("deprecation")
+    private void connectSelectedNetwork() {
+        if (selectedSsid == null) { Toast.makeText(this, "Select a Wi-Fi network first.", Toast.LENGTH_SHORT).show(); return; }
+        if (wifiManager == null) return;
+        String password = passwordInput.getText().toString();
+        try {
+            WifiConfiguration config = new WifiConfiguration();
+            config.SSID = "\"" + selectedSsid + "\"";
+            String caps = "";
+            java.util.List<ScanResult> scans = wifiManager.getScanResults();
+            if (scans != null) for (ScanResult scan : scans) if (selectedSsid.equals(scan.SSID)) { caps = scan.capabilities == null ? "" : scan.capabilities; break; }
+            if (caps.contains("WEP")) {
+                config.wepKeys[0] = "\"" + password + "\"";
+                config.wepTxKeyIndex = 0;
+                config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+                config.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.OPEN);
+                config.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.SHARED);
+            } else if (caps.contains("WPA") || caps.contains("SAE")) {
+                if (password.isEmpty()) { Toast.makeText(this, "Enter this network's password.", Toast.LENGTH_SHORT).show(); return; }
+                config.preSharedKey = "\"" + password + "\"";
+            } else config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+            int id = wifiManager.addNetwork(config);
+            if (id < 0) { wifiStatus.setText("Android rejected this network. Check platform signing and privileged permissions."); return; }
+            boolean enabled = wifiManager.enableNetwork(id, true);
+            wifiManager.reconnect();
+            wifiStatus.setText(enabled ? "Connecting to " + selectedSsid + "…" : "Connection request rejected.");
+            handler.postDelayed(() -> {
+                try {
+                    android.net.ConnectivityManager cm = (android.net.ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE);
+                    android.net.NetworkInfo info = cm == null ? null : cm.getActiveNetworkInfo();
+                    String connected = wifiManager.getConnectionInfo().getSSID();
+                    if (info != null && info.isConnected() && connected != null && connected.replace("\"", "").equals(selectedSsid)) {
+                        wifiStatus.setText("Connected to " + selectedSsid + ".");
+                        showAccount();
+                    } else wifiStatus.setText("Not connected yet. Check the password or retry.");
+                } catch (Exception e) { wifiStatus.setText("Connection status unavailable. Check the password or retry."); }
+            }, 5000);
+        } catch (SecurityException e) { wifiStatus.setText("Wi-Fi connection requires the platform-signed privileged setup app."); }
+        catch (Exception e) { wifiStatus.setText("Could not connect. Verify the password and retry."); }
     }
 
     private void showAccount() {
@@ -200,7 +313,11 @@ public final class MainActivity extends Activity {
         Button b = new Button(this);
         b.setText(text);
         b.setTextColor(fg);
-        b.setTextSize(14);
+        b.setTextSize(15);
+        b.setMinHeight(dp(48));
+        b.setMinimumHeight(dp(48));
+        b.setPadding(dp(12), dp(6), dp(12), dp(6));
+        b.setIncludeFontPadding(true);
         b.setAllCaps(false);
         b.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         b.setGravity(Gravity.CENTER);
