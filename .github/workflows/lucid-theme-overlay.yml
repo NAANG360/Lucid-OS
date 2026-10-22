@@ -8,11 +8,15 @@ concurrency:
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, lucid-ui-foundation]
     paths:
       - theme/rro/**
       - theme/assets/**
       - theme/wallpaper-app/**
+      - theme/control-center-app/**
+      - theme/settings-app/**
+      - tools/test_lucid_ui_contract.py
+      - theme/LUCID_UI_FOUNDATION.md
       - theme/scripts/**
       - theme/profiles.json
       - theme/package.json
@@ -31,6 +35,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Validate Lucid UI source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/test_lucid_ui_contract.py
 
       - uses: android-actions/setup-android@v3
         with:
@@ -150,6 +160,38 @@ jobs:
           "$BUILD_TOOLS/aapt" dump badging out/LucidWallpapers.apk > report/wallpaper-app-badging.txt
           sha256sum out/LucidWallpapers.apk > report/wallpaper-app-sha256.txt
 
+      - name: Build Lucid Control Center and Settings apps
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          mkdir -p out report
+          build_lucid_app() {
+            local APP_DIR="$1"
+            local APP_NAME="$2"
+            local PACKAGE="$3"
+            local APP_OUT="out/$APP_NAME"
+            local CLASSES="$RUNNER_TEMP/$APP_NAME-classes"
+            local DEX="$RUNNER_TEMP/$APP_NAME-dex"
+            mkdir -p "$APP_OUT" "$APP_OUT/gen" "$CLASSES" "$DEX"
+            "$BUILD_TOOLS/aapt2" compile --dir "$APP_DIR/res" -o "$APP_OUT/compiled-resources.zip"
+            "$BUILD_TOOLS/aapt2" link --manifest "$APP_DIR/AndroidManifest.xml" --java "$APP_OUT/gen" -I "$ANDROID_JAR" -o "$APP_OUT/$APP_NAME-unsigned.apk" "$APP_OUT/compiled-resources.zip"
+            mapfile -t JAVA_SOURCES < <(find "$APP_DIR/src" "$APP_OUT/gen" -name '*.java' -print)
+            javac -source 8 -target 8 -bootclasspath "$ANDROID_JAR" -d "$CLASSES" "${JAVA_SOURCES[@]}"
+            mapfile -t CLASS_FILES < <(find "$CLASSES" -name '*.class' -print)
+            "$BUILD_TOOLS/d8" --lib "$ANDROID_JAR" --output "$DEX" "${CLASS_FILES[@]}"
+            (cd "$DEX" && zip -q "$GITHUB_WORKSPACE/$APP_OUT/$APP_NAME-unsigned.apk" classes.dex)
+            "$BUILD_TOOLS/zipalign" -f 4 "$APP_OUT/$APP_NAME-unsigned.apk" "$APP_OUT/$APP_NAME-aligned.apk"
+            "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/lucid-overlay.jks" --ks-key-alias lucid-overlay --ks-pass pass:lucid-overlay-build --key-pass pass:lucid-overlay-build --out "$APP_OUT/$APP_NAME.apk" "$APP_OUT/$APP_NAME-aligned.apk"
+            "$BUILD_TOOLS/apksigner" verify --verbose "$APP_OUT/$APP_NAME.apk"
+            "$BUILD_TOOLS/aapt" dump badging "$APP_OUT/$APP_NAME.apk" > "report/$APP_NAME-badging.txt"
+            grep -q "package: name='$PACKAGE'" "report/$APP_NAME-badging.txt"
+            sha256sum "$APP_OUT/$APP_NAME.apk" > "report/$APP_NAME-sha256.txt"
+          }
+          build_lucid_app theme/control-center-app LucidControlCenter com.lucid.os.controlcenter
+          build_lucid_app theme/settings-app LucidSettings com.lucid.os.settings
+
       - name: Generate LucidOS boot animation
         shell: bash
         run: |
@@ -168,6 +210,8 @@ jobs:
           path: |
             out/LucidOS-Framework-Theme-Overlay.apk
             out/LucidWallpapers.apk
+            out/LucidControlCenter/LucidControlCenter.apk
+            out/LucidSettings/LucidSettings.apk
             out/LucidOS-bootanimation.zip
             report/
           if-no-files-found: error

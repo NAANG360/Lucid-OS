@@ -5,11 +5,6 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/lucid-wallpaper-smoke-test.yml'
-      - 'theme/**'
   workflow_dispatch:
   workflow_run:
     workflows: ["Lucid Theme Overlay"]
@@ -46,6 +41,8 @@ jobs:
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name lucid-theme-overlay-prototype --dir "$GITHUB_WORKSPACE"
           test -s out/LucidWallpapers.apk
+          test -s out/LucidControlCenter/LucidControlCenter.apk
+          test -s out/LucidSettings/LucidSettings.apk
           echo "source_run=$RUN_ID" > report/emulator/source-run.txt
 
       - name: Boot Android emulator and smoke-test Lucid Wallpapers
@@ -120,6 +117,40 @@ jobs:
               exit 1
             fi
             echo "PASS: app installed and launched, palette action did not crash under normal permission limits, wallpaper application was exercised, wallpaper-service state and screenshot captured." | tee report/emulator/result.txt
+
+      - name: Smoke-test Lucid Control Center and Settings dashboard
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb install -r out/LucidControlCenter/LucidControlCenter.apk
+          adb install -r out/LucidSettings/LucidSettings.apk
+          adb shell am start -W -n com.lucid.os.controlcenter/.MainActivity | tee report/emulator/control-center-launch.txt
+          sleep 3
+          adb shell uiautomator dump /sdcard/lucid-control-center.xml >/dev/null
+          adb pull /sdcard/lucid-control-center.xml report/emulator/control-center-window.xml
+          adb shell screencap -p /sdcard/lucid-control-center.png
+          adb pull /sdcard/lucid-control-center.png report/emulator/lucid-control-center.png
+          grep -q 'At a glance' report/emulator/control-center-window.xml
+          grep -q 'Brightness' report/emulator/control-center-window.xml
+          grep -q 'Volume' report/emulator/control-center-window.xml
+          adb shell dumpsys package com.lucid.os.controlcenter > report/emulator/control-center-package.txt
+          grep -q 'ControlCenterTileService' report/emulator/control-center-package.txt
+          adb shell am start -W -n com.lucid.os.settings/.MainActivity | tee report/emulator/settings-launch.txt
+          sleep 3
+          adb shell uiautomator dump /sdcard/lucid-settings.xml >/dev/null
+          adb pull /sdcard/lucid-settings.xml report/emulator/settings-window.xml
+          adb shell screencap -p /sdcard/lucid-settings.png
+          adb pull /sdcard/lucid-settings.png report/emulator/lucid-settings.png
+          grep -q 'PERSONALIZATION' report/emulator/settings-window.xml
+          grep -q 'Control Center' report/emulator/settings-window.xml
+          adb shell dumpsys activity activities > report/emulator/lucid-app-activities.txt
+          grep -Eq 'com\.lucid\.os\.settings' report/emulator/lucid-app-activities.txt
+          adb logcat -d -t 5000 > report/emulator/lucid-ui-logcat.txt
+          if grep -E 'FATAL EXCEPTION|Process: com\.lucid\.os\.(controlcenter|settings)' report/emulator/lucid-ui-logcat.txt; then
+            echo "A Lucid UI app crashed in emulator." >&2
+            exit 1
+          fi
+          echo "PASS: Control Center and Settings installed, launched, exposed expected accessibility labels, and registered the QS tile service." | tee report/emulator/lucid-ui-result.txt
 
       - name: Upload emulator evidence
         if: always()
