@@ -8,6 +8,8 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
+import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
@@ -327,7 +329,10 @@ public final class MainActivity extends Activity {
         b.setAllCaps(false);
         b.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         b.setGravity(Gravity.CENTER);
-        b.setBackground(roundRect(bg, 28, Color.TRANSPARENT, 0));
+        b.setSingleLine(true);
+        b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x26000000), roundRect(bg, 12, Color.TRANSPARENT, 0), null));
+        b.setElevation(dp(2));
+        b.setStateListAnimator(null);
         b.setOnClickListener(action);
         return b;
     }
