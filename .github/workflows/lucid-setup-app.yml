@@ -39,7 +39,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tools/build_lucid_setup.sh "$GITHUB_WORKSPACE/out/LucidSetup.apk"
+          bash tools/build_lucid_setup.sh "$GITHUB_WORKSPACE/out/LucidSetup.apk"
           mkdir -p report
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging out/LucidSetup.apk > report/setup-app-badging.txt
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose out/LucidSetup.apk
