@@ -92,21 +92,21 @@ jobs:
             cp -R "$RUNNER_TEMP/lucid-components/report/." "$STAGE/reports/"
           fi
           cat > "$STAGE/README.txt" <<'EOF'
-LucidOS Available Components — DEVELOPMENT BUNDLE
-
-Included:
-- LucidWallpapers.apk: development-signed wallpaper app.
-- LucidSystemUpdater.apk: development-signed updater UI; checks the OTA manifest and verifies downloaded file SHA-256. It does not itself flash an OTA.
-- media/bootanimation.zip: generated LucidOS boot animation.
-- reports/: cloud build and validation reports.
-- optional-test-only/: experimental static framework overlay, if present.
-
-IMPORTANT:
-This is NOT a flashable ROM or recovery ZIP. Do not flash it in recovery.
-The launcher source/APK has not yet been supplied, so it is not included.
-The repository does not yet contain a verified complete ROM source tree and the product OTA payload is known to be incomplete. Bootability and OTA installation are unverified.
-The APK is development-signed and may not update/replace an existing differently signed package.
-EOF
+          LucidOS Available Components — DEVELOPMENT BUNDLE
+          
+          Included:
+          - LucidWallpapers.apk: development-signed wallpaper app.
+          - LucidSystemUpdater.apk: development-signed updater UI; checks the OTA manifest and verifies downloaded file SHA-256. It does not itself flash an OTA.
+          - media/bootanimation.zip: generated LucidOS boot animation.
+          - reports/: cloud build and validation reports.
+          - optional-test-only/: experimental static framework overlay, if present.
+          
+          IMPORTANT:
+          This is NOT a flashable ROM or recovery ZIP. Do not flash it in recovery.
+          The launcher source/APK has not yet been supplied, so it is not included.
+          The repository does not yet contain a verified complete ROM source tree and the product OTA payload is known to be incomplete. Bootability and OTA installation are unverified.
+          The APK is development-signed and may not update/replace an existing differently signed package.
+          EOF
           (
             cd "$STAGE"
             find . -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
