@@ -27,6 +27,11 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | tee out/certificates.txt
           cp "$APK" out/LucidSystemUpdater.apk
           sha256sum out/LucidSystemUpdater.apk | tee out/SHA256SUMS.txt
+          VERSION_CODE="$(grep -oE 'versionCode [0-9]+' theme/updater/app/build.gradle | awk '{print $2}')"
+          VERSION_NAME="$(grep -oE "versionName '[^']+'" theme/updater/app/build.gradle | cut -d"'" -f2)"
+          APK_SHA="$(sha256sum out/LucidSystemUpdater.apk | awk '{print $1}')"
+          jq -n --arg packageName "com.lucid.os.updater" --arg versionName "$VERSION_NAME" --arg url "https://github.com/$GITHUB_REPOSITORY/releases/download/lucid-system-updater-root-0.3-dev/LucidSystemUpdater.apk" --arg sha256 "$APK_SHA" --argjson versionCode "$VERSION_CODE" '{packageName:$packageName,versionName:$versionName,versionCode:$versionCode,url:$url,sha256:$sha256}' > out/LucidSystemUpdater-update.json
+          cat out/LucidSystemUpdater-update.json
       - name: Package correctly located system-app migration ZIP
         run: |
           set -euo pipefail
@@ -67,7 +72,7 @@ jobs:
           TAG=lucid-system-updater-root-0.3-dev
           NOTES="Development build 0.3.1-dev (versionCode 2). The APK is development-signed, so Android's normal APK installer will reject it if its certificate differs from the installed system app. For this migration, flash LucidSystemUpdater-lavender-addon.zip from compatible TWRP/OrangeFox recovery; it replaces the APK at /system_ext/priv-app/LucidSystemUpdater and removes the erroneous legacy /system_ext/app copy if present. Android's Package Manager treats it as a system-partition package on reboot, which is different from installing an incompatible APK into /data. Recovery installation on physical devices remains unverified. Future changes should continue to be installed through the system-app ZIP unless a stable signing key matching the installed APK is recovered."
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt out/LucidSystemUpdater-lavender-addon.zip --repo "$GITHUB_REPOSITORY" --clobber
+            gh release upload "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt out/LucidSystemUpdater-lavender-addon.zip out/LucidSystemUpdater-update.json --repo "$GITHUB_REPOSITORY" --clobber
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Lucid System Updater — system-app migration 0.3.1-dev" --notes "$NOTES"
           else
             gh release create "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt out/LucidSystemUpdater-lavender-addon.zip \
