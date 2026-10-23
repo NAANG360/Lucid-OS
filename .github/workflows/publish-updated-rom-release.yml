@@ -126,7 +126,12 @@ jobs:
           }
           EOF
           CONTENT="$(base64 -w0 "$RUNNER_TEMP/stable.json")"
-          jq -n --arg message "release: publish LucidOS $VERSION OTA manifest" --arg content "$CONTENT" --arg sha "$CURRENT" '{message:$message,content:$content,sha:$sha,branch:"main"}' > "$RUNNER_TEMP/payload.json"
-          gh api --method PUT "$API" --input "$RUNNER_TEMP/payload.json" >/dev/null
+          MESSAGE="release: publish LucidOS $VERSION OTA manifest"
+          # Use explicit fields; --input can be interpreted as a raw body by gh api.
+          gh api --method PUT "$API" \
+            -f message="$MESSAGE" \
+            -f content="$CONTENT" \
+            -f sha="$CURRENT" \
+            -f branch=main >/dev/null
           gh api "$API?ref=main" --jq '.content.download_url'
           echo "OTA manifest updated to $TAG with SHA-256 $ROM_SHA256"
