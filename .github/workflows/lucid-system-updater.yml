@@ -23,6 +23,7 @@ jobs:
           APK=theme/updater/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | tee out-certificates.txt
           mkdir -p out
           cp "$APK" out/LucidSystemUpdater.apk
           sha256sum out/LucidSystemUpdater.apk | tee out/SHA256SUMS.txt
@@ -48,18 +49,19 @@ jobs:
           sha256sum out/LucidSystemUpdater-lavender-addon.zip | tee out/installer-sha256.txt
       - uses: actions/upload-artifact@v4
         with: { name: LucidSystemUpdater-debug-apk, path: 'out/*', if-no-files-found: error, retention-days: 30 }
-      - name: Publish installable updater APK
+      - name: Publish updater APK and recovery installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           TAG=lucid-system-updater-root-0.3-dev
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Updater release already exists; refusing to overwrite it." >&2
-            exit 1
+            gh release upload "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt out/LucidSystemUpdater-lavender-addon.zip --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Lucid System Updater — root-assisted 0.3.1-dev" --notes "Development build 0.3.1-dev (versionCode 2). APK is development-signed. Since Android rejects APK updates signed by a different certificate, use the recovery-flashable lavender addon ZIP if APK installation reports a signature conflict. Recovery compatibility and installation on physical devices remain unverified."
+          else
+            gh release create "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt out/LucidSystemUpdater-lavender-addon.zip \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Lucid System Updater — root-assisted 0.3.1-dev" \
+              --prerelease \
+              --notes "Development build 0.3.1-dev (versionCode 2). APK is development-signed. Since Android rejects APK updates signed by a different certificate, use the recovery-flashable lavender addon ZIP if APK installation reports a signature conflict. Recovery compatibility and installation on physical devices remain unverified."
           fi
-          gh release create "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "Lucid System Updater — root-assisted 0.3-dev" \
-            --prerelease \
-            --notes "Development APK with SHA-256 verification and root-assisted staging for compatible TWRP/OrangeFox recovery. Recovery compatibility and installation on physical devices are not yet verified."
