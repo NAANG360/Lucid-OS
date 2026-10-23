@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 android {
  namespace 'com.lucid.os.updater'
  compileSdk 35
- defaultConfig { applicationId 'com.lucid.os.updater'; minSdk 29; targetSdk 32; versionCode 3; versionName '0.4.0-dev' }
+ defaultConfig { applicationId 'com.lucid.os.updater'; minSdk 29; targetSdk 32; versionCode 4; versionName '0.4.1-dev' }
 }
 dependencies { implementation 'androidx.core:core:1.13.1' }
 
