@@ -75,7 +75,7 @@ jobs:
             gh release upload "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt out/LucidSystemUpdater-lavender-addon.zip out/LucidSystemUpdater-update.json --repo "$GITHUB_REPOSITORY" --clobber
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Lucid System Updater — system-app migration 0.3.1-dev" --notes "$NOTES"
           else
-            gh release create "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt out/LucidSystemUpdater-lavender-addon.zip \
+            gh release create "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt out/LucidSystemUpdater-lavender-addon.zip out/LucidSystemUpdater-update.json \
               --repo "$GITHUB_REPOSITORY" \
               --title "Lucid System Updater — system-app migration 0.3.1-dev" \
               --prerelease \
