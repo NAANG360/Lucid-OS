@@ -51,7 +51,10 @@ jobs:
           unzip -t out/LucidSystemUpdater-lavender-addon.zip
           unzip -Z -1 out/LucidSystemUpdater-lavender-addon.zip | tee out/installer-files.txt
           grep -Fxq 'system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk' out/installer-files.txt
-          ! grep -Fxq 'system_ext/app/LucidSystemUpdater/LucidSystemUpdater.apk' out/installer-files.txt
+          if grep -Fxq 'system_ext/app/LucidSystemUpdater/LucidSystemUpdater.apk' out/installer-files.txt; then
+            echo "Unexpected legacy /system_ext/app path in addon ZIP." >&2
+            exit 1
+          fi
           unzip -p out/LucidSystemUpdater-lavender-addon.zip META-INF/com/google/android/updater-script | grep -Fq '/system_ext/priv-app/LucidSystemUpdater'
           sha256sum out/LucidSystemUpdater-lavender-addon.zip | tee out/installer-sha256.txt
       - uses: actions/upload-artifact@v4
