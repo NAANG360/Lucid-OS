@@ -22,6 +22,10 @@ on:
         required: true
         default: 0.2-dev
         type: string
+      target_sha:
+        description: Exact source commit SHA used to build the ROM
+        required: true
+        type: string
 
 permissions:
   actions: read
@@ -66,6 +70,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.release_tag }}
           VERSION: ${{ inputs.version }}
+          TARGET_SHA: ${{ inputs.target_sha }}
           ROM_PATH: ${{ steps.rom.outputs.rom_path }}
           ROM_SHA256: ${{ steps.rom.outputs.sha256 }}
         shell: bash
@@ -79,7 +84,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "LucidOS Android 15 — lavender $TAG" \
             --prerelease \
-            --target "${GITHUB_SHA}" \
+            --target "$TARGET_SHA" \
             --notes "Updated LucidOS Android 15 integrated ROM for Xiaomi Redmi Note 7/7S (lavender). Version: $VERSION. Includes the latest Lucid Setup app, Lucid Wallpapers, Lucid About, generated Lucid boot animation, System Updater, and preserved Lucid runtime payloads. CI validates package integrity and partition round-trips; physical-device boot is not yet confirmed. Unsigned ZIP. Review recovery and firmware compatibility before flashing. SHA-256: $ROM_SHA256"
 
       - name: Verify release asset is uploaded
