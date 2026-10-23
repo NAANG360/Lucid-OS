@@ -19,12 +19,12 @@ on:
       release_tag:
         description: New unique release tag
         required: true
-        default: lucid-android15-lavender-build-2
+        default: lucid-android15-lavender-build-3
         type: string
       version:
         description: Version shown in the System Updater
         required: true
-        default: 0.2-dev
+        default: 0.3-dev
         type: string
       target_sha:
         description: Exact source commit SHA used to build the ROM
@@ -73,8 +73,8 @@ jobs:
       - name: Create release if needed and upload the ROM
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-2' }}
-          VERSION: ${{ inputs.version || '0.2-dev' }}
+          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-3' }}
+          VERSION: ${{ inputs.version || '0.3-dev' }}
           TARGET_SHA: ${{ inputs.target_sha || github.event.workflow_run.head_sha }}
           ROM_PATH: ${{ steps.rom.outputs.rom_path }}
           ROM_SHA256: ${{ steps.rom.outputs.sha256 }}
@@ -95,7 +95,7 @@ jobs:
       - name: Verify release asset is uploaded
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-2' }}
+          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-3' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -105,8 +105,8 @@ jobs:
       - name: Update OTA manifest only after release asset verification
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-2' }}
-          VERSION: ${{ inputs.version || '0.2-dev' }}
+          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-3' }}
+          VERSION: ${{ inputs.version || '0.3-dev' }}
           ROM_SHA256: ${{ steps.rom.outputs.sha256 }}
           ROM_SIZE: ${{ steps.rom.outputs.size }}
         shell: bash
