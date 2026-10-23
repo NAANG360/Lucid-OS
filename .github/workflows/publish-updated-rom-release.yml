@@ -128,7 +128,92 @@ jobs:
             echo "Expected ROM release asset is missing." >&2
             exit 1
           fi
-          IFS=$'\t' read -r ASSET_NAME_FOUND ASSET_SIZE ASSET_DIGEST ASSET_URL <<< "$ASSET_INFO"
+          IFS=          if [[ "$ASSET_SIZE" != "$ROM_SIZE" ]]; then
+            echo "Published asset size mismatch: expected $ROM_SIZE, got $ASSET_SIZE" >&2
+            exit 1
+          fi
+          if [[ "$ASSET_DIGEST" != "sha256:$ROM_SHA256" ]]; then
+            echo "Published asset SHA-256 mismatch: expected $ROM_SHA256, got $ASSET_DIGEST" >&2
+            exit 1
+          fi
+          {
+            echo "asset_url=$ASSET_URL"
+            echo "asset_size=$ASSET_SIZE"
+            echo "asset_sha256=$ROM_SHA256"
+          } >> "$GITHUB_OUTPUT"
+          echo "Verified published asset: $ASSET_URL"
+          echo "SHA-256: $ROM_SHA256"
+          echo "Size: $ASSET_SIZE bytes"
+
+      - name: Update OTA manifest only after release asset verification
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-3' }}
+          VERSION: ${{ inputs.version || '0.3-dev' }}
+          ROM_SHA256: ${{ steps.asset.outputs.asset_sha256 }}
+          ROM_SIZE: ${{ steps.asset.outputs.asset_size }}
+          VERIFIED_ASSET_URL: ${{ steps.asset.outputs.asset_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          MANIFEST_PATH="ota/stable.json"
+          API="repos/$GITHUB_REPOSITORY/contents/$MANIFEST_PATH"
+          CURRENT="$(gh api "$API?ref=main" --jq '.sha')"
+          EXPECTED_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/LucidOS-Android15-lavender-unsigned.zip"
+          if [[ "$VERIFIED_ASSET_URL" != "$EXPECTED_URL" ]]; then
+            echo "Verified asset URL does not match requested release tag." >&2
+            exit 1
+          fi
+          jq -n \
+            --arg device "lavender" \
+            --arg version "$VERSION" \
+            --arg url "$EXPECTED_URL" \
+            --arg sha256 "$ROM_SHA256" \
+            --argjson size "$ROM_SIZE" \
+            --arg changelog "Updated Lucid Setup app and privileged permissions; refreshed Lucid Wallpapers, Lucid About, Lucid boot animation, and System Updater integration; preserved Lucid runtime payloads. The updater verifies the ZIP SHA-256 and can stage a root-assisted install script for compatible TWRP/OrangeFox recovery. Physical-device installation and boot are not confirmed." \
+            '{device:$device,version:$version,url:$url,sha256:$sha256,size:$size,changelog:$changelog}' \
+            > "$RUNNER_TEMP/stable.json"
+          CONTENT="$(base64 -w0 "$RUNNER_TEMP/stable.json")"
+          jq -n \
+            --arg message "release: publish LucidOS $VERSION OTA manifest" \
+            --arg content "$CONTENT" \
+            --arg sha "$CURRENT" \
+            '{message:$message,content:$content,sha:$sha,branch:"main"}' \
+            > "$RUNNER_TEMP/update-manifest.json"
+          gh api --method PUT "$API" --input "$RUNNER_TEMP/update-manifest.json" >/dev/null
+          echo "Updated OTA manifest to $TAG after digest/size verification."
+
+      - name: Verify raw OTA manifest points to this exact Build 3 asset
+        env:
+          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-3' }}
+          VERSION: ${{ inputs.version || '0.3-dev' }}
+          ROM_SHA256: ${{ steps.asset.outputs.asset_sha256 }}
+          ROM_SIZE: ${{ steps.asset.outputs.asset_size }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/LucidOS-Android15-lavender-unsigned.zip"
+          RAW_URL="https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/ota/stable.json"
+          for attempt in $(seq 1 12); do
+            if curl -fsSL "$RAW_URL?cachebust=$GITHUB_RUN_ID-$attempt" -o "$RUNNER_TEMP/raw-stable.json"; then
+              if jq -e --arg version "$VERSION" --arg url "$EXPECTED_URL" --arg sha "$ROM_SHA256" --argjson size "$ROM_SIZE" \
+                '.device == "lavender" and .version == $version and .url == $url and .sha256 == $sha and .size == $size' \
+                "$RUNNER_TEMP/raw-stable.json" >/dev/null; then
+                cat "$RUNNER_TEMP/raw-stable.json"
+                echo "Raw manifest verified against the published Build 3 asset."
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo "Raw OTA manifest did not converge to the expected Build 3 URL/checksum/size." >&2
+          cat "$RUNNER_TEMP/raw-stable.json" >&2 || true
+          exit 1
+\t' read -r ASSET_NAME_FOUND ASSET_SIZE ASSET_DIGEST ASSET_URL <<< "$ASSET_INFO"
+          if [[ "$ASSET_NAME_FOUND" != "$ASSET_NAME" ]]; then
+            echo "Published asset name mismatch: expected $ASSET_NAME, got $ASSET_NAME_FOUND" >&2
+            exit 1
+          fi
           if [[ "$ASSET_SIZE" != "$ROM_SIZE" ]]; then
             echo "Published asset size mismatch: expected $ROM_SIZE, got $ASSET_SIZE" >&2
             exit 1
