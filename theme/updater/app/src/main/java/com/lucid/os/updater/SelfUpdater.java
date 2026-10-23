@@ -207,7 +207,7 @@ public final class SelfUpdater {
             "chown 0:0 '" + MODULE + "/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk'; " +
             "printf %s '" + encoded + "' | base64 -d > '" + MODULE + "/module.prop'; " +
             "chmod 0644 '" + MODULE + "/module.prop'; " +
-            "touch '" + MODULE + "/update'; sync; " +
+            "sync; " +
             "test -s '" + MODULE + "/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk'";
         root(script);
     }
