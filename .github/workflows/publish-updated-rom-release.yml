@@ -63,11 +63,15 @@ jobs:
           unzip -tq "$ROM"
           SHA="$(sha256sum "$ROM" | awk '{print $1}')"
           SIZE="$(stat -c %s "$ROM")"
-          echo "rom_path=$ROM" >> "$GITHUB_OUTPUT"
-          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
-          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
-          echo "ROM_SHA256=$SHA" >> "$GITHUB_ENV"
-          echo "ROM_SIZE=$SIZE" >> "$GITHUB_ENV"
+          {
+            echo "rom_path=$ROM"
+            echo "sha256=$SHA"
+            echo "size=$SIZE"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "ROM_SHA256=$SHA"
+            echo "ROM_SIZE=$SIZE"
+          } >> "$GITHUB_ENV"
           sha256sum "$ROM"
 
       - name: Create release if needed and upload the ROM
@@ -90,7 +94,7 @@ jobs:
             --title "LucidOS Android 15 — lavender $TAG" \
             --prerelease \
             --target "$TARGET_SHA" \
-            --notes "Updated LucidOS Android 15 integrated ROM for Xiaomi Redmi Note 7/7S (lavender). Version: $VERSION. Includes the latest Lucid Setup app, Lucid Wallpapers, Lucid About, generated Lucid boot animation, System Updater, and preserved Lucid runtime payloads. CI validates package integrity and partition round-trips; physical-device boot is not yet confirmed. Unsigned ZIP. Review recovery and firmware compatibility before flashing. SHA-256: $ROM_SHA256"
+            --notes "Updated LucidOS Android 15 integrated ROM for Xiaomi Redmi Note 7/7S (lavender). Version: $VERSION. Includes the latest Lucid Setup app, Lucid Wallpapers, Lucid About, generated Lucid boot animation, System Updater with root-assisted recovery staging, and preserved Lucid runtime payloads. CI validates package integrity and partition round-trips; physical-device boot is not yet confirmed. Unsigned ZIP. Review recovery and firmware compatibility before flashing. SHA-256: $ROM_SHA256"
 
       - name: Verify release asset is uploaded
         env:
@@ -122,7 +126,7 @@ jobs:
             "url": "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/LucidOS-Android15-lavender-unsigned.zip",
             "sha256": "$ROM_SHA256",
             "size": $ROM_SIZE,
-            "changelog": "Updated Lucid Setup app and privileged permissions; refreshed Lucid Wallpapers, Lucid About, Lucid boot animation, and System Updater integration; preserved Lucid runtime payloads. Download is hash-verified by the updater. This app downloads but does not flash the ROM; a compatible recovery is required. Physical-device boot is not confirmed."
+            "changelog": "Updated Lucid Setup app and privileged permissions; refreshed Lucid Wallpapers, Lucid About, Lucid boot animation, and System Updater integration; preserved Lucid runtime payloads. The updater verifies the ZIP SHA-256 and can stage a root-assisted install script for compatible TWRP/OrangeFox recovery. Physical-device installation and boot are not confirmed."
           }
           EOF
           CONTENT="$(base64 -w0 "$RUNNER_TEMP/stable.json")"
