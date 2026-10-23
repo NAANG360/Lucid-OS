@@ -115,10 +115,10 @@ jobs:
       - name: Verify published asset digest and size before manifest update
         id: asset
         env:
-          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-          TAG: \${{ inputs.release_tag || 'lucid-android15-lavender-build-3' }}
-          ROM_SHA256: \${{ steps.rom.outputs.sha256 }}
-          ROM_SIZE: \${{ steps.rom.outputs.size }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-3' }}
+          ROM_SHA256: ${{ steps.rom.outputs.sha256 }}
+          ROM_SIZE: ${{ steps.rom.outputs.size }}
         shell: bash
         run: |
           set -euo pipefail
