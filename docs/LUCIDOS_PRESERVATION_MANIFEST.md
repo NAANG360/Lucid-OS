@@ -15,6 +15,7 @@ The current repository tree was queried recursively at commit `b38492e67f0732996
 - `system-tree/system/bin/lucid_desktop.sh` — 3,677 bytes, blob `ca5bc2ede9c7fe16ae6956196f245076aba50d01`.
 - `system-tree/system/bin/lucid_firstboot.sh` — 385 bytes, blob `039282a9ea31cd0a17716170904ecc3770ff46c9`.
 - `system-tree/system/bin/lucid_root_toggle.sh` — 154 bytes, blob `6487a1a90288b3e5f30df06513a570e7bd436bcd`.
+- `system-tree/system/bin/lucid-linux-app` — 1,238-byte executable Android-side helper used by optional Termux:Widget shortcuts to launch Linux desktop apps; retain it alongside the main desktop scripts.
 - `system-tree/system/etc/permissions/lucid-privapp-permissions.xml` — 428 bytes, blob `bffd782c4e7f9ca7b52bb0b580daa138049013e9`.
 - `system-tree/system/priv-app/LucidSetup/LucidSetup.apk` — 6,757,252 bytes, blob `5587f5d67ac89eead2ef10ef1fb1e734dafc9484`.
 - `system-tree/system/usr/lucid/ubuntu-base-arm64.tar.gz` — 27,660,560 bytes, blob `3ccc455c772485a4e1000d4aee444168e0ddacc1`.
@@ -70,7 +71,7 @@ The existing LucidOS product payload writes only 123,902 of 601,750 declared fil
 - `.github/workflows/clean-base-android15-audit.yml` accepts a direct HTTPS URL for the selected vanilla base, verifies ZIP integrity, inventories base and Lucid archive entries, and uploads an intake artifact without modifying the existing release archives.
 - `tools/inspect_boot_image.py` now emits `ramdisk-lucid-preservation-scan.txt` from the actual unpacked CPIO file entries when the boot ramdisk format is supported. This is the next evidence source for locating `init.lucid.rd`; the tracked source-tree search alone is not conclusive.
 - Unit tests for the preservation manifest are in `tests/test_validate_lucid_preservation.py` and are included in `.github/workflows/lightweight-rom-tooling-tests.yml`.
-- `tools/stage_lucid_overlays.py` now stages only an explicit Lucid allowlist onto an extracted base filesystem and produces per-file hashes/actions in dry-run mode. It intentionally avoids wholesale replacement of framework/Settings/SystemUI/vendor/boot files; see `docs/CLEAN_BASE_MIGRATION.md`.
+- `tools/stage_lucid_overlays.py` now stages only an explicit Lucid allowlist onto an extracted base filesystem and produces per-file hashes/actions in dry-run mode. The allowlist includes the optional `lucid-linux-app` helper as well as the desktop scripts. It intentionally avoids wholesale replacement of framework/Settings/SystemUI/vendor/boot files; see `docs/CLEAN_BASE_MIGRATION.md`.
 - `tests/test_stage_lucid_overlays.py` covers hash-based add/replace/unchanged classification and confirms the allowlist does not overlay Android framework, Settings, or SystemUI.
 
 ### Runtime hook mode and contract checks

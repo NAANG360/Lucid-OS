@@ -4,14 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       base_rom_url:
-        description: Direct HTTPS download URL for the March 2025 Rising-Revived vanilla Android 15 dynamic lavender candidate; verify vanilla/dynamic metadata in the report
+        description: Direct HTTPS download URL for the March 2025 Rising-Revived Android 15 lavender candidate; verify actual system build properties and dynamic partition payloads in the report
         required: true
-        default: https://sourceforge.net/projects/termux-lavender/files/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip/download
+        default: https://downloads.sourceforge.net/project/termux-lavender/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip
         type: string
       expected_filename:
         description: Expected ROM ZIP filename (letters, digits, dots, underscores, hyphens only)
         required: true
         default: RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip
+        type: string
+      expected_sha256:
+        description: SHA-256 of the exact base archive
+        required: true
+        default: 2f105eadd8ea0a044a4930cf60a83d4c91983a500c2a97125d45a4cb8b6e4f2c
         type: string
 
 permissions:
@@ -29,6 +34,12 @@ jobs:
       - name: Test preservation manifest logic
         run: python3 tests/test_validate_lucid_preservation.py -v
 
+      - name: Test transfer-list reconstruction and coverage logic
+        run: |
+          python3 -m venv "$RUNNER_TEMP/transfer-test-venv"
+          "$RUNNER_TEMP/transfer-test-venv/bin/pip" install --quiet brotli
+          "$RUNNER_TEMP/transfer-test-venv/bin/python" tests/test_reconstruct_transfer_image.py -v
+
       - name: Snapshot mandatory LucidOS preservation payload
         shell: bash
         run: |
@@ -37,20 +48,41 @@ jobs:
 
       - name: Download selected base without modifying existing ROM assets
         env:
-          BASE_ROM_URL: ${{ inputs.base_rom_url }}
-          EXPECTED_FILENAME: ${{ inputs.expected_filename }}
+          BASE_ROM_URL: ${{ inputs.base_rom_url || 'https://downloads.sourceforge.net/project/termux-lavender/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip' }}
+          EXPECTED_FILENAME: ${{ inputs.expected_filename || 'RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip' }}
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 || '2f105eadd8ea0a044a4930cf60a83d4c91983a500c2a97125d45a4cb8b6e4f2c' }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           [[ "$EXPECTED_FILENAME" =~ ^[A-Za-z0-9._-]+\.zip$ ]] || { echo 'Invalid ZIP filename.' >&2; exit 2; }
           case "$BASE_ROM_URL" in https://*) ;; *) echo 'Only HTTPS URLs are accepted.' >&2; exit 2 ;; esac
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2
           mkdir -p clean-base/audit "$RUNNER_TEMP/lucid"
-          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 4800 \
-            "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME" \
-            --write-out 'http_code=%{http_code}\neffective_url=%{url_effective}\ncontent_type=%{content_type}\nsize_download=%{size_download}\n' \
-            | tee clean-base/audit/base-download-response.txt
+          echo "EXPECTED_FILENAME=$EXPECTED_FILENAME" >> "$GITHUB_ENV"
+          if ! aria2c --max-connection-per-server=8 --split=8 --min-split-size=1M \
+            --file-allocation=none --retry-wait=5 --max-tries=5 --timeout=60 --connect-timeout=30 \
+            --console-log-level=warn --summary-interval=30 --dir=clean-base --out="$EXPECTED_FILENAME" "$BASE_ROM_URL"; then
+            rm -f "clean-base/$EXPECTED_FILENAME"
+            curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 4800 \
+              "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME"
+            DOWNLOAD_METHOD=curl-fallback
+          else
+            DOWNLOAD_METHOD=aria2c-parallel
+          fi
+          {
+            printf 'download_method=%s\n' "$DOWNLOAD_METHOD"
+            printf 'requested_url=%s\nsize_download=%s\n' "$BASE_ROM_URL" "$(stat -c %s "clean-base/$EXPECTED_FILENAME")"
+          } > clean-base/audit/base-download-response.txt
           test -s "clean-base/$EXPECTED_FILENAME"
+          if ! printf '%s  %s\n' "$EXPECTED_SHA256" "clean-base/$EXPECTED_FILENAME" | sha256sum --check - >/dev/null 2>&1; then
+            echo "Parallel download failed SHA-256 validation; retrying once with curl." | tee clean-base/audit/base-download-fallback.txt
+            rm -f "clean-base/$EXPECTED_FILENAME"
+            curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 4800 \
+              "$BASE_ROM_URL" --output "clean-base/$EXPECTED_FILENAME"
+          fi
+          printf '%s  %s\n' "$EXPECTED_SHA256" "clean-base/$EXPECTED_FILENAME" | sha256sum --check -
           sha256sum "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-sha256.txt
           stat -c 'filename=%n bytes=%s' "clean-base/$EXPECTED_FILENAME" | tee clean-base/audit/base-file.txt
           unzip -tq "clean-base/$EXPECTED_FILENAME"
@@ -123,6 +155,127 @@ jobs:
           print((report / 'zip-entry-comparison.json').read_text())
           PY
 
+      - name: Audit base identity, installer and boot-component compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT=clean-base/audit/base-compatibility
+          mkdir -p "$REPORT"
+          BASE_ZIP="clean-base/$EXPECTED_FILENAME"
+          unzip -Z1 "$BASE_ZIP" > "$REPORT/entries.txt"
+          unzip -p "$BASE_ZIP" META-INF/com/android/metadata > "$REPORT/metadata.txt" || true
+          unzip -p "$BASE_ZIP" META-INF/com/google/android/updater-script > "$REPORT/updater-script.txt" || true
+          unzip -p "$BASE_ZIP" dynamic_partitions_op_list > "$REPORT/dynamic_partitions_op_list.txt" || true
+          python3 - "$REPORT" "$BASE_ZIP" <<'PY'
+          import json, pathlib, sys, zipfile, re
+          out=pathlib.Path(sys.argv[1])
+          with zipfile.ZipFile(sys.argv[2]) as z:
+              names=set(z.namelist())
+              metadata=z.read('META-INF/com/android/metadata').decode('utf-8','replace') if 'META-INF/com/android/metadata' in names else ''
+              updater=z.read('META-INF/com/google/android/updater-script').decode('utf-8','replace') if 'META-INF/com/google/android/updater-script' in names else ''
+              result={
+                'archive':pathlib.Path(sys.argv[2]).name,'entry_count':len(names),
+                'partition_payloads':[{'path':n,'bytes':z.getinfo(n).file_size} for n in sorted(names) if n.endswith(('.img','.dat.br','.transfer.list')) or n in ('dynamic_partitions_op_list','payload.bin')],
+                'metadata':metadata,'pre_device_lavender':'pre-device=lavender' in metadata.lower(),
+                'sdk35_declared':'sdk-level=35' in metadata.lower(),
+                'fingerprint_lines':[line for line in metadata.splitlines() if line.startswith('post-build=')],
+                'fingerprint_declares_android15':any(':15/' in line for line in metadata.splitlines() if line.startswith('post-build=')),
+                'fingerprint_note':'post-build fingerprint is informational only; actual mounted system build.prop must prove SDK 35 / Android 15',
+                'required_partitions':['system','vendor','product','system_ext','odm'],
+                'has_full_partition_set':all((p+'.transfer.list' in names and p+'.new.dat.br' in names) for p in ('system','vendor','product','system_ext','odm')),
+                'updater_mentions_lavender':'lavender' in updater.lower(),
+                'updater_mentions_retrofit_dynamic':any(s in updater.lower() for s in ('retrofit','dynamic partition','super_dummy')),
+                'has_boot_img':'boot.img' in names,'has_dtbo_img':'dtbo.img' in names,
+                'has_vbmeta_img':'vbmeta.img' in names,'has_recovery_img':'recovery.img' in names,
+                'has_super_dummy_script':'install/bin/flash_super_dummy.sh' in names,
+                'has_dynamic_partition_op_list':'dynamic_partitions_op_list' in names}
+              (out/'summary.json').write_text(json.dumps(result,indent=2)+'\n')
+              print(json.dumps(result,indent=2))
+          PY
+          python3 - "$REPORT/summary.json" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1])); failures=[]
+          if not d['pre_device_lavender']: failures.append('metadata does not assert pre-device=lavender')
+          if not d['sdk35_declared']: failures.append('metadata does not declare SDK 35')
+          if not d['has_full_partition_set']: failures.append('one or more full dynamic partition payload pairs are missing')
+          if not d['updater_mentions_retrofit_dynamic']: failures.append('updater does not show retrofit/dynamic partition support')
+          if not d['has_boot_img']: failures.append('boot.img missing')
+          if not d['has_vbmeta_img']: failures.append('vbmeta.img missing')
+          if not d['has_dynamic_partition_op_list']: failures.append('dynamic_partitions_op_list missing')
+          d['audit_failures']=failures
+          d['dtbo_note']='dtbo.img absent: reconcile with device/installer before acceptance' if not d['has_dtbo_img'] else 'dtbo.img present'
+          open(sys.argv[1],'w').write(json.dumps(d,indent=2)+'\n')
+          print('AUDIT_FAILURES='+json.dumps(failures)); print(d['dtbo_note'])
+          if failures: print('Candidate compatibility gate failed; continue collecting product evidence before final rejection.')
+          PY
+
+      - name: Reconstruct and validate every dynamic partition
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p clean-base/audit/partition-check "$RUNNER_TEMP/base-partitions" "$RUNNER_TEMP/mnt-system"
+          BASE_ZIP="clean-base/${EXPECTED_FILENAME:-RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip}"
+          python3 -m venv "$RUNNER_TEMP/partition-venv"
+          "$RUNNER_TEMP/partition-venv/bin/pip" install --quiet brotli
+          for part in system vendor product system_ext odm; do
+            REPORT="clean-base/audit/partition-check/$part"
+            mkdir -p "$REPORT"
+            RESULT="$REPORT/RESULT.txt"
+            if ! unzip -Z1 "$BASE_ZIP" | grep -qx "$part.transfer.list" ||
+               ! unzip -Z1 "$BASE_ZIP" | grep -qx "$part.new.dat.br"; then
+              echo "REJECTED: required full partition payload pair missing for $part." | tee "$RESULT"
+              continue
+            fi
+            unzip -p "$BASE_ZIP" "$part.transfer.list" > "$RUNNER_TEMP/base-partitions/$part.transfer.list"
+            unzip -p "$BASE_ZIP" "$part.new.dat.br" > "$RUNNER_TEMP/base-partitions/$part.new.dat.br"
+            set +e
+            "$RUNNER_TEMP/partition-venv/bin/python" tools/reconstruct_transfer_image.py \
+              "$RUNNER_TEMP/base-partitions/$part.transfer.list" \
+              "$RUNNER_TEMP/base-partitions/$part.new.dat.br" \
+              "$RUNNER_TEMP/base-partitions/$part.img" > "$REPORT/reconstruction.txt" 2>&1
+            rc=$?
+            set -e
+            if [[ "$rc" -ne 0 ]]; then
+              echo "REJECTED: $part reconstruction failed." | tee "$RESULT"
+              rm -f "$RUNNER_TEMP/base-partitions/$part.transfer.list" "$RUNNER_TEMP/base-partitions/$part.new.dat.br" "$RUNNER_TEMP/base-partitions/$part.img"
+              continue
+            fi
+            if ! grep -q '^transfer_covers_full_filesystem_by_operations=True$' "$REPORT/reconstruction.txt"; then
+              echo "REJECTED: $part transfer list does not write every filesystem block." | tee "$RESULT"
+              rm -f "$RUNNER_TEMP/base-partitions/$part.transfer.list" "$RUNNER_TEMP/base-partitions/$part.new.dat.br" "$RUNNER_TEMP/base-partitions/$part.img"
+              continue
+            fi
+            set +e
+            e2fsck -fn "$RUNNER_TEMP/base-partitions/$part.img" > "$REPORT/e2fsck.txt" 2>&1
+            fsck_rc=$?
+            set -e
+            if [[ "$fsck_rc" -ne 0 ]]; then
+              echo "REJECTED: $part filesystem failed read-only e2fsck (exit $fsck_rc)." | tee "$RESULT"
+              rm -f "$RUNNER_TEMP/base-partitions/$part.transfer.list" "$RUNNER_TEMP/base-partitions/$part.new.dat.br" "$RUNNER_TEMP/base-partitions/$part.img"
+              continue
+            fi
+            {
+              echo "e2fsck_exit_code=0"
+              echo "full_write_coverage=True"
+              echo "image_sha256=$(sha256sum "$RUNNER_TEMP/base-partitions/$part.img" | cut -d' ' -f1)"
+            } > "$RESULT"
+            if [[ "$part" == "system" ]]; then
+              sudo mount -t ext4 -o loop,ro,noload "$RUNNER_TEMP/base-partitions/system.img" "$RUNNER_TEMP/mnt-system"
+              sudo find "$RUNNER_TEMP/mnt-system" -maxdepth 3 -type f \( -name build.prop -o -name system-build.prop \) -print | tee "$REPORT/build-prop-paths.txt"
+              sudo find "$RUNNER_TEMP/mnt-system" -maxdepth 3 -type f \( -name build.prop -o -name system-build.prop \) -exec grep -hE '^(ro\.build\.version\.(sdk|release)|ro\.system\.build\.version\.(sdk|release))=' {} \; | tee "$REPORT/system-build-properties.txt" || true
+              if ! grep -Eq '^(ro\.build\.version\.sdk|ro\.system\.build\.version\.sdk)=35$' "$REPORT/system-build-properties.txt" ||
+                 ! grep -Eq '^(ro\.build\.version\.release|ro\.system\.build\.version\.release)=15(\.0)?$' "$REPORT/system-build-properties.txt"; then
+                echo "REJECTED: extracted system build.prop does not prove Android 15 / SDK 35." | tee "$RESULT"
+              else
+                echo "system_sdk=35" >> "$RESULT"
+                echo "system_release=15" >> "$RESULT"
+              fi
+              sudo umount "$RUNNER_TEMP/mnt-system"
+            fi
+            rm -f "$RUNNER_TEMP/base-partitions/$part.transfer.list" \
+              "$RUNNER_TEMP/base-partitions/$part.new.dat.br" "$RUNNER_TEMP/base-partitions/$part.img"
+          done
+
       - name: Publish intake evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -131,3 +284,44 @@ jobs:
           path: clean-base/audit/
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Enforce candidate acceptance gate after evidence upload
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          failed=0
+          for part in system vendor product system_ext odm; do
+            result="clean-base/audit/partition-check/$part/RESULT.txt"
+            if [[ ! -s "$result" ]] || grep -q '^REJECTED:' "$result"; then
+              echo "REJECTED: partition gate failed for $part." >&2
+              [[ ! -s "$result" ]] || cat "$result"
+              failed=1
+            elif ! grep -q '^e2fsck_exit_code=0' "$result"; then
+              echo "REJECTED: missing successful e2fsck result for $part." >&2
+              cat "$result"
+              failed=1
+            fi
+          done
+          compat=clean-base/audit/base-compatibility/summary.json
+          if [[ ! -s "$compat" ]]; then
+            echo "REJECTED: no base identity/installer compatibility summary was produced." >&2
+            failed=1
+          else
+            if ! python3 - "$compat" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1]))
+          failures=d.get("audit_failures", [])
+          if failures:
+              print("REJECTED: candidate compatibility failures:")
+              for item in failures:
+                  print("- " + item)
+              raise SystemExit(1)
+          PY
+            then
+              cat "$compat"
+              failed=1
+            fi
+          fi
+          if (( failed != 0 )); then exit 1; fi
+          echo "All dynamic partition, Android build identity, installer and filesystem gates passed. Device bootability remains unverified."

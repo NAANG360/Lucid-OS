@@ -1,0 +1,45 @@
+name: LucidOS privilege-boundary guardrails
+
+on:
+  push:
+    branches: [fix/chroot-desktop-runtime]
+    paths:
+      - "system-tree/system/etc/init/init.lucid.rc"
+      - "system-tree/system/bin/lucid_desktop.sh"
+      - "system-tree/system/bin/lucid_root_toggle.sh"
+      - "docs/CHROOT_PRIVILEGE_BOUNDARY.md"
+      - ".github/workflows/lucid-privilege-boundary-check.yml"
+  pull_request:
+    paths:
+      - "system-tree/system/etc/init/init.lucid.rc"
+      - "system-tree/system/bin/lucid_desktop.sh"
+      - "system-tree/system/bin/lucid_root_toggle.sh"
+      - "docs/CHROOT_PRIVILEGE_BOUNDARY.md"
+      - ".github/workflows/lucid-privilege-boundary-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  fail-closed-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: |
+          sh -n system-tree/system/bin/lucid_desktop.sh
+          sh -n system-tree/system/bin/lucid_root_toggle.sh
+      - name: Assert the desktop requires all fail-closed gates
+        run: |
+          grep -Fq 'property:persist.lucid.chroot_root=1' system-tree/system/etc/init/init.lucid.rc
+          grep -Fq 'property:persist.lucid.chroot_backend_ready=1' system-tree/system/etc/init/init.lucid.rc
+          grep -Fq 'getprop persist.lucid.chroot_backend_ready' system-tree/system/bin/lucid_desktop.sh
+          grep -Fq 'exit 1' system-tree/system/bin/lucid_root_toggle.sh
+          grep -Fq 'does not yet add a real Developer Options switch' docs/CHROOT_PRIVILEGE_BOUNDARY.md
+      - name: Reject automatic enablement of the privileged backend
+        run: |
+          if grep -R -nE 'setprop[[:space:]]+persist\.lucid\.chroot_backend_ready[[:space:]]+1' system-tree; then
+            echo "Refusing to ship an automatically enabled host-root chroot backend." >&2
+            exit 1
+          fi

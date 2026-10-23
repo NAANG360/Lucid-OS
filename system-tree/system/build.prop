@@ -201,3 +201,6 @@ net.tethering.noprovisioning=true
 # https://issuetracker.google.com/issues/350037023 with alias 1
 ro.build.backported_fixes.alias_bitset.long_list=2
 # end of file
+
+# LucidOS: privileged Linux chroot starts disabled until explicitly enabled.
+persist.lucid.chroot_root=0

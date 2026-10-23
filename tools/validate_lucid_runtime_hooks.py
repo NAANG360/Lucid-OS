@@ -62,19 +62,16 @@ def validate(root: Path) -> dict:
 
     root_toggle_path = root / "system-tree/system/bin/lucid_root_toggle.sh"
     root_toggle = root_toggle_path.read_text(encoding="utf-8", errors="replace") if root_toggle_path.is_file() else ""
-    if 'SU_PATH="/system/xbin/su"' not in root_toggle:
-        errors.append("root toggle target does not match /system/xbin/su")
-    if "chmod 06755" not in root_toggle:
-        errors.append("root-enable path lacks setuid/setgid mode 06755")
-    if "mount -o remount,ro /system" not in root_toggle:
-        errors.append("root toggle does not attempt to restore /system read-only")
-    if "/system/xbin/su" not in contexts or "su_exec" not in contexts:
-        errors.append("SELinux file contexts do not label /system/xbin/su as su_exec")
-
+    if "Root toggle is disabled" not in root_toggle:
+        errors.append("unsafe legacy root toggle must remain fail-closed until a complete root manager is integrated")
+    if "setprop persist.lucid.root" in init:
+        errors.append("desktop/casting init hooks must not grant or revoke root")
     if "setprop service.adb.tcp.port -1" not in init:
         errors.append("casting-stop action does not disable ADB TCP")
-    if "setprop persist.lucid.root 0" not in init:
-        errors.append("casting-stop action does not request root gate closure")
+    if "dbus-launch --exit-with-session startxfce4" not in desktop:
+        errors.append("desktop session does not create a D-Bus session")
+    if "bind_once /dev/pts" not in desktop:
+        errors.append("chroot does not bind devpts for terminal/PTY apps")
 
     return {
         "schema": 1,

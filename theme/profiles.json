@@ -1,20 +1,20 @@
 {
-  "defaultProfile": "lucid-blue",
+  "defaultProfile": "violet-dusk",
   "profiles": {
-    "lucid-blue": {
-      "label": "Lucid Blue",
-      "sourceColor": "#0866FF",
-      "description": "Electric blue primary, lavender neutrals, restrained cyan highlights."
-    },
     "violet-dusk": {
       "label": "Violet Dusk",
-      "sourceColor": "#7657FF",
-      "description": "Violet primary with cool periwinkle surfaces."
+      "sourceColor": "#8B5CF6",
+      "description": "Signature Lucid violet with indigo depth and cool lilac surfaces."
     },
-    "cyan-horizon": {
-      "label": "Cyan Horizon",
-      "sourceColor": "#00AFC8",
-      "description": "Cyan primary with blue-violet secondary tones."
+    "royal-amethyst": {
+      "label": "Royal Amethyst",
+      "sourceColor": "#A855F7",
+      "description": "Bold amethyst accents with deep plum shadows."
+    },
+    "ultraviolet": {
+      "label": "Ultraviolet",
+      "sourceColor": "#7C3AED",
+      "description": "Electric violet highlights over midnight purple neutrals."
     }
   }
 }

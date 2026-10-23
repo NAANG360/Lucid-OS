@@ -1,0 +1,814 @@
+name: Assemble Integrated LucidOS ROM
+
+on:
+  push:
+    branches: [fix/chroot-desktop-runtime]
+    paths:
+      - '.github/workflows/assemble-integrated-rom.yml'
+      - 'theme/updater/**'
+      - 'theme/privapp-permissions-lucid.xml'
+      - 'system-tree/**'
+      - 'tools/**'
+  workflow_dispatch:
+    inputs:
+      base_rom_url:
+        description: Direct URL to the validated Android 15 dynamic lavender base ZIP
+        required: true
+        default: https://downloads.sourceforge.net/project/termux-lavender/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip
+        type: string
+      expected_filename:
+        description: Base ZIP filename
+        required: true
+        default: RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip
+        type: string
+      expected_sha256:
+        description: SHA-256 of the exact base archive
+        required: true
+        default: 2f105eadd8ea0a044a4930cf60a83d4c91983a500c2a97125d45a4cb8b6e4f2c
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  assemble:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Android and filesystem build tools
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "build-tools;35.0.0 platforms;android-35"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install host packages and validate tracked Lucid sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aria2 brotli cpio e2fsprogs file zip unzip lz4 xz-utils
+          mkdir -p report "$RUNNER_TEMP/assembly"
+          python3 -m venv "$RUNNER_TEMP/assembly/venv"
+          "$RUNNER_TEMP/assembly/venv/bin/pip" install --quiet brotli lz4 zstandard cryptography
+          "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_validate_lucid_preservation.py -v
+          "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_stage_lucid_overlays.py -v
+          "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_reconstruct_transfer_image.py -v
+          python3 -m py_compile tools/purge_rising_customizations.py
+          "$RUNNER_TEMP/assembly/venv/bin/python" tests/test_purge_rising_customizations.py -v
+          "$RUNNER_TEMP/assembly/venv/bin/python" tools/validate_lucid_preservation.py --root "$GITHUB_WORKSPACE" --output report/lucid-preservation-manifest.json
+          df -h "$RUNNER_TEMP" | tee report/disk-before-build.txt
+
+      - name: Download and pin clean base plus original Lucid release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_ROM_URL: ${{ inputs.base_rom_url || 'https://downloads.sourceforge.net/project/termux-lavender/Rising-Revived/15.0/RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip' }}
+          EXPECTED_FILENAME: ${{ inputs.expected_filename || 'RisingOS_Revived-6.3-250319-0738-VANILLA-COMMUNITY-lavender.zip' }}
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 || '2f105eadd8ea0a044a4930cf60a83d4c91983a500c2a97125d45a4cb8b6e4f2c' }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_FILENAME" =~ ^[A-Za-z0-9._-]+$ ]]
+          [[ "$EXPECTED_SHA256" =~ ^[0-9a-fA-F]{64}$ ]]
+          mkdir -p "$RUNNER_TEMP/assembly/base" "$RUNNER_TEMP/assembly/lucid" "$RUNNER_TEMP/assembly/boot" report
+          BASE_ZIP="$RUNNER_TEMP/assembly/base/$EXPECTED_FILENAME"
+          if ! aria2c --max-connection-per-server=8 --split=8 --min-split-size=1M \
+            --file-allocation=none --retry-wait=5 --max-tries=5 --timeout=60 --connect-timeout=30 \
+            --console-log-level=warn --summary-interval=30 --dir="$RUNNER_TEMP/assembly/base" \
+            --out="$EXPECTED_FILENAME" "$BASE_ROM_URL"; then
+            rm -f "$BASE_ZIP"
+            curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 7200 \
+              "$BASE_ROM_URL" --output "$BASE_ZIP"
+          fi
+          if ! printf '%s  %s\n' "$EXPECTED_SHA256" "$BASE_ZIP" | sha256sum --check - >/dev/null 2>&1; then
+            echo "Parallel base download failed SHA-256 validation; retrying once with curl." | tee report/base-download-fallback.txt
+            rm -f "$BASE_ZIP"
+            curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 7200 \
+              "$BASE_ROM_URL" --output "$BASE_ZIP"
+          fi
+          printf '%s  %s\n' "$EXPECTED_SHA256" "$BASE_ZIP" | sha256sum --check -
+          sha256sum "$BASE_ZIP" | tee report/base-sha256.txt
+          LUCID_ZIP="$RUNNER_TEMP/assembly/lucid/LucidOS-unsigned.zip"
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 30 --max-time 7200 \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/652845990" --output "$LUCID_ZIP"
+          printf '%s  %s\n' "6e9fa4bc2c7dffee9671a02f45bf3b4b7f881b33546cde33b2ea2c9f8ca953b1" "$LUCID_ZIP" | sha256sum --check -
+          sha256sum "$LUCID_ZIP" | tee report/original-lucid-sha256.txt
+          unzip -t "$BASE_ZIP" > report/base-zip-integrity.txt
+          unzip -t "$LUCID_ZIP" > report/original-lucid-zip-integrity.txt
+          unzip -Z1 "$BASE_ZIP" > report/base-zip-entry-list.txt
+          unzip -Z1 "$LUCID_ZIP" > report/original-lucid-zip-entry-list.txt
+          for required in system vendor product system_ext odm; do
+            grep -qx "$required.transfer.list" report/base-zip-entry-list.txt
+            grep -qx "$required.new.dat.br" report/base-zip-entry-list.txt
+          done
+          grep -qx dynamic_partitions_op_list report/base-zip-entry-list.txt
+          unzip -p "$BASE_ZIP" dynamic_partitions_op_list > "$RUNNER_TEMP/assembly/dynamic_partitions_op_list"
+          unzip -p "$BASE_ZIP" META-INF/com/android/metadata > report/base-ota-metadata.txt
+          unzip -p "$BASE_ZIP" META-INF/com/google/android/updater-script > "$RUNNER_TEMP/assembly/updater-script"
+          unzip -p "$BASE_ZIP" boot.img > "$RUNNER_TEMP/assembly/boot/base-boot.img"
+          unzip -p "$LUCID_ZIP" boot.img > "$RUNNER_TEMP/assembly/boot/lucid-boot.img"
+          unzip -p "$BASE_ZIP" vbmeta.img > "$RUNNER_TEMP/assembly/boot/base-vbmeta.img"
+          unzip -p "$LUCID_ZIP" vbmeta.img > "$RUNNER_TEMP/assembly/boot/lucid-vbmeta.img"
+          if grep -qx dtbo.img report/original-lucid-zip-entry-list.txt; then
+            unzip -p "$LUCID_ZIP" dtbo.img > "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img"
+          fi
+          {
+            echo "BASE_ZIP=$BASE_ZIP"
+            echo "LUCID_ZIP=$LUCID_ZIP"
+            echo "BASE_ROOT=$RUNNER_TEMP/assembly/root"
+            echo "ASSEMBLY_DIR=$RUNNER_TEMP/assembly"
+            echo "UPDATE_DIR=$RUNNER_TEMP/assembly/update"
+            echo "OUTPUT_ZIP=$GITHUB_WORKSPACE/out/LucidOS-Android15-lavender-unsigned.zip"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/assembly/root" "$RUNNER_TEMP/assembly/update" out
+          rm -f "$LUCID_ZIP"
+
+      - name: Inspect both boot images and enforce ramdisk preservation
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/assembly/venv/bin/python" tools/inspect_boot_image.py \
+            "$RUNNER_TEMP/assembly/boot/base-boot.img" "$RUNNER_TEMP/assembly/boot/base-inspect"
+          "$RUNNER_TEMP/assembly/venv/bin/python" tools/inspect_boot_image.py \
+            "$RUNNER_TEMP/assembly/boot/lucid-boot.img" "$RUNNER_TEMP/assembly/boot/lucid-inspect"
+          cp "$RUNNER_TEMP/assembly/boot/base-inspect/boot-header-report.txt" report/base-boot-header.txt
+          cp "$RUNNER_TEMP/assembly/boot/lucid-inspect/boot-header-report.txt" report/lucid-boot-header.txt
+          cp "$RUNNER_TEMP/assembly/boot/base-inspect/kernel-compatibility-strings.txt" report/base-kernel-strings.txt
+          cp "$RUNNER_TEMP/assembly/boot/lucid-inspect/kernel-compatibility-strings.txt" report/lucid-kernel-strings.txt
+          if [[ -s "$RUNNER_TEMP/assembly/boot/base-inspect/ramdisk-lucid-preservation-scan.txt" ]]; then
+            cp "$RUNNER_TEMP/assembly/boot/base-inspect/ramdisk-lucid-preservation-scan.txt" report/base-ramdisk-lucid-scan.txt
+          else
+            echo "Base ramdisk was not decoded; the base boot image will be retained unchanged." > report/base-ramdisk-lucid-scan.txt
+          fi
+          if [[ -s "$RUNNER_TEMP/assembly/boot/lucid-inspect/ramdisk-lucid-preservation-scan.txt" ]]; then
+            cp "$RUNNER_TEMP/assembly/boot/lucid-inspect/ramdisk-lucid-preservation-scan.txt" report/lucid-ramdisk-lucid-scan.txt
+          else
+            echo "Lucid ramdisk scan file missing; compression was not decoded." > report/lucid-ramdisk-lucid-scan.txt
+          fi
+          BASE_KERNEL_SHA="$(grep '^kernel_sha256=' report/base-boot-header.txt | cut -d= -f2)"
+          LUCID_KERNEL_SHA="$(grep '^kernel_sha256=' report/lucid-boot-header.txt | cut -d= -f2)"
+          [[ -n "$BASE_KERNEL_SHA" && -n "$LUCID_KERNEL_SHA" ]]
+          printf 'base_kernel_sha256=%s\nlucid_kernel_sha256=%s\n' "$BASE_KERNEL_SHA" "$LUCID_KERNEL_SHA" | tee report/kernel-comparison.txt
+          if grep -q 'ERROR:' report/base-boot-header.txt ||
+             grep -q 'ERROR:' report/lucid-boot-header.txt; then
+            echo "Boot image parser could not validate one of the images; refusing to silently drop boot components." >&2
+            exit 1
+          fi
+          if grep -Eq 'ramdisk_compression=unknown/raw|decompression unavailable' report/lucid-boot-header.txt; then
+            echo "Original Lucid ramdisk could not be fully decoded; preserving its contents is not yet proven." >&2
+            exit 1
+          fi
+          if grep -q 'init_lucid_rd_name_found=True' report/lucid-ramdisk-lucid-scan.txt ||
+             grep -q 'init_lucid_rc_name_found=True' report/lucid-ramdisk-lucid-scan.txt; then
+            echo "Original Lucid boot ramdisk contains a Lucid init hook; this build must merge that hook into the base ramdisk before packaging." >&2
+            exit 1
+          fi
+          LUCID_HITS="$(grep '^lucid_related_file_count=' report/lucid-ramdisk-lucid-scan.txt | cut -d= -f2)"
+          if [[ -n "$LUCID_HITS" && "$LUCID_HITS" != "0" ]]; then
+            echo "Original Lucid boot ramdisk contains additional Lucid-related content; refusing to omit it without an explicit merge." >&2
+            exit 1
+          fi
+          if [[ "$BASE_KERNEL_SHA" == "$LUCID_KERNEL_SHA" && -s "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" ]]; then
+            KERNEL_MATCH=1
+            echo "The Lucid and base kernel payloads are byte-identical; the original Lucid DTBO is eligible for retention." | tee report/dtbo-decision.txt
+          else
+            KERNEL_MATCH=0
+            echo "The kernels differ or Lucid DTBO is absent; do not transplant the old DTBO. The base installer leaves device DTBO unchanged." | tee report/dtbo-decision.txt
+          fi
+          echo "KERNEL_MATCH=$KERNEL_MATCH" >> "$GITHUB_ENV"
+
+      - name: Audit AVB and prepare verification-disabled vbmeta
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --retry-all-errors \
+            "https://android.googlesource.com/platform/external/avb/+/refs/heads/main/avbtool.py?format=TEXT" \
+            --output "$RUNNER_TEMP/assembly/avbtool.py.b64"
+          base64 --decode "$RUNNER_TEMP/assembly/avbtool.py.b64" > "$RUNNER_TEMP/assembly/avbtool.py"
+          if ! "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+            --image "$RUNNER_TEMP/assembly/boot/base-vbmeta.img" > report/base-vbmeta-info.txt 2>&1; then
+            echo "AVB parser could not read the base vbmeta; a fresh verification-disabled image will be generated." | tee report/base-vbmeta-parse-warning.txt
+          fi
+          if ! "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+            --image "$RUNNER_TEMP/assembly/boot/lucid-vbmeta.img" > report/lucid-vbmeta-info.txt 2>&1; then
+            echo "AVB parser could not read the original Lucid vbmeta; it will not be reused." | tee report/lucid-vbmeta-parse-warning.txt
+          fi
+          BASE_FLAGS="$(awk -F': ' '/^Flags:/ {print $2; exit}' report/base-vbmeta-info.txt | awk '{print $1}')"
+          LUCID_FLAGS="$(awk -F': ' '/^Flags:/ {print $2; exit}' report/lucid-vbmeta-info.txt | awk '{print $1}')"
+          BASE_FLAGS="${BASE_FLAGS:-unknown}"
+          LUCID_FLAGS="${LUCID_FLAGS:-unknown}"
+          BASE_VBMETA_SIZE="$(stat -c %s "$RUNNER_TEMP/assembly/boot/base-vbmeta.img")"
+          LUCID_VBMETA_SIZE="$(stat -c %s "$RUNNER_TEMP/assembly/boot/lucid-vbmeta.img")"
+          if [[ "$BASE_FLAGS" == "3" ]]; then
+            echo "The base vbmeta already disables AVB verification and hashtree checks; retaining it." | tee report/vbmeta-decision.txt
+          elif [[ "$LUCID_FLAGS" == "3" && "$LUCID_VBMETA_SIZE" == "$BASE_VBMETA_SIZE" ]]; then
+            cp "$RUNNER_TEMP/assembly/boot/lucid-vbmeta.img" "$RUNNER_TEMP/assembly/update/vbmeta.img"
+            echo "Using original Lucid vbmeta: flags=3 and exact size match." | tee report/vbmeta-decision.txt
+          else
+            "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" make_vbmeta_image \
+              --algorithm NONE --flags 3 --padding_size "$BASE_VBMETA_SIZE" \
+              --output "$RUNNER_TEMP/assembly/update/vbmeta.img"
+            "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+              --image "$RUNNER_TEMP/assembly/update/vbmeta.img" > report/generated-vbmeta-info.txt
+            grep -Eq '^Flags:[[:space:]]*3([[:space:]]|$)' report/generated-vbmeta-info.txt
+            echo "Generated an unsigned vbmeta image with AVB verification and hashtree disabled; flashing requires an unlocked bootloader." | tee report/vbmeta-decision.txt
+          fi
+          if [[ -s "$RUNNER_TEMP/assembly/update/vbmeta.img" ]]; then
+            [[ "$(stat -c %s "$RUNNER_TEMP/assembly/update/vbmeta.img")" == "$BASE_VBMETA_SIZE" ]]
+            "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+              --image "$RUNNER_TEMP/assembly/update/vbmeta.img" > report/selected-vbmeta-info.txt
+            grep -Eq '^Flags:[[:space:]]*3([[:space:]]|$)' report/selected-vbmeta-info.txt
+            VBMETA_REPLACEMENT=1
+          else
+            VBMETA_REPLACEMENT=0
+          fi
+          echo "VBMETA_REPLACEMENT=$VBMETA_REPLACEMENT" >> "$GITHUB_ENV"
+
+      - name: Build LucidSetup, About, Wallpapers, and boot animation from source
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          mkdir -p out "$RUNNER_TEMP/assembly/wallpaper-classes" "$RUNNER_TEMP/assembly/wallpaper-dex" theme/wallpaper-app/assets
+          cp theme/assets/lucid-wallpaper-dusk.jpg theme/wallpaper-app/assets/
+          cp theme/assets/lucid-wallpaper-alpine.jpg theme/wallpaper-app/assets/
+          "$BUILD_TOOLS/aapt2" compile --dir theme/wallpaper-app/res -o "$RUNNER_TEMP/assembly/wallpaper-resources.zip"
+          "$BUILD_TOOLS/aapt2" link --manifest theme/wallpaper-app/AndroidManifest.xml -I "$ANDROID_JAR" -A theme/wallpaper-app/assets -o "$RUNNER_TEMP/assembly/LucidWallpapers-unsigned.apk" "$RUNNER_TEMP/assembly/wallpaper-resources.zip"
+          mapfile -t WALLPAPER_SOURCES < <(find theme/wallpaper-app/src -name '*.java' -print | sort)
+          javac --release 8 -classpath "$ANDROID_JAR" -d "$RUNNER_TEMP/assembly/wallpaper-classes" "${WALLPAPER_SOURCES[@]}"
+          mapfile -t WALLPAPER_CLASSES < <(find "$RUNNER_TEMP/assembly/wallpaper-classes" -name '*.class' -print | sort)
+          "$BUILD_TOOLS/d8" --lib "$ANDROID_JAR" --output "$RUNNER_TEMP/assembly/wallpaper-dex" "${WALLPAPER_CLASSES[@]}"
+          (cd "$RUNNER_TEMP/assembly/wallpaper-dex" && zip -q "$RUNNER_TEMP/assembly/LucidWallpapers-unsigned.apk" classes.dex)
+          keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/assembly/wallpaper.jks" -storepass 'lucid-wallpaper-build' -keypass 'lucid-wallpaper-build' -alias lucid-wallpaper -keyalg RSA -keysize 2048 -validity 3650 -dname 'CN=LucidOS Wallpapers Development'
+          "$BUILD_TOOLS/zipalign" -f 4 "$RUNNER_TEMP/assembly/LucidWallpapers-unsigned.apk" "$RUNNER_TEMP/assembly/LucidWallpapers-aligned.apk"
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/assembly/wallpaper.jks" --ks-key-alias lucid-wallpaper --ks-pass pass:lucid-wallpaper-build --key-pass pass:lucid-wallpaper-build --out out/LucidWallpapers.apk "$RUNNER_TEMP/assembly/LucidWallpapers-aligned.apk"
+          "$BUILD_TOOLS/apksigner" verify --verbose out/LucidWallpapers.apk
+          "$BUILD_TOOLS/aapt" dump badging out/LucidWallpapers.apk > report/wallpaper-app-badging.txt
+          grep -q "package: name='com.lucid.os.wallpapers'" report/wallpaper-app-badging.txt
+          sha256sum out/LucidWallpapers.apk > report/wallpaper-app-sha256.txt
+
+          # Build the updater from current repository source and integrate it into
+          # the full system_ext partition; it is not a separate add-on ZIP.
+          gradle -p theme/updater --no-daemon assembleDebug
+          UPDATER_APK=theme/updater/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$UPDATER_APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$UPDATER_APK" > report/updater-app-signature.txt
+          mkdir -p out
+          cp "$UPDATER_APK" out/LucidSystemUpdater.apk
+          "$BUILD_TOOLS/aapt" dump badging out/LucidSystemUpdater.apk > report/updater-app-badging.txt
+          grep -q "package: name='com.lucid.os.updater'" report/updater-app-badging.txt
+          sha256sum out/LucidSystemUpdater.apk > report/updater-app-sha256.txt
+
+          chmod +x tools/build_lucid_setup.sh tools/build_lucid_about.sh
+          tools/build_lucid_setup.sh "$GITHUB_WORKSPACE/out/LucidSetup.apk"
+          tools/build_lucid_about.sh "$GITHUB_WORKSPACE/out/LucidAbout.apk"
+          "$BUILD_TOOLS/aapt" dump badging out/LucidSetup.apk > report/setup-app-badging.txt
+          "$BUILD_TOOLS/aapt" dump badging out/LucidAbout.apk > report/about-app-badging.txt
+          grep -q "package: name='com.cosmos.setup'" report/setup-app-badging.txt
+          grep -q "package: name='com.lucid.os.about'" report/about-app-badging.txt
+          "$BUILD_TOOLS/apksigner" verify --verbose out/LucidSetup.apk > report/setup-app-signature.txt
+          "$BUILD_TOOLS/apksigner" verify --verbose out/LucidAbout.apk > report/about-app-signature.txt
+          grep -q 'android.permission.WRITE_SECURE_SETTINGS' setup-app/AndroidManifest.xml
+          grep -q '<privapp-permissions package="com.cosmos.setup">' system-tree/system/etc/permissions/lucid-privapp-permissions.xml
+          grep -q 'android.permission.WRITE_SECURE_SETTINGS' system-tree/system/etc/permissions/lucid-privapp-permissions.xml
+
+          python3 -m venv "$RUNNER_TEMP/assembly/pillow-venv"
+          "$RUNNER_TEMP/assembly/pillow-venv/bin/pip" install --quiet Pillow
+          "$RUNNER_TEMP/assembly/pillow-venv/bin/python" tools/generate_bootanimation.py theme/assets/lucid-wallpaper-dusk.jpg out/LucidOS-bootanimation.zip
+          unzip -t out/LucidOS-bootanimation.zip > report/bootanimation-zip-test.txt
+          sha256sum out/LucidOS-bootanimation.zip > report/bootanimation-sha256.txt
+          sha256sum out/LucidSetup.apk out/LucidAbout.apk out/LucidWallpapers.apk > report/lucid-apk-sha256.txt
+          sha256sum out/LucidSystemUpdater.apk >> report/lucid-apk-sha256.txt
+          printf 'static_framework_rro=excluded\nreason=runtime idmap2 and target policy are not yet verified\n' > report/rro-decision.txt
+          ls -lh out/LucidSetup.apk out/LucidAbout.apk out/LucidWallpapers.apk out/LucidOS-bootanimation.zip > report/built-assets.txt
+          OVERLAY_SOURCE="$RUNNER_TEMP/assembly/overlay-source"
+          mkdir -p "$OVERLAY_SOURCE/system-tree/system/etc/init" \
+            "$OVERLAY_SOURCE/system-tree/system/etc/permissions" \
+            "$OVERLAY_SOURCE/system-tree/system/bin" \
+            "$OVERLAY_SOURCE/system-tree/system/priv-app/LucidSetup" \
+            "$OVERLAY_SOURCE/system-tree/system/usr"
+          cp system-tree/system/etc/init/init.lucid.rc "$OVERLAY_SOURCE/system-tree/system/etc/init/"
+          cp system-tree/system/etc/permissions/lucid-privapp-permissions.xml "$OVERLAY_SOURCE/system-tree/system/etc/permissions/"
+          cp system-tree/system/bin/lucid_desktop.sh system-tree/system/bin/lucid_firstboot.sh \
+            system-tree/system/bin/lucid_root_toggle.sh system-tree/system/bin/lucid-linux-app \
+            "$OVERLAY_SOURCE/system-tree/system/bin/"
+          cp -a system-tree/system/usr/lucid "$OVERLAY_SOURCE/system-tree/system/usr/"
+          cp out/LucidSetup.apk "$OVERLAY_SOURCE/system-tree/system/priv-app/LucidSetup/LucidSetup.apk"
+          echo "OVERLAY_SOURCE=$OVERLAY_SOURCE" >> "$GITHUB_ENV"
+          rm -rf system-tree
+
+      - name: Reconstruct all base partition trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$BASE_ROOT"
+          mkdir -p "$ROOT" "$RUNNER_TEMP/assembly/images" "$RUNNER_TEMP/assembly/mnt"
+          for part in system vendor product system_ext odm; do
+            echo "===== reconstruct $part =====" | tee "report/reconstruct-$part.txt"
+            unzip -p "$BASE_ZIP" "$part.transfer.list" > "$RUNNER_TEMP/assembly/$part.transfer.list"
+            unzip -p "$BASE_ZIP" "$part.new.dat.br" > "$RUNNER_TEMP/assembly/$part.new.dat.br"
+            "$RUNNER_TEMP/assembly/venv/bin/python" tools/reconstruct_transfer_image.py \
+              "$RUNNER_TEMP/assembly/$part.transfer.list" \
+              "$RUNNER_TEMP/assembly/$part.new.dat.br" \
+              "$RUNNER_TEMP/assembly/images/$part.img" >> "report/reconstruct-$part.txt" 2>&1
+            if ! grep -q 'transfer_covers_full_filesystem_by_operations=True' "report/reconstruct-$part.txt"; then
+              echo "REJECTED: $part is not reconstructable from a blank image with full new/zero coverage." | tee -a "report/reconstruct-$part.txt"
+              exit 1
+            fi
+            e2fsck -fn "$RUNNER_TEMP/assembly/images/$part.img" > "report/e2fsck-base-$part.txt" 2>&1
+            mkdir -p "$ROOT/$part" "$RUNNER_TEMP/assembly/mnt/$part"
+            sudo mount -t ext4 -o loop,ro,noload "$RUNNER_TEMP/assembly/images/$part.img" "$RUNNER_TEMP/assembly/mnt/$part"
+            sudo cp -a "$RUNNER_TEMP/assembly/mnt/$part/." "$ROOT/$part/"
+            sudo umount "$RUNNER_TEMP/assembly/mnt/$part"
+            rm -f "$RUNNER_TEMP/assembly/images/$part.img" "$RUNNER_TEMP/assembly/$part.transfer.list" "$RUNNER_TEMP/assembly/$part.new.dat.br"
+          done
+          if [[ -s "$ROOT/system/system/build.prop" && ! -e "$ROOT/system/build.prop" ]]; then
+            SYSTEM_FS_ROOT="$ROOT/system/system"
+            SYSTEM_BUILD_PROP="$ROOT/system/system/build.prop"
+            SYSTEM_SAR=1
+          else
+            SYSTEM_FS_ROOT="$ROOT/system"
+            SYSTEM_BUILD_PROP="$ROOT/system/build.prop"
+            SYSTEM_SAR=0
+          fi
+          test -s "$SYSTEM_BUILD_PROP"
+          sudo grep -Eq '^(ro.build.version.sdk|ro.system.build.version.sdk)=35$' "$SYSTEM_BUILD_PROP"
+          sudo grep -Eq '^(ro.build.version.release|ro.system.build.version.release)=15(\.0)?$' "$SYSTEM_BUILD_PROP"
+          {
+            echo "SYSTEM_FS_ROOT=$SYSTEM_FS_ROOT"
+            echo "SYSTEM_BUILD_PROP=$SYSTEM_BUILD_PROP"
+            echo "SYSTEM_SAR=$SYSTEM_SAR"
+          } >> "$GITHUB_ENV"
+          printf 'system_as_root=%s\n' "$SYSTEM_SAR" | tee report/system-layout.txt
+          df -h "$RUNNER_TEMP" | tee report/disk-after-extraction.txt
+
+      
+      - name: Purge explicitly identified RisingOS apps and branding
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          test -x "$AAPT"
+          sudo python3 tools/purge_rising_customizations.py \
+            --base-root "$BASE_ROOT" \
+            --aapt "$AAPT" \
+            --report "$GITHUB_WORKSPACE/report/rising-purge-report.json" \
+            --apply
+          echo "RisingOS purge report generated; unresolved review items block packaging."
+
+      - name: Apply Lucid system, setup, theme, and branding overlays
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$BASE_ROOT"
+          sudo python3 tools/stage_lucid_overlays.py \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --source-root "$OVERLAY_SOURCE" \
+            --base-root "$ROOT" \
+            --apply \
+            --report "$GITHUB_WORKSPACE/report/system-overlay-plan.json"
+          sudo cp "$GITHUB_WORKSPACE/out/LucidSetup.apk" "$SYSTEM_FS_ROOT/priv-app/LucidSetup/LucidSetup.apk"
+          sudo mkdir -p "$ROOT/system_ext/priv-app/LucidSystemUpdater"
+          sudo cp "$GITHUB_WORKSPACE/out/LucidSystemUpdater.apk" "$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk"
+          sudo chmod 0644 "$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk"
+          sudo chown -hR 0:0 "$ROOT/system_ext/priv-app/LucidSystemUpdater"
+          sudo test -s "$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk"
+          sudo python3 - "$SYSTEM_FS_ROOT/build.prop" "$RUNNER_TEMP/assembly/build-fingerprint.txt" <<'PY'
+          import pathlib,sys
+          prop_path=pathlib.Path(sys.argv[1])
+          lines=prop_path.read_text(errors="replace").splitlines()
+          props={}
+          for line in lines:
+              if '=' in line and not line.lstrip().startswith('#'):
+                  k,v=line.split('=',1); props[k]=v
+          sdk=props.get('ro.build.version.sdk',props.get('ro.system.build.version.sdk',''))
+          release=props.get('ro.build.version.release',props.get('ro.system.build.version.release',''))
+          if sdk!='35' or release not in ('15','15.0'):
+              raise SystemExit(f'Base system build identity changed unexpectedly: release={release!r} sdk={sdk!r}')
+          build_id=props.get('ro.build.id',props.get('ro.system.build.id','BP1A.250505.005'))
+          incremental='LucidOS-20261020'
+          fingerprint=f'Lucid/lucid_lavender/lavender:15/{build_id}/{incremental}:userdebug/test-keys'
+          updates={
+              'ro.product.system.brand':'Lucid',
+              'ro.product.system.device':'lavender',
+              'ro.product.system.manufacturer':'Lucid',
+              'ro.product.system.model':'Lucid Phone',
+              'ro.product.system.name':'lucid_lavender',
+              'ro.build.display.id':'LucidOS-0.1',
+              'ro.build.fingerprint':fingerprint,
+              'ro.system.build.fingerprint':fingerprint,
+              'ro.product.system.fingerprint':fingerprint,
+              'ro.build.description':f'lavender-user 15 {build_id} {incremental} userdebug/test-keys',
+              'ro.system.build.description':f'lavender-user 15 {build_id} {incremental} userdebug/test-keys',
+              'ro.build.tags':'test-keys',
+              'ro.system.build.tags':'test-keys',
+              'ro.build.version.incremental':incremental,
+              'ro.system.build.version.incremental':incremental,
+              'ro.lucid.version':'0.1-android15-lavender',
+          }
+          for key,value in updates.items():
+              lines=[line for line in lines if not line.startswith(key+'=')]
+              lines.append(key+'='+value)
+          prop_path.write_text('\n'.join(lines)+'\n')
+          pathlib.Path(sys.argv[2]).write_text(fingerprint+'\n')
+          PY
+          sudo chmod 0644 "$SYSTEM_FS_ROOT/priv-app/LucidSetup/LucidSetup.apk" \
+            "$SYSTEM_FS_ROOT/etc/permissions/lucid-privapp-permissions.xml" "$SYSTEM_FS_ROOT/etc/init/init.lucid.rc"
+          sudo chmod 0755 "$SYSTEM_FS_ROOT/bin/lucid_desktop.sh" \
+            "$SYSTEM_FS_ROOT/bin/lucid_firstboot.sh" "$SYSTEM_FS_ROOT/bin/lucid_root_toggle.sh" \
+            "$SYSTEM_FS_ROOT/bin/lucid-linux-app"
+          sudo chown -hR 0:0 "$SYSTEM_FS_ROOT/usr/lucid"
+          sudo mkdir -p "$ROOT/product/priv-app/LucidWallpapers" "$ROOT/product/app/LucidAbout" \
+            "$ROOT/product/media" "$ROOT/product/etc/permissions"
+          sudo cp "$GITHUB_WORKSPACE/out/LucidWallpapers.apk" "$ROOT/product/priv-app/LucidWallpapers/LucidWallpapers.apk"
+          sudo cp "$GITHUB_WORKSPACE/out/LucidAbout.apk" "$ROOT/product/app/LucidAbout/LucidAbout.apk"
+          sudo cp "$GITHUB_WORKSPACE/out/LucidOS-bootanimation.zip" "$ROOT/product/media/bootanimation.zip"
+          sudo cp theme/privapp-permissions-lucid.xml "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
+          sudo chmod 0644 "$ROOT/product/priv-app/LucidWallpapers/LucidWallpapers.apk" \
+            "$ROOT/product/app/LucidAbout/LucidAbout.apk" "$ROOT/product/media/bootanimation.zip" \
+            "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
+          sudo chown -hR 0:0 "$ROOT/product/priv-app/LucidWallpapers" "$ROOT/product/app/LucidAbout" \
+            "$ROOT/product/media/bootanimation.zip" "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
+          sudo test -s "$SYSTEM_FS_ROOT/usr/lucid/ubuntu-base-arm64.tar.gz"
+          sudo test -s "$SYSTEM_FS_ROOT/priv-app/LucidSetup/LucidSetup.apk"
+          sudo test -s "$SYSTEM_FS_ROOT/etc/init/init.lucid.rc"
+          sudo test -s "$SYSTEM_FS_ROOT/bin/lucid_desktop.sh"
+          sudo test -s "$SYSTEM_FS_ROOT/bin/lucid_firstboot.sh"
+          sudo test -s "$SYSTEM_FS_ROOT/bin/lucid_root_toggle.sh"
+          sudo test -x "$SYSTEM_FS_ROOT/bin/lucid-linux-app"
+          sudo grep -Eq '^ro.build.version.sdk=35$|^ro.system.build.version.sdk=35$' "$SYSTEM_FS_ROOT/build.prop"
+          sudo grep -Eq '^ro.build.version.release=15$|^ro.system.build.version.release=15$' "$SYSTEM_FS_ROOT/build.prop"
+          cp "$RUNNER_TEMP/assembly/build-fingerprint.txt" report/lucid-build-fingerprint.txt
+          sudo sha256sum "$SYSTEM_FS_ROOT/build.prop" | sudo tee report/integrated-build-prop-sha256.txt >/dev/null
+          printf 'status=integrated\nbase=Rising-Revived-6.3\nsystem_build=Android15-SDK35\n' > report/integration-summary.txt
+
+      - name: Fetch AOSP host filesystem tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/assembly/aosp-tools"
+          curl --fail --location --retry 3 --retry-all-errors \
+            "https://android.googlesource.com/kernel/prebuilts/build-tools/+archive/0a1270d749f286c168ac6bb120997471f029130a/linux-x86.tar.gz" \
+            --output "$RUNNER_TEMP/assembly/aosp-tools.tar.gz"
+          tar -xzf "$RUNNER_TEMP/assembly/aosp-tools.tar.gz" -C "$RUNNER_TEMP/assembly/aosp-tools"
+          E2FSDROID="$(find "$RUNNER_TEMP/assembly/aosp-tools" -type f -name e2fsdroid -print -quit)"
+          MKE2FS="$(find "$RUNNER_TEMP/assembly/aosp-tools" -type f -name mke2fs -print -quit)"
+          test -n "$E2FSDROID"
+          test -n "$MKE2FS"
+          chmod +x "$E2FSDROID" "$MKE2FS"
+          TOOLS_ROOT="$(dirname "$(dirname "$E2FSDROID")")"
+          {
+            echo "E2FSDROID=$E2FSDROID"
+            echo "MKE2FS=$MKE2FS"
+            echo "AOSP_TOOLS_ROOT=$TOOLS_ROOT"
+            echo "BUILD_EPOCH=$(date -u +%s)"
+          } >> "$GITHUB_ENV"
+          ldd "$E2FSDROID" > report/e2fsdroid-linked-libraries.txt 2>&1 || true
+          ldd "$MKE2FS" > report/mke2fs-linked-libraries.txt 2>&1 || true
+
+      - name: Build and validate all five full partition images
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$BASE_ROOT"
+          CONTEXTS="$RUNNER_TEMP/assembly/merged-file-contexts"
+          : > "$CONTEXTS"
+          while IFS= read -r -d '' context_file; do
+            sudo cat "$context_file" | tee -a "$CONTEXTS" >/dev/null
+            printf '\n' >> "$CONTEXTS"
+          done < <(sudo find "$ROOT" -type f -path '*/etc/selinux/*file_contexts' -print0 | sort -z)
+          cat >> "$CONTEXTS" <<'EOF'
+          /system/bin/lucid_[^/]+ u:object_r:system_file:s0
+          /system/etc/init/init\.lucid\.rc u:object_r:system_file:s0
+          /system/etc/permissions/lucid-privapp-permissions\.xml u:object_r:system_file:s0
+          /system/priv-app/LucidSetup(/.*)? u:object_r:system_file:s0
+          /system/usr/lucid(/.*)? u:object_r:system_file:s0
+          /product/priv-app/LucidWallpapers(/.*)? u:object_r:system_file:s0
+          /product/app/LucidAbout(/.*)? u:object_r:system_file:s0
+          /product/media/bootanimation\.zip u:object_r:system_file:s0
+          /product/etc/permissions/privapp-permissions-lucid\.xml u:object_r:system_file:s0
+          /system_ext/priv-app/LucidSystemUpdater(/.*)? u:object_r:system_file:s0
+          EOF
+          sudo python3 - "$RUNNER_TEMP/assembly/dynamic_partitions_op_list" "$RUNNER_TEMP/assembly/partition-sizes.json" "$ROOT" <<'PY'
+          import json,math,os,sys
+          ops_path,sizes_path,root=sys.argv[1:]
+          lines=open(ops_path,errors='replace').read().splitlines()
+          sizes={}
+          for line in lines:
+              fields=line.split()
+              if len(fields)==3 and fields[0]=='resize':
+                  sizes[fields[1]]=int(fields[2])
+          required=('system','vendor','product','system_ext','odm')
+          missing=[p for p in required if p not in sizes]
+          if missing:
+              raise SystemExit('Missing partition resize entries: '+', '.join(missing))
+          # Rebuilt ext4 images need space for real file payloads plus filesystem metadata.
+          # Keep the dynamic-partition group byte total fixed by allocating extra space from system.
+          def tree_bytes(part):
+              total=0
+              for base,dirs,files in os.walk(os.path.join(root,part),followlinks=False):
+                  for name in files:
+                      path=os.path.join(base,name)
+                      try:
+                          if not os.path.islink(path):
+                              total+=os.stat(path,follow_symlinks=False).st_size
+                      except OSError:
+                          pass
+              return total
+          overhead={
+              'system':192*1024*1024,
+              'vendor':192*1024*1024,
+              'product':128*1024*1024,
+              'system_ext':96*1024*1024,
+              'odm':32*1024*1024,
+          }
+          factors={'system':1.10,'vendor':1.25,'product':1.15,'system_ext':1.15,'odm':1.25}
+          original=dict(sizes)
+          group_limits={}
+          for line in lines:
+              fields=line.split()
+              if len(fields)==3 and fields[0]=='add_group':
+                  group_limits[fields[1]]=int(fields[2])
+          group_name='xiaomi_dynamic_partitions'
+          if group_name not in group_limits:
+              raise SystemExit(f'Missing dynamic partition group size for {group_name}')
+          tree_sizes={part:tree_bytes(part) for part in required}
+          floors={part:math.ceil((tree_sizes[part]*factors[part]+overhead[part])/4096)*4096 for part in required}
+          for part in required:
+              if sizes[part] < floors[part]:
+                  sizes[part]=floors[part]
+          delta=sum(sizes[p]-original[p] for p in required if p!='system')
+          sizes['system']=original['system']-delta
+          group_limit=group_limits[group_name]
+          total_required=sum(sizes[p] for p in required)
+          if total_required > group_limit:
+              raise SystemExit(f'Rebuilt partitions require {total_required} bytes, exceeding {group_name} maximum {group_limit}')
+          system_floor=floors['system']
+          print('partition_tree_bytes='+json.dumps(tree_sizes,sort_keys=True))
+          print('partition_safe_floors='+json.dumps(floors,sort_keys=True))
+          if sizes['system'] < system_floor:
+              raise SystemExit(f'Insufficient dynamic-partition group space: system would shrink to {sizes["system"]}, below safe minimum {system_floor}; required increases={delta}')
+          out=[]
+          for line in lines:
+              fields=line.split()
+              if len(fields)==3 and fields[0]=='resize' and fields[1] in sizes:
+                  line=f'resize {fields[1]} {sizes[fields[1]]}'
+              out.append(line)
+          open(ops_path,'w').write('\n'.join(out)+'\n')
+          # Reparse the exact op-list that will ship in the ZIP; the report must
+          # never show the stale stock sizes from before filesystem expansion.
+          written={}
+          for line in open(ops_path,errors='replace'):
+              fields=line.split()
+              if len(fields)==3 and fields[0]=='resize':
+                  written[fields[1]]=int(fields[2])
+          mismatches={p:{'planned':sizes[p],'op_list':written.get(p)} for p in required if written.get(p)!=sizes[p]}
+          if mismatches:
+              raise SystemExit('Final dynamic partition op-list sizes differ from rebuilt image sizes: '+json.dumps(mismatches,sort_keys=True))
+          if sum(written[p] for p in required) > group_limit:
+              raise SystemExit('Final dynamic partition op-list exceeds group maximum')
+          json.dump({p:sizes[p] for p in required},open(sizes_path,'w'),indent=2)
+          print('dynamic_partition_group='+group_name)
+          print('dynamic_partition_group_max_bytes='+str(group_limit))
+          print('dynamic_partition_total_bytes='+str(sum(written[p] for p in required)))
+          print('partition_sizes_original='+json.dumps(original,sort_keys=True))
+          print('partition_sizes_rebuilt='+json.dumps({p:sizes[p] for p in required},sort_keys=True))
+          print(f'bytes_rebalanced_from_system={delta}')
+          PY
+          cp "$RUNNER_TEMP/assembly/dynamic_partitions_op_list" report/dynamic_partitions_op_list.txt
+          cp "$RUNNER_TEMP/assembly/partition-sizes.json" report/partition-sizes.json
+          mkdir -p "$RUNNER_TEMP/assembly/images" "$RUNNER_TEMP/assembly/update"
+          for part in system vendor product system_ext odm; do
+            SIZE="$(python3 - "$RUNNER_TEMP/assembly/partition-sizes.json" "$part" <<'PY'
+          import json,sys
+          print(json.load(open(sys.argv[1]))[sys.argv[2]])
+          PY
+            )"
+            if (( SIZE % 4096 != 0 )); then echo "Partition $part size is not 4096-byte aligned: $SIZE" >&2; exit 1; fi
+            BLOCKS=$((SIZE / 4096))
+            IMAGE_MOUNTPOINT="/$part"
+            if [[ "$part" == "system" && "$SYSTEM_SAR" == "1" ]]; then IMAGE_MOUNTPOINT="/"; fi
+            IMAGE="$RUNNER_TEMP/assembly/images/$part.img"
+            truncate -s "$SIZE" "$IMAGE"
+            INODES="$(sudo find "$ROOT/$part" -xdev -print | wc -l)"
+            INODES=$(( INODES + INODES / 10 + 4096 ))
+            sudo env LD_LIBRARY_PATH="$AOSP_TOOLS_ROOT/lib64:$AOSP_TOOLS_ROOT/lib" \
+              "$MKE2FS" -F -t ext4 -b 4096 -N "$INODES" -O '^64bit,^metadata_csum,^metadata_csum_seed' -L "$part" -m 0 "$IMAGE" "$BLOCKS" 2>&1 | tee "report/mke2fs-$part.txt"
+            sudo env LD_LIBRARY_PATH="$AOSP_TOOLS_ROOT/lib64:$AOSP_TOOLS_ROOT/lib" \
+              dumpe2fs -h "$IMAGE" 2>&1 | tee "report/dumpe2fs-$part.txt"
+            sudo e2fsck -fn "$IMAGE" 2>&1 | tee "report/e2fsck-prepopulate-$part.txt"
+            sudo env LD_LIBRARY_PATH="$AOSP_TOOLS_ROOT/lib64:$AOSP_TOOLS_ROOT/lib" \
+              "$E2FSDROID" -e -f "$ROOT/$part" -a "$IMAGE_MOUNTPOINT" -T "$BUILD_EPOCH" -S "$CONTEXTS" "$IMAGE" \
+              2>&1 | tee "report/e2fsdroid-$part.txt"
+            sudo e2fsck -fy "$IMAGE" 2>&1 | tee "report/e2fsck-repair-$part.txt" || true
+            sudo e2fsck -fn "$IMAGE" 2>&1 | tee "report/e2fsck-final-$part.txt"
+            [[ "$(stat -c %s "$IMAGE")" == "$SIZE" ]]
+            if [[ "$part" == "system" ]]; then
+              if [[ "$SYSTEM_SAR" == "1" ]]; then SYS_PREFIX="/system"; else SYS_PREFIX=""; fi
+              debugfs -R "cat ${SYS_PREFIX}/build.prop" "$IMAGE" > report/rebuilt-system-build.prop
+              python3 - report/rebuilt-system-build.prop <<'PY'
+          import sys
+          props={}
+          for line in open(sys.argv[1],errors='replace'):
+              if '=' in line and not line.lstrip().startswith('#'):
+                  key,value=line.rstrip('\n').split('=',1)
+                  props[key]=value
+          sdk=props.get('ro.build.version.sdk') or props.get('ro.system.build.version.sdk')
+          release=props.get('ro.build.version.release') or props.get('ro.system.build.version.release')
+          if sdk!='35' or release not in ('15','15.0'):
+              raise SystemExit(f'Rebuilt system identity invalid: sdk={sdk!r} release={release!r}')
+          if props.get('ro.build.display.id')!='LucidOS-0.1':
+              raise SystemExit('LucidOS display ID was not preserved in the built system image')
+          if not props.get('ro.build.fingerprint','').startswith('Lucid/lucid_lavender/lavender:15/'):
+              raise SystemExit('Custom Lucid Android 15 fingerprint is missing from the built system image')
+          PY
+              debugfs -R "cat ${SYS_PREFIX}/etc/init/init.lucid.rc" "$IMAGE" > "$RUNNER_TEMP/assembly/verify-init-lucid.rc"
+              debugfs -R "cat ${SYS_PREFIX}/etc/permissions/lucid-privapp-permissions.xml" "$IMAGE" > "$RUNNER_TEMP/assembly/verify-system-permissions.xml"
+              grep -q 'android.permission.WRITE_SECURE_SETTINGS' "$RUNNER_TEMP/assembly/verify-system-permissions.xml"
+              debugfs -R "cat ${SYS_PREFIX}/bin/lucid-linux-app" "$IMAGE" > "$RUNNER_TEMP/assembly/verify-lucid-linux-app"
+              debugfs -R "cat ${SYS_PREFIX}/usr/lucid/ubuntu-base-arm64.tar.gz" "$IMAGE" > "$RUNNER_TEMP/assembly/verify-ubuntu-base.tar.gz"
+              debugfs -R "cat ${SYS_PREFIX}/priv-app/LucidSetup/LucidSetup.apk" "$IMAGE" > "$RUNNER_TEMP/assembly/verify-LucidSetup.apk"
+              cmp -s "$RUNNER_TEMP/assembly/verify-init-lucid.rc" "$OVERLAY_SOURCE/system-tree/system/etc/init/init.lucid.rc"
+              cmp -s "$RUNNER_TEMP/assembly/verify-system-permissions.xml" "$OVERLAY_SOURCE/system-tree/system/etc/permissions/lucid-privapp-permissions.xml"
+              cmp -s "$RUNNER_TEMP/assembly/verify-lucid-linux-app" "$OVERLAY_SOURCE/system-tree/system/bin/lucid-linux-app"
+              cmp -s "$RUNNER_TEMP/assembly/verify-ubuntu-base.tar.gz" "$OVERLAY_SOURCE/system-tree/system/usr/lucid/ubuntu-base-arm64.tar.gz"
+              cmp -s "$RUNNER_TEMP/assembly/verify-LucidSetup.apk" out/LucidSetup.apk
+              rm -f "$RUNNER_TEMP/assembly/verify-init-lucid.rc" "$RUNNER_TEMP/assembly/verify-system-permissions.xml" \
+                "$RUNNER_TEMP/assembly/verify-lucid-linux-app" "$RUNNER_TEMP/assembly/verify-ubuntu-base.tar.gz" \
+                "$RUNNER_TEMP/assembly/verify-LucidSetup.apk"
+            elif [[ "$part" == "product" ]]; then
+              debugfs -R 'cat /priv-app/LucidWallpapers/LucidWallpapers.apk' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-LucidWallpapers.apk"
+              debugfs -R 'cat /app/LucidAbout/LucidAbout.apk' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-LucidAbout.apk"
+              debugfs -R 'cat /media/bootanimation.zip' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-bootanimation.zip"
+              debugfs -R 'cat /etc/permissions/privapp-permissions-lucid.xml' "$IMAGE" > "$RUNNER_TEMP/assembly/verify-wallpaper-permissions.xml"
+              cmp -s "$RUNNER_TEMP/assembly/verify-LucidWallpapers.apk" out/LucidWallpapers.apk
+              cmp -s "$RUNNER_TEMP/assembly/verify-LucidAbout.apk" out/LucidAbout.apk
+              cmp -s "$RUNNER_TEMP/assembly/verify-bootanimation.zip" out/LucidOS-bootanimation.zip
+              cmp -s "$RUNNER_TEMP/assembly/verify-wallpaper-permissions.xml" theme/privapp-permissions-lucid.xml
+              rm -f "$RUNNER_TEMP/assembly/verify-LucidWallpapers.apk" "$RUNNER_TEMP/assembly/verify-LucidAbout.apk" \
+                "$RUNNER_TEMP/assembly/verify-bootanimation.zip" "$RUNNER_TEMP/assembly/verify-wallpaper-permissions.xml"
+            fi
+            brotli -q 6 -c "$IMAGE" > "$RUNNER_TEMP/assembly/update/$part.new.dat.br"
+            : > "$RUNNER_TEMP/assembly/update/$part.patch.dat"
+            cat > "$RUNNER_TEMP/assembly/update/$part.transfer.list" <<EOF
+          4
+          $BLOCKS
+          0
+          0
+          new 2,0,$BLOCKS
+          EOF
+            ROUNDTRIP="$RUNNER_TEMP/assembly/images/$part-roundtrip.img"
+            "$RUNNER_TEMP/assembly/venv/bin/python" tools/reconstruct_transfer_image.py \
+              "$RUNNER_TEMP/assembly/update/$part.transfer.list" \
+              "$RUNNER_TEMP/assembly/update/$part.new.dat.br" "$ROUNDTRIP" > "report/roundtrip-$part.txt" 2>&1
+            grep -q 'transfer_covers_full_filesystem_by_operations=True' "report/roundtrip-$part.txt"
+            cmp -s "$IMAGE" "$ROUNDTRIP"
+            printf '%s size=%s blocks=%s sha256=%s roundtrip=exact\n' "$part" "$SIZE" "$BLOCKS" "$(sha256sum "$IMAGE" | cut -d' ' -f1)" \
+              | tee -a report/rebuilt-partition-hashes.txt
+            rm -f "$ROUNDTRIP" "$IMAGE"
+          done
+
+      - name: Repack the full OTA package and verify every payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'rc=$?; printf "REPACK_FAILURE line=%s rc=%s command=%q\\n" "$LINENO" "$rc" "$BASH_COMMAND" >&2; exit "$rc"' ERR
+          echo "REPACK_STAGE=initialize"
+          mkdir -p "$(dirname "$OUTPUT_ZIP")"
+          cp "$BASE_ZIP" "$OUTPUT_ZIP"
+          rm -f "$BASE_ZIP"
+          if ! zip -q -d "$OUTPUT_ZIP" dynamic_partitions_op_list 2>/dev/null; then :; fi
+          (cd "$RUNNER_TEMP/assembly" && zip -0 -q "$OUTPUT_ZIP" dynamic_partitions_op_list)
+          UPDATE="$UPDATE_DIR"
+          entries=()
+          for part in system vendor product system_ext odm; do
+            entries+=("$part.transfer.list" "$part.new.dat.br" "$part.patch.dat")
+          done
+          # dynamic_partitions_op_list was already replaced above; do not delete it with the old payload entries.
+          zip -q -d "$OUTPUT_ZIP" "${entries[@]}"
+          if [[ "$VBMETA_REPLACEMENT" == "1" ]]; then
+            zip -q -d "$OUTPUT_ZIP" vbmeta.img
+            (cd "$UPDATE" && zip -0 -q "$OUTPUT_ZIP" vbmeta.img)
+          fi
+          for part in system vendor product system_ext odm; do
+            : > "$UPDATE/$part.patch.dat"
+          done
+          FINGERPRINT="$(cat "$RUNNER_TEMP/assembly/build-fingerprint.txt")"
+          INCREMENTAL="LucidOS-20261020"
+          cp report/base-ota-metadata.txt "$UPDATE/metadata"
+          python3 - "$UPDATE/metadata" "$FINGERPRINT" "$INCREMENTAL" <<'PY'
+          import pathlib,re,sys
+          path=pathlib.Path(sys.argv[1]); fingerprint=sys.argv[2]; incremental=sys.argv[3]
+          lines=path.read_text(errors='replace').splitlines()
+          out=[]
+          for line in lines:
+              if line.startswith('ota-property-files='):
+                  continue
+              elif line.startswith('post-build='):
+                  out.append('post-build='+fingerprint)
+              elif line.startswith('post-build-incremental='):
+                  out.append('post-build-incremental='+incremental)
+              else:
+                  out.append(line)
+          if not any(line.startswith('post-build=') for line in out):
+              out.append('post-build='+fingerprint)
+          if not any(line.startswith('post-build-incremental=') for line in out):
+              out.append('post-build-incremental='+incremental)
+          path.write_text('\n'.join(out)+'\n')
+          PY
+          cp "$RUNNER_TEMP/assembly/updater-script" "$UPDATE/updater-script"
+          python3 - "$UPDATE/updater-script" "$FINGERPRINT" "$KERNEL_MATCH" "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" <<'PY'
+          import pathlib,re,sys
+          path=pathlib.Path(sys.argv[1]); fingerprint=sys.argv[2]; kernel_match=sys.argv[3]=='1'; dtbo=pathlib.Path(sys.argv[4])
+          text=path.read_text(errors='replace')
+          text=re.sub(r'ui_print\("Target: [^"]+"\);',f'ui_print("Target: {fingerprint}");',text,count=1)
+          if kernel_match and dtbo.is_file() and 'by-name/dtbo' not in text:
+              marker='package_extract_file("vbmeta.img", "/dev/block/bootdevice/by-name/vbmeta");'
+              if marker not in text:
+                  raise SystemExit('Cannot safely insert DTBO flash: expected vbmeta flash line not found')
+              text=text.replace(marker,marker+'\npackage_extract_file("dtbo.img", "/dev/block/bootdevice/by-name/dtbo");',1)
+          path.write_text(text)
+          PY
+          if [[ "$KERNEL_MATCH" == "1" && -s "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" ]]; then
+            cp "$RUNNER_TEMP/assembly/boot/lucid-dtbo.img" "$UPDATE/dtbo.img"
+            zip -0 -q "$OUTPUT_ZIP" -j "$UPDATE/dtbo.img"
+          fi
+          for part in system vendor product system_ext odm; do
+            test -s "$UPDATE/$part.transfer.list"
+            test -s "$UPDATE/$part.new.dat.br"
+            test -f "$UPDATE/$part.patch.dat"
+          done
+          (
+            cd "$UPDATE"
+            zip -0 -q "$OUTPUT_ZIP" \
+              system.transfer.list system.new.dat.br system.patch.dat \
+              vendor.transfer.list vendor.new.dat.br vendor.patch.dat \
+              product.transfer.list product.new.dat.br product.patch.dat \
+              system_ext.transfer.list system_ext.new.dat.br system_ext.patch.dat \
+              odm.transfer.list odm.new.dat.br odm.patch.dat
+          )
+          mkdir -p "$UPDATE/META-INF/com/android" "$UPDATE/META-INF/com/google/android"
+          cp "$UPDATE/metadata" "$UPDATE/META-INF/com/android/metadata"
+          cp "$UPDATE/updater-script" "$UPDATE/META-INF/com/google/android/updater-script"
+          (cd "$UPDATE" && zip -0 -q "$OUTPUT_ZIP" META-INF/com/android/metadata META-INF/com/google/android/updater-script)
+          unzip -Z1 "$OUTPUT_ZIP" > report/final-zip-entry-list.txt
+          grep -qx "META-INF/com/android/metadata" report/final-zip-entry-list.txt
+          grep -qx "META-INF/com/google/android/updater-script" report/final-zip-entry-list.txt
+          grep -qx "dynamic_partitions_op_list" report/final-zip-entry-list.txt
+          echo "REPACK_STAGE=zip-integrity"
+          zip -T "$OUTPUT_ZIP" > report/zip-test.txt
+          unzip -t "$OUTPUT_ZIP" > report/unzip-test.txt
+          unzip -Z1 "$OUTPUT_ZIP" > report/final-zip-entry-list.txt
+          for part in system vendor product system_ext odm; do
+            grep -qx "$part.transfer.list" report/final-zip-entry-list.txt
+            grep -qx "$part.new.dat.br" report/final-zip-entry-list.txt
+            grep -qx "$part.patch.dat" report/final-zip-entry-list.txt
+            unzip -p "$OUTPUT_ZIP" "$part.transfer.list" > "$RUNNER_TEMP/assembly/check-$part.transfer.list"
+            grep -q '^new 2,0,' "$RUNNER_TEMP/assembly/check-$part.transfer.list"
+          done
+          echo "REPACK_STAGE=metadata-validation"
+          grep -q "post-build=$FINGERPRINT" <(unzip -p "$OUTPUT_ZIP" META-INF/com/android/metadata)
+          echo "REPACK_STAGE=vbmeta-validation"
+          unzip -p "$OUTPUT_ZIP" vbmeta.img > report/final-vbmeta.img
+          "$RUNNER_TEMP/assembly/venv/bin/python" "$RUNNER_TEMP/assembly/avbtool.py" info_image \
+            --image report/final-vbmeta.img > report/final-vbmeta-info.txt
+          grep -Eq '^Flags:[[:space:]]*3([[:space:]]|$)' report/final-vbmeta-info.txt
+          echo "REPACK_STAGE=final-hash"
+          sha256sum "$OUTPUT_ZIP" | tee report/final-rom-sha256.txt
+          stat -c 'final_rom_bytes=%s' "$OUTPUT_ZIP" | tee report/final-rom-size.txt
+          df -h "$RUNNER_TEMP" | tee report/disk-after-package.txt
+
+      - name: Upload build diagnostics separately
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-build-diagnostics
+          path: report/
+          if-no-files-found: warn
+          retention-days: 30
+          compression-level: 6
+
+      - name: Upload integrated ROM and build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-integrated-android15-rom
+          path: |
+            out/LucidOS-Android15-lavender-unsigned.zip
+            report/
+          if-no-files-found: warn
+          retention-days: 30

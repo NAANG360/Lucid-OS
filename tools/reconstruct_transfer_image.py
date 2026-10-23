@@ -164,8 +164,12 @@ if fs_blocks:
     print(f"new_zero_erase_operation_blocks={operation_touched_blocks}")
     print(f"new_plus_zero_unique_block_coverage={written_blocks}/{fs_ota_blocks} ({write_coverage:.2f}%)")
     print(f"new_zero_plus_erase_unique_block_coverage={touched_blocks}/{fs_ota_blocks} ({touched_coverage:.2f}%)")
-    print(f"transfer_covers_full_filesystem_by_operations={touched_blocks >= fs_ota_blocks}")
-    if touched_blocks < fs_ota_blocks:
-        print("WARNING: transfer list leaves declared filesystem blocks untouched. A zero-based reconstruction is incomplete; it needs a compatible base image or a verified full-image source.")
+    # An erase operation is not equivalent to a known write of zero bytes.
+    # It may discard blocks on-device, so it cannot establish the original
+    # contents of those blocks when reconstructing from a blank image.
+    full_write_coverage = written_blocks >= fs_ota_blocks
+    print(f"transfer_covers_full_filesystem_by_operations={full_write_coverage}")
+    if not full_write_coverage:
+        print("WARNING: transfer list does not write every declared filesystem block with new/zero operations. A zero-based reconstruction is incomplete; it needs a compatible base image or a verified full-image source.")
 if not header_matches_write_count:
     print("WARNING: transfer-list header does not equal the number of blocks covered by new + zero commands.")

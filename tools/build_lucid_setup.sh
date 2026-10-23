@@ -34,7 +34,7 @@ cp "$ROOT/theme/assets/lucid-wallpaper-alpine.jpg" "$TMP/assets/"
 
 mapfile -t JAVA_SOURCES < <(find "$ROOT/setup-app/src" -name '*.java' -print | sort)
 if [[ -z "${JAVA_SOURCES[*]:-}" ]]; then echo "No setup-app Java sources found." >&2; exit 2; fi
-javac -source 8 -target 8 -bootclasspath "$ANDROID_JAR" -d "$TMP/classes" "${JAVA_SOURCES[@]}"
+javac --release 8 -classpath "$ANDROID_JAR" -d "$TMP/classes" "${JAVA_SOURCES[@]}"
 mapfile -t CLASS_FILES < <(find "$TMP/classes" -name '*.class' -print | sort)
 "$TOOLS/d8" --lib "$ANDROID_JAR" --output "$TMP/dex" "${CLASS_FILES[@]}"
 (cd "$TMP/dex" && zip -q "$TMP/LucidSetup-unsigned.apk" classes.dex)

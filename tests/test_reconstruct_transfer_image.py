@@ -54,6 +54,37 @@ class TransferImageReconstructionTests(unittest.TestCase):
             self.assertEqual(image[BLOCK:2 * BLOCK], bytes(BLOCK))
             self.assertEqual(image[2 * BLOCK:], b"C" * BLOCK)
 
+    def test_erase_does_not_count_as_known_filesystem_content(self):
+        with tempfile.TemporaryDirectory() as temp:
+            transfer = os.path.join(temp, "product.transfer.list")
+            compressed = os.path.join(temp, "product.new.dat.br")
+            output = os.path.join(temp, "product.img")
+
+            # The final block is erased/discarded, not populated by a known
+            # new/zero write. A blank-image reconstruction cannot claim the
+            # original filesystem is fully represented just because it has
+            # an erase operation for that range.
+            with open(transfer, "w", encoding="utf-8") as stream:
+                stream.write("4\n2\n0\n0\n"
+                             "new 2,0,2\n"
+                             "erase 2,2,3\n")
+            first_block = bytearray(b"A" * BLOCK)
+            struct.pack_into("<I", first_block, 1028, 12)
+            struct.pack_into("<I", first_block, 1048, 0)
+            first_block[1080:1082] = b"\x53\xef"
+            first_block[1360:1364] = bytes(4)
+            with open(compressed, "wb") as stream:
+                stream.write(brotli.compress(bytes(first_block) + b"B" * BLOCK))
+
+            result = subprocess.run(
+                [sys.executable, SCRIPT, transfer, compressed, output],
+                check=True, capture_output=True, text=True,
+            )
+            self.assertIn("new_plus_zero_unique_block_coverage=2/3 (66.67%)", result.stdout)
+            self.assertIn("new_zero_plus_erase_unique_block_coverage=3/3 (100.00%)", result.stdout)
+            self.assertIn("transfer_covers_full_filesystem_by_operations=False", result.stdout)
+            self.assertIn("does not write every declared filesystem block", result.stdout)
+
     def test_rejects_empty_range_fields(self):
         with tempfile.TemporaryDirectory() as temp:
             transfer = os.path.join(temp, "product.transfer.list")

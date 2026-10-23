@@ -21,6 +21,7 @@ OVERLAYS = [
     ("system-tree/system/bin/lucid_desktop.sh", "system/bin/lucid_desktop.sh", True),
     ("system-tree/system/bin/lucid_firstboot.sh", "system/bin/lucid_firstboot.sh", True),
     ("system-tree/system/bin/lucid_root_toggle.sh", "system/bin/lucid_root_toggle.sh", True),
+    ("system-tree/system/bin/lucid-linux-app", "system/bin/lucid-linux-app", True),
     ("system-tree/system/etc/permissions/lucid-privapp-permissions.xml", "system/etc/permissions/lucid-privapp-permissions.xml", True),
     ("system-tree/system/priv-app/LucidSetup/LucidSetup.apk", "system/priv-app/LucidSetup/LucidSetup.apk", True),
     ("system-tree/system/usr/lucid", "system/usr/lucid", True),
@@ -124,6 +125,8 @@ def inventory(src: Path, dst: Path):
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    parser.add_argument("--source-root", type=Path, default=None,
+                        help="Root for the tracked overlay source paths; defaults to --repo-root")
     parser.add_argument("--base-root", type=Path, required=True,
                         help="Extracted base filesystem root containing system/")
     parser.add_argument("--report", type=Path, default=Path("lucid-overlay-plan.json"))
@@ -133,16 +136,22 @@ def main() -> int:
                         help="Copy the listed Lucid paths; default is dry-run only")
     args = parser.parse_args()
     repo = args.repo_root.resolve()
+    overlay_source_root = (args.source_root or repo).resolve()
     base = args.base_root.resolve()
+    system_as_root = (base / "system/system").is_dir() and not (base / "system/build.prop").is_file()
+    def adjusted_destination(value: str) -> str:
+        if system_as_root and value.startswith("system/"):
+            return "system/system/" + value[len("system/"):]
+        return value
     rows, missing = [], []
     try:
         if not (base / "system").is_dir():
             raise ValueError(f"base root does not contain system/: {base}")
         reject_symlink_components(base / "system", base)
-        mappings = [(repo / source_rel, dest_rel, required) for source_rel, dest_rel, required in OVERLAYS]
+        mappings = [(overlay_source_root / source_rel, adjusted_destination(dest_rel), required) for source_rel, dest_rel, required in OVERLAYS]
         for mapping in args.extra_overlay:
             source, destination_rel = parse_extra_overlay(mapping)
-            mappings.append((source, destination_rel, True))
+            mappings.append((source, adjusted_destination(destination_rel), True))
         for source, dest_rel, required in mappings:
             destination = base / dest_rel
             if not source.exists() and not source.is_symlink():
@@ -161,6 +170,7 @@ def main() -> int:
         "schema": 2,
         "mode": "apply" if args.apply else "dry-run",
         "base_root": str(base),
+        "system_as_root": system_as_root,
         "overlay_count": len(rows),
         "missing_required_sources": missing,
         "actions": {action: sum(row["action"] == action for row in rows)
@@ -183,10 +193,10 @@ def main() -> int:
 
     if args.apply:
         try:
-            mappings = [(repo / source_rel, dest_rel, required) for source_rel, dest_rel, required in OVERLAYS]
+            mappings = [(overlay_source_root / source_rel, adjusted_destination(dest_rel), required) for source_rel, dest_rel, required in OVERLAYS]
             for mapping in args.extra_overlay:
                 source, destination_rel = parse_extra_overlay(mapping)
-                mappings.append((source, destination_rel, True))
+                mappings.append((source, adjusted_destination(destination_rel), True))
             for source, dest_rel, required in mappings:
                 if not source.exists():
                     continue
