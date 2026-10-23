@@ -438,8 +438,6 @@ jobs:
           sudo cp "$GITHUB_WORKSPACE/out/LucidAbout.apk" "$ROOT/product/app/LucidAbout/LucidAbout.apk"
           sudo cp "$GITHUB_WORKSPACE/out/LucidOS-bootanimation.zip" "$ROOT/product/media/bootanimation.zip"
           sudo cp theme/privapp-permissions-lucid.xml "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
-          /system_ext/priv-app/LucidSystemUpdater(/.*)? u:object_r:system_file:s0
-          /system_ext/etc/permissions/privapp-permissions-lucid-updater\\.xml u:object_r:system_file:s0
           sudo chmod 0644 "$ROOT/product/priv-app/LucidWallpapers/LucidWallpapers.apk" \
             "$ROOT/product/app/LucidAbout/LucidAbout.apk" "$ROOT/product/media/bootanimation.zip" \
             "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
