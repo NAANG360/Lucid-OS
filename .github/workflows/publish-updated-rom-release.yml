@@ -115,10 +115,10 @@ jobs:
       - name: Verify published asset digest and size before manifest update
         id: asset
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-3' }}
-          ROM_SHA256: ${{ steps.rom.outputs.sha256 }}
-          ROM_SIZE: ${{ steps.rom.outputs.size }}
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          TAG: \${{ inputs.release_tag || 'lucid-android15-lavender-build-3' }}
+          ROM_SHA256: \${{ steps.rom.outputs.sha256 }}
+          ROM_SIZE: \${{ steps.rom.outputs.size }}
         shell: bash
         run: |
           set -euo pipefail
@@ -128,12 +128,17 @@ jobs:
             echo "Expected ROM release asset is missing." >&2
             exit 1
           fi
-          IFS=          if [[ "$ASSET_SIZE" != "$ROM_SIZE" ]]; then
+          IFS=$'\t' read -r ASSET_NAME_FOUND ASSET_SIZE ASSET_DIGEST ASSET_URL <<< "$ASSET_INFO"
+          if [[ "$ASSET_NAME_FOUND" != "$ASSET_NAME" ]]; then
+            echo "Published asset name mismatch: expected $ASSET_NAME, got $ASSET_NAME_FOUND" >&2
+            exit 1
+          fi
+          if [[ "$ASSET_SIZE" != "$ROM_SIZE" ]]; then
             echo "Published asset size mismatch: expected $ROM_SIZE, got $ASSET_SIZE" >&2
             exit 1
           fi
           if [[ "$ASSET_DIGEST" != "sha256:$ROM_SHA256" ]]; then
-            echo "Published asset SHA-256 mismatch: expected $ROM_SHA256, got $ASSET_DIGEST" >&2
+            echo "Published asset SHA-256 mismatch: expected sha256:$ROM_SHA256, got $ASSET_DIGEST" >&2
             exit 1
           fi
           {
