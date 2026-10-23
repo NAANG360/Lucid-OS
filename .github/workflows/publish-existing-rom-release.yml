@@ -1,0 +1,62 @@
+name: Publish Existing LucidOS ROM Release
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful ROM build workflow run ID
+        required: true
+        type: string
+      artifact_name:
+        description: Actions artifact name
+        required: true
+        default: lucid-integrated-android15-rom
+        type: string
+      release_tag:
+        description: Existing draft release tag
+        required: true
+        default: lucid-android15-lavender-build-1
+        type: string
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact successful build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: incoming
+      - name: Extract and verify ROM ZIP
+        id: rom
+        shell: bash
+        run: |
+          set -euo pipefail
+          find incoming -maxdepth 2 -type f -printf '%p %s bytes\n'
+          ROM="$(find incoming -type f -name '*.zip' -size +1000M -print -quit)"
+          if [ -z "$ROM" ]; then
+            echo 'No ROM ZIP larger than 1 GB found in artifact.' >&2
+            exit 1
+          fi
+          echo "rom_path=$ROM" >> "$GITHUB_OUTPUT"
+          sha256sum "$ROM"
+          test "$(sha256sum "$ROM" | awk '{print $1}')" = '19d420c0248254474582693466d5d7001325516dd37b58eeccc36e5cbb49fa78'
+      - name: Attach ROM ZIP to existing draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.release_tag }}
+          ROM_PATH: ${{ steps.rom.outputs.rom_path }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" "$ROM_PATH" --repo "$GITHUB_REPOSITORY" --clobber
+      - name: Verify published asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,url,isDraft
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name | endswith(".zip")) | [.name,.size,.url] | @tsv'
