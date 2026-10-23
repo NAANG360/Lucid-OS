@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths: ['theme/updater/**', '.github/workflows/lucid-system-updater.yml']
-permissions: { contents: read }
+permissions: { contents: write }
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -48,3 +48,18 @@ jobs:
           sha256sum out/LucidSystemUpdater-lavender-addon.zip | tee out/installer-sha256.txt
       - uses: actions/upload-artifact@v4
         with: { name: LucidSystemUpdater-debug-apk, path: 'out/*', if-no-files-found: error, retention-days: 30 }
+      - name: Publish installable updater APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG=lucid-system-updater-root-0.3-dev
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Updater release already exists; refusing to overwrite it." >&2
+            exit 1
+          fi
+          gh release create "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Lucid System Updater — root-assisted 0.3-dev" \
+            --prerelease \
+            --notes "Development APK with SHA-256 verification and root-assisted staging for compatible TWRP/OrangeFox recovery. Recovery compatibility and installation on physical devices are not yet verified."
