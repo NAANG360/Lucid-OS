@@ -1,0 +1,74 @@
+name: Publish Lucid System Updater Recovery ZIP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-updater-recovery-release.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  build-and-publish-recovery-zip:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download latest successful updater artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: LucidSystemUpdater-debug-apk-and-recovery-installer
+          repository: NAANG360/Lucid-OS
+          run-id: 39953436733
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: incoming
+
+      - name: Build fresh v0.4.0-dev recovery installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s incoming/LucidSystemUpdater.apk
+          mkdir -p package/META-INF/com/google/android package/system_ext/priv-app/LucidSystemUpdater package/META-INF/com/lucid
+          cp incoming/LucidSystemUpdater.apk package/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk
+          cat > package/META-INF/com/google/android/updater-script <<'SCRIPT'
+          ui_print(" ");
+          ui_print("  L U C I D   O S");
+          ui_print("  System Updater v0.4.0-dev installer");
+          ui_print(" ");
+          assert(getprop("ro.product.device") == "lavender" || getprop("ro.build.product") == "lavender" || abort("This package is only for Redmi Note 7/7S (lavender)."));
+          assert(getprop("ro.product.device") != "" || abort("Unable to identify device; refusing installation."));
+          ifelse(is_mounted("/system_ext"), unmount("/system_ext"));
+          mount("ext4", "EMMC", map_partition("system_ext"), "/system_ext");
+          delete_recursive("/system_ext/app/LucidSystemUpdater");
+          delete_recursive("/system_ext/priv-app/LucidSystemUpdater");
+          package_extract_dir("system_ext", "/system_ext");
+          set_metadata_recursive("/system_ext/priv-app/LucidSystemUpdater", "uid", 0, "gid", 0, "dmode", 0755, "fmode", 0644, "selabel", "u:object_r:system_file:s0");
+          unmount("/system_ext");
+          ui_print("Lucid System Updater v0.4.0-dev installed.");
+          ui_print("Reboot to Android.");
+          SCRIPT
+          printf 'Lucid System Updater\nVersion: 0.4.0-dev\nDevice: lavender\nAPK source: successful GitHub Actions artifact run 39953436733\n' > package/META-INF/com/lucid/version.txt
+          (
+            cd package
+            zip -qr ../LucidSystemUpdater-v0.4.0-dev-lavender-recovery.zip .
+          )
+          mkdir release-assets
+          cp LucidSystemUpdater-v0.4.0-dev-lavender-recovery.zip release-assets/
+          sha256sum release-assets/LucidSystemUpdater-v0.4.0-dev-lavender-recovery.zip > release-assets/LucidSystemUpdater-v0.4.0-dev-lavender-recovery.zip.sha256
+          unzip -t release-assets/LucidSystemUpdater-v0.4.0-dev-lavender-recovery.zip
+          unzip -p release-assets/LucidSystemUpdater-v0.4.0-dev-lavender-recovery.zip META-INF/com/lucid/version.txt
+          unzip -p release-assets/LucidSystemUpdater-v0.4.0-dev-lavender-recovery.zip system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk | sha256sum
+          sha256sum incoming/LucidSystemUpdater.apk
+
+      - name: Upload recovery ZIP and checksum to Build 3 release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload lucid-android15-lavender-build-3 \
+            release-assets/LucidSystemUpdater-v0.4.0-dev-lavender-recovery.zip \
+            release-assets/LucidSystemUpdater-v0.4.0-dev-lavender-recovery.zip.sha256 \
+            --repo NAANG360/Lucid-OS --clobber
+          gh release view lucid-android15-lavender-build-3 --repo NAANG360/Lucid-OS --json assets \
+            --jq '.assets[] | select(.name | contains("v0.4.0-dev-lavender-recovery")) | [.name,.size,.url] | @tsv'
