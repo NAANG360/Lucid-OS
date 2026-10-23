@@ -17,7 +17,7 @@ on:
         default: lucid-integrated-android15-rom
         type: string
       release_tag:
-        description: New unique release tag
+        description: Existing or new release tag for this ROM
         required: true
         default: lucid-android15-lavender-build-3
         type: string
@@ -54,7 +54,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          find incoming -maxdepth 3 -type f -printf '%p %s bytes\\n'
+          find incoming -maxdepth 3 -type f -printf '%p %s bytes\n'
           ROM="$(find incoming -type f -name '*.zip' -size +1000M -print -quit)"
           if [[ -z "$ROM" ]]; then
             echo "No integrated ROM ZIP larger than 1 GB found in build artifact." >&2
@@ -68,13 +68,10 @@ jobs:
             echo "sha256=$SHA"
             echo "size=$SIZE"
           } >> "$GITHUB_OUTPUT"
-          {
-            echo "ROM_SHA256=$SHA"
-            echo "ROM_SIZE=$SIZE"
-          } >> "$GITHUB_ENV"
           sha256sum "$ROM"
+          echo "Validated ZIP size: $SIZE bytes"
 
-      - name: Create release if needed and upload the ROM
+      - name: Create release or safely reuse matching Build 3 asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-3' }}
@@ -82,60 +79,134 @@ jobs:
           TARGET_SHA: ${{ inputs.target_sha || github.event.workflow_run.head_sha }}
           ROM_PATH: ${{ steps.rom.outputs.rom_path }}
           ROM_SHA256: ${{ steps.rom.outputs.sha256 }}
+          ROM_SIZE: ${{ steps.rom.outputs.size }}
         shell: bash
         run: |
           set -euo pipefail
+          ASSET_NAME="LucidOS-Android15-lavender-unsigned.zip"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release tag already exists; refusing to overwrite an existing release." >&2
-            exit 1
+            RELEASE_TARGET="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json targetCommitish --jq '.targetCommitish')"
+            if [[ "$RELEASE_TARGET" != "$TARGET_SHA" ]]; then
+              echo "Existing release target $RELEASE_TARGET does not match requested build commit $TARGET_SHA; refusing to alter it." >&2
+              exit 1
+            fi
+            ASSET_INFO="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name == "'"$ASSET_NAME"'") | [.size, (.digest // ""), .url] | @tsv')"
+            if [[ -n "$ASSET_INFO" ]]; then
+              IFS=$'\t' read -r EXISTING_SIZE EXISTING_DIGEST EXISTING_URL <<< "$ASSET_INFO"
+              if [[ "$EXISTING_SIZE" != "$ROM_SIZE" || "$EXISTING_DIGEST" != "sha256:$ROM_SHA256" ]]; then
+                echo "Existing release asset does not match the integrity-checked artifact; refusing to overwrite it." >&2
+                echo "Expected size=$ROM_SIZE sha256=$ROM_SHA256; existing size=$EXISTING_SIZE digest=$EXISTING_DIGEST" >&2
+                exit 1
+              fi
+              echo "Existing Build 3 asset matches the validated artifact; preserving it."
+              echo "$EXISTING_URL"
+            else
+              gh release upload "$TAG" "$ROM_PATH" --repo "$GITHUB_REPOSITORY"
+            fi
+          else
+            gh release create "$TAG" "$ROM_PATH" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "LucidOS Android 15 — lavender $TAG" \
+              --prerelease \
+              --target "$TARGET_SHA" \
+              --notes "Updated LucidOS Android 15 integrated ROM for Xiaomi Redmi Note 7/7S (lavender). Version: $VERSION. Includes the latest Lucid Setup app, Lucid Wallpapers, Lucid About, generated Lucid boot animation, System Updater with root-assisted recovery staging, and preserved Lucid runtime payloads. CI validates package integrity and partition round-trips; physical-device boot is not yet confirmed. Unsigned ZIP. Review recovery and firmware compatibility before flashing. SHA-256: $ROM_SHA256"
           fi
-          gh release create "$TAG" "$ROM_PATH" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "LucidOS Android 15 — lavender $TAG" \
-            --prerelease \
-            --target "$TARGET_SHA" \
-            --notes "Updated LucidOS Android 15 integrated ROM for Xiaomi Redmi Note 7/7S (lavender). Version: $VERSION. Includes the latest Lucid Setup app, Lucid Wallpapers, Lucid About, generated Lucid boot animation, System Updater with root-assisted recovery staging, and preserved Lucid runtime payloads. CI validates package integrity and partition round-trips; physical-device boot is not yet confirmed. Unsigned ZIP. Review recovery and firmware compatibility before flashing. SHA-256: $ROM_SHA256"
 
-      - name: Verify release asset is uploaded
+      - name: Verify published asset digest and size before manifest update
+        id: asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-3' }}
+          ROM_SHA256: ${{ steps.rom.outputs.sha256 }}
+          ROM_SIZE: ${{ steps.rom.outputs.size }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,url,isDraft
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name == "LucidOS-Android15-lavender-unsigned.zip") | [.name,.size,.url] | @tsv' | grep -q .
+          ASSET_NAME="LucidOS-Android15-lavender-unsigned.zip"
+          ASSET_INFO="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,url,isDraft --jq '.assets[] | select(.name == "'"$ASSET_NAME"'") | [.name, .size, (.digest // ""), .url] | @tsv')"
+          if [[ -z "$ASSET_INFO" ]]; then
+            echo "Expected ROM release asset is missing." >&2
+            exit 1
+          fi
+          IFS=$'\t' read -r ASSET_NAME_FOUND ASSET_SIZE ASSET_DIGEST ASSET_URL <<< "$ASSET_INFO"
+          if [[ "$ASSET_SIZE" != "$ROM_SIZE" ]]; then
+            echo "Published asset size mismatch: expected $ROM_SIZE, got $ASSET_SIZE" >&2
+            exit 1
+          fi
+          if [[ "$ASSET_DIGEST" != "sha256:$ROM_SHA256" ]]; then
+            echo "Published asset SHA-256 mismatch: expected $ROM_SHA256, got $ASSET_DIGEST" >&2
+            exit 1
+          fi
+          {
+            echo "asset_url=$ASSET_URL"
+            echo "asset_size=$ASSET_SIZE"
+            echo "asset_sha256=$ROM_SHA256"
+          } >> "$GITHUB_OUTPUT"
+          echo "Verified published asset: $ASSET_URL"
+          echo "SHA-256: $ROM_SHA256"
+          echo "Size: $ASSET_SIZE bytes"
 
       - name: Update OTA manifest only after release asset verification
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-3' }}
           VERSION: ${{ inputs.version || '0.3-dev' }}
-          ROM_SHA256: ${{ steps.rom.outputs.sha256 }}
-          ROM_SIZE: ${{ steps.rom.outputs.size }}
+          ROM_SHA256: ${{ steps.asset.outputs.asset_sha256 }}
+          ROM_SIZE: ${{ steps.asset.outputs.asset_size }}
+          VERIFIED_ASSET_URL: ${{ steps.asset.outputs.asset_url }}
         shell: bash
         run: |
           set -euo pipefail
           MANIFEST_PATH="ota/stable.json"
           API="repos/$GITHUB_REPOSITORY/contents/$MANIFEST_PATH"
-          CURRENT="$(gh api "$API" --jq '.sha')"
-          cat > "$RUNNER_TEMP/stable.json" <<EOF
-          {
-            "device": "lavender",
-            "version": "$VERSION",
-            "url": "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/LucidOS-Android15-lavender-unsigned.zip",
-            "sha256": "$ROM_SHA256",
-            "size": $ROM_SIZE,
-            "changelog": "Updated Lucid Setup app and privileged permissions; refreshed Lucid Wallpapers, Lucid About, Lucid boot animation, and System Updater integration; preserved Lucid runtime payloads. The updater verifies the ZIP SHA-256 and can stage a root-assisted install script for compatible TWRP/OrangeFox recovery. Physical-device installation and boot are not confirmed."
-          }
-          EOF
+          CURRENT="$(gh api "$API?ref=main" --jq '.sha')"
+          EXPECTED_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/LucidOS-Android15-lavender-unsigned.zip"
+          if [[ "$VERIFIED_ASSET_URL" != "$EXPECTED_URL" ]]; then
+            echo "Verified asset URL does not match requested release tag." >&2
+            exit 1
+          fi
+          jq -n \
+            --arg device "lavender" \
+            --arg version "$VERSION" \
+            --arg url "$EXPECTED_URL" \
+            --arg sha256 "$ROM_SHA256" \
+            --argjson size "$ROM_SIZE" \
+            --arg changelog "Updated Lucid Setup app and privileged permissions; refreshed Lucid Wallpapers, Lucid About, Lucid boot animation, and System Updater integration; preserved Lucid runtime payloads. The updater verifies the ZIP SHA-256 and can stage a root-assisted install script for compatible TWRP/OrangeFox recovery. Physical-device installation and boot are not confirmed." \
+            '{device:$device,version:$version,url:$url,sha256:$sha256,size:$size,changelog:$changelog}' \
+            > "$RUNNER_TEMP/stable.json"
           CONTENT="$(base64 -w0 "$RUNNER_TEMP/stable.json")"
-          MESSAGE="release: publish LucidOS $VERSION OTA manifest"
-          # Use explicit fields; --input can be interpreted as a raw body by gh api.
-          gh api --method PUT "$API" \
-            -f message="$MESSAGE" \
-            -f content="$CONTENT" \
-            -f sha="$CURRENT" \
-            -f branch=main >/dev/null
-          gh api "$API?ref=main" --jq '.content.download_url'
-          echo "OTA manifest updated to $TAG with SHA-256 $ROM_SHA256"
+          jq -n \
+            --arg message "release: publish LucidOS $VERSION OTA manifest" \
+            --arg content "$CONTENT" \
+            --arg sha "$CURRENT" \
+            '{message:$message,content:$content,sha:$sha,branch:"main"}' \
+            > "$RUNNER_TEMP/update-manifest.json"
+          gh api --method PUT "$API" --input "$RUNNER_TEMP/update-manifest.json" >/dev/null
+          echo "Updated OTA manifest to $TAG after digest/size verification."
+
+      - name: Verify raw OTA manifest points to this exact Build 3 asset
+        env:
+          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-3' }}
+          VERSION: ${{ inputs.version || '0.3-dev' }}
+          ROM_SHA256: ${{ steps.asset.outputs.asset_sha256 }}
+          ROM_SIZE: ${{ steps.asset.outputs.asset_size }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/LucidOS-Android15-lavender-unsigned.zip"
+          RAW_URL="https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/ota/stable.json"
+          for attempt in $(seq 1 12); do
+            if curl -fsSL "$RAW_URL?cachebust=$GITHUB_RUN_ID-$attempt" -o "$RUNNER_TEMP/raw-stable.json"; then
+              if jq -e --arg version "$VERSION" --arg url "$EXPECTED_URL" --arg sha "$ROM_SHA256" --argjson size "$ROM_SIZE" \
+                '.device == "lavender" and .version == $version and .url == $url and .sha256 == $sha and .size == $size' \
+                "$RUNNER_TEMP/raw-stable.json" >/dev/null; then
+                cat "$RUNNER_TEMP/raw-stable.json"
+                echo "Raw manifest verified against the published Build 3 asset."
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo "Raw OTA manifest did not converge to the expected Build 3 URL/checksum/size." >&2
+          cat "$RUNNER_TEMP/raw-stable.json" >&2 || true
+          exit 1
