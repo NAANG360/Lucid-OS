@@ -31,7 +31,7 @@ public final class MainActivity extends Activity {
   Button selfUpdate=new Button(this);selfUpdate.setText("Update the updater");styleButton(selfUpdate,0xffded9ce,ink);selfUpdate.setOnClickListener(v->SelfUpdater.start(this,status,selfUpdate,progress));add(releasePanel,selfUpdate,dp(7));\n  download=new Button(this);download.setText("Download & verify");styleButton(download,0xff383a33,white);download.setEnabled(false);download.setOnClickListener(v->download());add(releasePanel,download,dp(7));
   install=new Button(this);install.setText("Install update");styleButton(install,0xff383a33,white);install.setEnabled(false);install.setOnClickListener(v->confirmInstall());add(releasePanel,install,dp(7));
   TextView section=text("HOW IT WORKS",10,muted,true);section.setLetterSpacing(.15f);add(root,section,dp(28));
-  TextView explainer=text("01   Check the release\n      We read the published manifest.\n\n02   Verify the file\n      SHA-256 is checked before install.\n\n03   Hand off to recovery\n      Root and compatible OrangeFox/TWRP required.",13,ink,false);explainer.setLineSpacing(dp(2),1f);add(root,explainer,dp(12));
+  TextView explainer=text("01   Check the release\n      Read the published release manifest.\n\n02   Verify the file\n      SHA-256 is checked before install.\n\n03   Install an OS release\n      Verified ROM ZIP goes to compatible recovery.",13,ink,false);explainer.setLineSpacing(dp(2),1f);add(root,explainer,dp(12));
   TextView footer=text("LUCID OS     ·     MADE TO FEEL LIKE YOURS",9,muted,true);footer.setLetterSpacing(.07f);add(root,footer,dp(28));
   setContentView(sc);
   verifiedZip=new File(getFilesDir(),"lucidos-update.zip");
