@@ -16,52 +16,60 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - uses: android-actions/setup-android@v3
         with: { packages: "platform-tools build-tools;35.0.0 platforms;android-35" }
-      - name: Build, verify and package updater installer
+      - name: Build and verify updater APK
         run: |
           set -euo pipefail
+          mkdir -p out
           gradle -p theme/updater --no-daemon assembleDebug
           APK=theme/updater/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | tee out-certificates.txt
-          mkdir -p out
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | tee out/certificates.txt
           cp "$APK" out/LucidSystemUpdater.apk
           sha256sum out/LucidSystemUpdater.apk | tee out/SHA256SUMS.txt
+      - name: Package correctly located system-app migration ZIP
+        run: |
+          set -euo pipefail
           STAGE="$RUNNER_TEMP/updater-zip"
-          mkdir -p "$STAGE/META-INF/com/google/android" "$STAGE/system_ext/app/LucidSystemUpdater"
-          cp out/LucidSystemUpdater.apk "$STAGE/system_ext/app/LucidSystemUpdater/LucidSystemUpdater.apk"
+          mkdir -p "$STAGE/META-INF/com/google/android" "$STAGE/system_ext/priv-app/LucidSystemUpdater"
+          cp out/LucidSystemUpdater.apk "$STAGE/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk"
           cat > "$STAGE/META-INF/com/google/android/updater-script" <<'EOF'
           ui_print(" ");
           ui_print("  L U C I D   O S");
-          ui_print("  System Updater app installer");
+          ui_print("  System Updater installer");
           ui_print(" ");
           assert(getprop("ro.product.device") == "lavender" || getprop("ro.build.product") == "lavender" || abort("This package is only for Redmi Note 7 (lavender)."));
           ifelse(is_mounted("/system_ext"), unmount("/system_ext"));
           mount("ext4", "EMMC", map_partition("system_ext"), "/system_ext");
+          delete_recursive("/system_ext/app/LucidSystemUpdater");
           package_extract_dir("system_ext", "/system_ext");
-          set_metadata_recursive("/system_ext/app/LucidSystemUpdater", "uid", 0, "gid", 0, "dmode", 0755, "fmode", 0644, "selabel", "u:object_r:system_file:s0");
+          set_metadata_recursive("/system_ext/priv-app/LucidSystemUpdater", "uid", 0, "gid", 0, "dmode", 0755, "fmode", 0644, "selabel", "u:object_r:system_file:s0");
           unmount("/system_ext");
-          ui_print("Lucid System Updater installed. Reboot to Android.");
+          ui_print("Lucid System Updater replaced in /system_ext/priv-app. Reboot to Android.");
           EOF
           (cd "$STAGE" && zip -qr -X "$GITHUB_WORKSPACE/out/LucidSystemUpdater-lavender-addon.zip" .)
           unzip -t out/LucidSystemUpdater-lavender-addon.zip
           unzip -Z -1 out/LucidSystemUpdater-lavender-addon.zip | tee out/installer-files.txt
+          grep -Fxq 'system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk' out/installer-files.txt
+          ! grep -Fxq 'system_ext/app/LucidSystemUpdater/LucidSystemUpdater.apk' out/installer-files.txt
+          unzip -p out/LucidSystemUpdater-lavender-addon.zip META-INF/com/google/android/updater-script | grep -Fq '/system_ext/priv-app/LucidSystemUpdater'
           sha256sum out/LucidSystemUpdater-lavender-addon.zip | tee out/installer-sha256.txt
       - uses: actions/upload-artifact@v4
-        with: { name: LucidSystemUpdater-debug-apk, path: 'out/*', if-no-files-found: error, retention-days: 30 }
+        with: { name: LucidSystemUpdater-debug-apk-and-recovery-installer, path: 'out/*', if-no-files-found: error, retention-days: 30 }
       - name: Publish updater APK and recovery installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           TAG=lucid-system-updater-root-0.3-dev
+          NOTES="Development build 0.3.1-dev (versionCode 2). The APK is development-signed, so Android's normal APK installer will reject it if its certificate differs from the installed system app. For this migration, flash LucidSystemUpdater-lavender-addon.zip from compatible TWRP/OrangeFox recovery; it replaces the APK at /system_ext/priv-app/LucidSystemUpdater and removes the erroneous legacy /system_ext/app copy if present. Android's Package Manager treats it as a system-partition package on reboot, which is different from installing an incompatible APK into /data. Recovery installation on physical devices remains unverified. Future changes should continue to be installed through the system-app ZIP unless a stable signing key matching the installed APK is recovered."
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt out/LucidSystemUpdater-lavender-addon.zip --repo "$GITHUB_REPOSITORY" --clobber
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Lucid System Updater — root-assisted 0.3.1-dev" --notes "Development build 0.3.1-dev (versionCode 2). APK is development-signed. Since Android rejects APK updates signed by a different certificate, use the recovery-flashable lavender addon ZIP if APK installation reports a signature conflict. Recovery compatibility and installation on physical devices remain unverified."
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Lucid System Updater — system-app migration 0.3.1-dev" --notes "$NOTES"
           else
             gh release create "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt out/LucidSystemUpdater-lavender-addon.zip \
               --repo "$GITHUB_REPOSITORY" \
-              --title "Lucid System Updater — root-assisted 0.3.1-dev" \
+              --title "Lucid System Updater — system-app migration 0.3.1-dev" \
               --prerelease \
-              --notes "Development build 0.3.1-dev (versionCode 2). APK is development-signed. Since Android rejects APK updates signed by a different certificate, use the recovery-flashable lavender addon ZIP if APK installation reports a signature conflict. Recovery compatibility and installation on physical devices remain unverified."
+              --notes "$NOTES"
           fi
