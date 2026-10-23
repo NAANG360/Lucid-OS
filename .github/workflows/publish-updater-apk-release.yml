@@ -1,0 +1,52 @@
+name: Publish Lucid System Updater APK to Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-updater-apk-release.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-updater:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download latest successful updater build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: LucidSystemUpdater-debug-apk-and-recovery-installer
+          repository: NAANG360/Lucid-OS
+          run-id: 39953436733
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: incoming
+
+      - name: Extract and verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s incoming/LucidSystemUpdater.apk
+          mkdir -p release-assets
+          cp incoming/LucidSystemUpdater.apk release-assets/LucidSystemUpdater.apk
+          (
+            cd release-assets
+            sha256sum LucidSystemUpdater.apk > LucidSystemUpdater.apk.sha256
+          )
+          cat release-assets/LucidSystemUpdater.apk.sha256
+          test "$(stat -c %s release-assets/LucidSystemUpdater.apk)" -gt 1000000
+
+      - name: Upload updater APK to existing Build 3 release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload lucid-android15-lavender-build-3 \
+            release-assets/LucidSystemUpdater.apk \
+            release-assets/LucidSystemUpdater.apk.sha256 \
+            --repo NAANG360/Lucid-OS --clobber
+          gh release view lucid-android15-lavender-build-3 \
+            --repo NAANG360/Lucid-OS --json assets \
+            --jq '.assets[] | select(.name | startswith("LucidSystemUpdater.apk")) | [.name,.size,.url] | @tsv'
