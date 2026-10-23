@@ -1,6 +1,10 @@
 name: Publish Updated LucidOS ROM and OTA Manifest
 
 on:
+  workflow_run:
+    workflows: ["Assemble Integrated LucidOS ROM"]
+    types: [completed]
+    branches: [fix/chroot-desktop-runtime]
   workflow_dispatch:
     inputs:
       run_id:
@@ -33,14 +37,15 @@ permissions:
 
 jobs:
   publish:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Download exact ROM build artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.artifact_name }}
-          run-id: ${{ inputs.run_id }}
+          name: ${{ inputs.artifact_name || 'lucid-integrated-android15-rom' }}
+          run-id: ${{ inputs.run_id || github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: incoming
 
@@ -68,9 +73,9 @@ jobs:
       - name: Create release if needed and upload the ROM
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.release_tag }}
-          VERSION: ${{ inputs.version }}
-          TARGET_SHA: ${{ inputs.target_sha }}
+          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-2' }}
+          VERSION: ${{ inputs.version || '0.2-dev' }}
+          TARGET_SHA: ${{ inputs.target_sha || github.event.workflow_run.head_sha }}
           ROM_PATH: ${{ steps.rom.outputs.rom_path }}
           ROM_SHA256: ${{ steps.rom.outputs.sha256 }}
         shell: bash
@@ -90,7 +95,7 @@ jobs:
       - name: Verify release asset is uploaded
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.release_tag }}
+          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-2' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -100,8 +105,8 @@ jobs:
       - name: Update OTA manifest only after release asset verification
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.release_tag }}
-          VERSION: ${{ inputs.version }}
+          TAG: ${{ inputs.release_tag || 'lucid-android15-lavender-build-2' }}
+          VERSION: ${{ inputs.version || '0.2-dev' }}
           ROM_SHA256: ${{ steps.rom.outputs.sha256 }}
           ROM_SIZE: ${{ steps.rom.outputs.size }}
         shell: bash
