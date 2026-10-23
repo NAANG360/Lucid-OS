@@ -15,7 +15,7 @@ jobs:
         with: { distribution: temurin, java-version: '17' }
       - uses: gradle/actions/setup-gradle@v4
       - uses: android-actions/setup-android@v3
-        with: { packages: 'platform-tools,build-tools;35.0.0,platforms;android-35' }
+        with: { packages: "platform-tools build-tools;35.0.0 platforms;android-35" }
       - name: Build, verify and package updater installer
         run: |
           set -euo pipefail
