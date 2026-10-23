@@ -501,6 +501,7 @@ jobs:
           /product/app/LucidAbout(/.*)? u:object_r:system_file:s0
           /product/media/bootanimation\.zip u:object_r:system_file:s0
           /product/etc/permissions/privapp-permissions-lucid\.xml u:object_r:system_file:s0
+          /system_ext/priv-app/LucidSystemUpdater(/.*)? u:object_r:system_file:s0
           EOF
           sudo python3 - "$RUNNER_TEMP/assembly/dynamic_partitions_op_list" "$RUNNER_TEMP/assembly/partition-sizes.json" "$ROOT" <<'PY'
           import json,math,os,sys
