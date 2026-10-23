@@ -1,8 +1,8 @@
 {
   "device": "lavender",
-  "version": "0.2-dev",
-  "url": "https://github.com/NAANG360/Lucid-OS/releases/download/lucid-android15-lavender-build-2/LucidOS-Android15-lavender-unsigned.zip",
-  "sha256": "00ac4ea834b47a8b9dcb928a3175b9755b93bfc5ae824955ffb5fa9fc641eb9d",
-  "size": 1326099274,
-  "changelog": "Updated Lucid Setup app and privileged permissions; refreshed Lucid Wallpapers, Lucid About, Lucid boot animation, and System Updater integration; preserved Lucid runtime payloads. Download is hash-verified by the updater. This app downloads but does not flash the ROM; a compatible recovery is required. Physical-device boot is not confirmed."
+  "version": "0.3-dev",
+  "url": "https://github.com/NAANG360/Lucid-OS/releases/download/lucid-android15-lavender-build-3/LucidOS-Android15-lavender-unsigned.zip",
+  "sha256": "c7262b06d6c2a60ceae395b21539de972c3c52085640bee87a7a55dacab7aba7",
+  "size": 1326072199,
+  "changelog": "Updated Lucid Setup app and privileged permissions; refreshed Lucid Wallpapers, Lucid About, Lucid boot animation, and System Updater integration; preserved Lucid runtime payloads. The updater verifies the ZIP SHA-256 and can stage a root-assisted install script for compatible TWRP/OrangeFox recovery. Physical-device installation and boot are not confirmed."
 }
