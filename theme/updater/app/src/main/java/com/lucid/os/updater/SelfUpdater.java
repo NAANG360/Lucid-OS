@@ -68,8 +68,13 @@ public final class SelfUpdater {
                 long currentCode = Build.VERSION.SDK_INT >= 28
                     ? installed.getLongVersionCode() : installed.versionCode;
                 if (targetCode <= currentCode) {
-                    post(main, () -> status.setText("You're already on the latest published updater (" +
-                        installed.versionName + ")."));
+                    post(main, () -> {
+                        status.setText("You're already on the latest published updater (" +
+                            installed.versionName + ").");
+                        button.setEnabled(true);
+                        progress.setIndeterminate(false);
+                        progress.setProgress(0);
+                    });
                     return;
                 }
                 post(main, () -> status.setText("Downloading updater " +
