@@ -16,7 +16,11 @@
 
 ## The idea
 
-Lucid OS is a personal Android ROM project for **lavender**. The goal is a daily-use system that feels intentional: a consistent visual identity, useful built-in tools, and a desktop environment that can grow beyond the phone screen.
+Lucid OS is starting with the **Xiaomi Redmi Note 7 / Note 7S (`lavender`)** as its first device. Right now, the work is focused on getting the ROM, updater, and core experience right for this phone.
+
+But the ambition is bigger than one device. The long-term plan is to grow Lucid beyond a single-device ROM into **its own line of phones** — with hardware designed around the software, a consistent identity, and a unified experience. That's a future goal, not a claim that Lucid-branded phones are available today; the current project is still being built and tested on lavender.
+
+The idea is a daily-use system that feels intentional: a distinct visual identity, useful built-in tools, and a desktop environment that can grow beyond the phone screen.
 
 This is an active work in progress, not a claim that every feature is finished or every build is safe to flash. Builds and components are shared as they become available; check the notes for the exact state of each release.
 
