@@ -70,14 +70,18 @@ jobs:
         run: |
           set -euo pipefail
           TAG=lucid-system-updater-root-0.3-dev
-          NOTES="Development build 0.3.1-dev (versionCode 2). The APK is development-signed, so Android's normal APK installer will reject it if its certificate differs from the installed system app. For this migration, flash LucidSystemUpdater-lavender-addon.zip from compatible TWRP/OrangeFox recovery; it replaces the APK at /system_ext/priv-app/LucidSystemUpdater and removes the erroneous legacy /system_ext/app copy if present. Android's Package Manager treats it as a system-partition package on reboot, which is different from installing an incompatible APK into /data. Recovery installation on physical devices remains unverified. Future changes should continue to be installed through the system-app ZIP unless a stable signing key matching the installed APK is recovered."
+          VERSION_CODE="$(grep -oE 'versionCode [0-9]+' theme/updater/app/build.gradle | awk '{print $2}')"
+          VERSION_NAME=$(grep -oE "versionName '[^']+'" theme/updater/app/build.gradle | cut -d "'" -f2)
+          NOTES="Lucid System Updater $VERSION_NAME (versionCode $VERSION_CODE). Includes the editorial Lucid UI, root-managed updater self-update path, manifest package/version validation, SHA-256 verification, and a recovery installer for /system_ext/priv-app/LucidSystemUpdater. The APK is development-signed; direct APK updates may be rejected if its signing certificate differs from the installed app. For a system-app migration, use the recovery ZIP from compatible TWRP/OrangeFox. Recovery installation and Magisk self-update have not been tested on physical hardware."
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt out/LucidSystemUpdater-lavender-addon.zip out/LucidSystemUpdater-update.json --repo "$GITHUB_REPOSITORY" --clobber
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Lucid System Updater — system-app migration 0.3.1-dev" --notes "$NOTES"
+            RELEASE_ID="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json databaseId --jq .databaseId)"
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false -F prerelease=false -f name="Lucid System Updater $VERSION_NAME" -f body="$NOTES"
           else
             gh release create "$TAG" out/LucidSystemUpdater.apk out/SHA256SUMS.txt out/LucidSystemUpdater-lavender-addon.zip out/LucidSystemUpdater-update.json \
               --repo "$GITHUB_REPOSITORY" \
-              --title "Lucid System Updater — system-app migration 0.3.1-dev" \
-              --prerelease \
+              --title "Lucid System Updater $VERSION_NAME" \
               --notes "$NOTES"
+            RELEASE_ID="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json databaseId --jq .databaseId)"
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false -F prerelease=false -f name="Lucid System Updater $VERSION_NAME" -f body="$NOTES"
           fi
