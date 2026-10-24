@@ -1,26 +1,70 @@
-# Lucid-OS
+<div align="center">
 
-Lucid OS targets the Xiaomi Redmi Note 7 (`lavender`). The current ROM effort has **moved away from the old LineageOS 22.2 reconstruction**. The user has already downloaded the selected new base ROM and has an existing LucidOS build flashed on-device. Do not ask them to download it again or treat the device as unflashed. Do not use the abandoned product-partition reconstruction as a build dependency or blocker.
+# LUCID OS
 
-## Current base-ROM direction
+**A lavender ROM project with its own look, its own tools, and a long way to go.**
 
-Use a clean Android 15 ROM ZIP for `lavender` as the new base. The current candidate recorded in project handoff is **Rising-Revived 6.3 / Android 15 / lavender (March 2025)**. This is the already-selected/downloaded base, not a request to start a new download. Continue from the existing project artifacts and the already-flashed LucidOS build; verify the precise archive and current build through repository artifacts and workflow evidence rather than resetting the project state. Never substitute a ROM for another device (for example, `violet`) even if the marketing name/version matches.
+[![Device](https://img.shields.io/badge/device-Redmi_Note_7%20%2F%207S-7c6ce7?style=for-the-badge)](https://github.com/NAANG360/Lucid-OS)
+[![Android](https://img.shields.io/badge/Android-15-3ddc84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/NAANG360/Lucid-OS)
+[![Status](https://img.shields.io/badge/status-in_development-f0b45a?style=for-the-badge)](https://github.com/NAANG360/Lucid-OS/releases)
 
-The build process must start from that new ROM archive, inventory its actual installer and partition format, then layer Lucid changes onto it. Do not reconstruct or carry forward the abandoned LineageOS product payload. Preserve the new base's boot-critical files, partition logic, kernel/vendor compatibility, and SELinux metadata unless a tested Lucid change specifically requires a modification.
+*Made for the Xiaomi Redmi Note 7 / Note 7S — codename `lavender`.*
 
-## Lucid requirements
+</div>
 
-- Original Lucid/Cosmos Figma file is the only source for Lucid branding and artwork. Do not use generated, stock, or substitute wallpapers/art.
-- Integrate the Lucid System Updater into the ROM itself; an add-on ZIP is only a development artifact, not the final ROM.
-- Preserve existing Lucid scripts, setup app, launcher work, chroot/desktop assets, and required init hooks after auditing compatibility with the new base.
-- Audit and implement the requested native UI/apps against the new ROM rather than assuming the extracted legacy system tree matches it.
+---
 
-## Current deliverables and verification
+## The idea
 
-- `.github/workflows/lucid-system-updater.yml` builds the updater app and a recovery-flashable **add-on** package. It is not a full ROM build.
-- The new base and an existing LucidOS build are already part of the project history; resume from that state and inspect the existing archive/build artifacts. Do not restart the download or old-ROM investigation.
-- The user reports an existing LucidOS build is already flashed on their phone. That is distinct from claiming a newly produced artifact is verified. Continue from the actual installed baseline and repository build artifacts; only claim a *new* package is validated after its own checks pass.
+Lucid OS is a personal Android ROM project for **lavender**. The goal is a daily-use system that feels intentional: a consistent visual identity, useful built-in tools, and a desktop environment that can grow beyond the phone screen.
 
-## Abandoned work
+This is an active work in progress, not a claim that every feature is finished or every build is safe to flash. Builds and components are shared as they become available; check the notes for the exact state of each release.
 
-The old LineageOS 22.2/product-payload reconstruction workflow and its product-partition diagnosis are historical only. They are not prerequisites for the current build and must not be used to gate progress on the new ROM base.
+## What's here
+
+- **System Updater** — an updater app with public OTA metadata and a recovery installer package.
+- **Lucid setup and system apps** — the project’s setup flow, about screen, wallpapers, and boot animation.
+- **Desktop experiments** — Linux/chroot assets and supporting scripts for the larger-screen experience.
+- **Build tooling** — GitHub Actions workflows for packaging, validation, and release publishing.
+
+Some components are further along than others. A downloadable ZIP is not, by itself, proof of a successful install or first boot.
+
+## Downloads
+
+Head to **[Releases](https://github.com/NAANG360/Lucid-OS/releases)** for available builds and tools.
+
+| You need | Where to look |
+|---|---|
+| ROM package | Latest release notes and ROM ZIP asset |
+| Updater APK | Latest release assets |
+| Recovery updater installer | Asset ending in `lavender-recovery.zip` |
+| OTA metadata | [`ota/stable.json`](ota/stable.json) |
+
+**Before flashing:** confirm the package is for `lavender`, read the release notes, keep a backup, and make sure you have a recovery path. An unsigned ROM may require a compatible installation method. Flashing can erase data or leave the device unbootable.
+
+## Device & project status
+
+- **Target:** Xiaomi Redmi Note 7 / Redmi Note 7S (`lavender`)
+- **Base direction:** Android 15
+- **Status:** in development
+- **Physical-device verification:** varies by artifact; use each release's notes rather than assuming the ROM, updater, and recovery installer have all been tested together.
+
+The updater’s recovery ZIP is an installer for the updater app; it is **not** the ROM itself. The OTA manifest should point to the ROM archive and include that archive’s matching SHA-256 and byte size.
+
+## For contributors
+
+Start with [`AGENTS.md`](AGENTS.md) for the short project rules, then check [`agents/`](agents/) for build notes and task-specific guidance. Human-facing documentation lives here; the agent notes are for repository work and should not be treated as release marketing.
+
+When changing a build or release workflow, verify the actual artifact, checksum, device target, and public download URL. Keep release notes plain: say what changed, what was tested, and what still needs testing. No victory laps for a build that has only compiled.
+
+## License & source
+
+This repository contains project files and tooling for Lucid OS. Check individual directories and files for their applicable licenses and attribution before redistributing bundled components. Base-ROM components may have their own licensing terms.
+
+---
+
+<div align="center">
+
+**Built for lavender. Still being built.**
+
+</div>
