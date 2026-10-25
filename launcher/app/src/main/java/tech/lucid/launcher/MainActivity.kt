@@ -30,6 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -239,8 +242,15 @@ private fun AppDrawer(
 
 @Composable
 private fun AppIcon(app: LaunchableApp, size: Int) {
+    val bitmap = remember(app.icon) {
+        val image = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(image)
+        app.icon.setBounds(0, 0, canvas.width, canvas.height)
+        app.icon.draw(canvas)
+        image.asImageBitmap()
+    }
     androidx.compose.foundation.Image(
-        painter = androidx.compose.ui.graphics.painter.PainterResourcePlaceholder(app.icon),
+        bitmap = bitmap,
         contentDescription = app.label,
         modifier = Modifier.size(size.dp).clip(RoundedCornerShape((size * 0.25f).dp))
     )
