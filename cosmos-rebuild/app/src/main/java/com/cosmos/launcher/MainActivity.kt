@@ -183,6 +183,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun CosmosHome(model: CosmosModel = viewModel()) {
     val context = LocalContext.current
