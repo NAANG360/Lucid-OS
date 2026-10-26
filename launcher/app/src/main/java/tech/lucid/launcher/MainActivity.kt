@@ -149,9 +149,6 @@ private fun HomeScreen(apps: List<LaunchableApp>, onOpenDrawer: () -> Unit, onLa
                 Text(time, color = TextMain, fontSize = 17.sp, fontWeight = FontWeight.Medium)
                 Text(date, color = TextMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
             }
-            Box(Modifier.size(38.dp).clip(CircleShape).background(PanelRaised), contentAlignment = Alignment.Center) {
-                Text("L", color = Lilac, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
-            }
         }
 
         Spacer(Modifier.height(26.dp))
