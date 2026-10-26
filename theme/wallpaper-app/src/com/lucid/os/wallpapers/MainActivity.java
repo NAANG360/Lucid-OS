@@ -22,10 +22,10 @@ import android.widget.Toast;
 import java.io.InputStream;
 
 public final class MainActivity extends Activity {
-    private static final int BG = Color.rgb(13, 10, 25);
-    private static final int INK = Color.rgb(245, 240, 255);
-    private static final int BLUE = Color.rgb(160, 96, 255);
-    private static final int MUTED = Color.rgb(184, 164, 220);
+    private static final int BG = Color.rgb(242, 240, 248);
+    private static final int INK = Color.rgb(34, 34, 55);
+    private static final int BLUE = Color.rgb(8, 102, 255);
+    private static final int MUTED = Color.rgb(102, 101, 128);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,13 +66,13 @@ public final class MainActivity extends Activity {
             "lucid-wallpaper-dusk.jpg",
             "01  /  DUSK",
             "Moonlit valley",
-            "The signature LucidOS look: violet skies, deep purple shadows, and a soft lilac horizon."
+            "The primary LucidOS look: violet skies and a cool cyan horizon."
         ));
         root.addView(wallpaperCard(
             "lucid-wallpaper-alpine.jpg",
             "02  /  ALPINE",
-            "Violet mountains",
-            "A purple-forward alpine scene with indigo shadows and lilac light."
+            "Blue mountains",
+            "A dramatic, cooler alternative with warm sunset highlights."
         ));
 
         TextView footer = text("LUCID OS  •  LIGHT, WITHOUT THE NOISE", 10, MUTED, true);
@@ -88,7 +88,7 @@ public final class MainActivity extends Activity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(16), dp(16), dp(16), dp(16));
-        card.setBackground(roundRect(Color.rgb(28, 20, 45), dp(24)));
+        card.setBackground(roundRect(Color.WHITE, dp(24)));
         card.setElevation(dp(3));
         LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(-1, -2);
         cardParams.bottomMargin = dp(18);
@@ -107,7 +107,7 @@ public final class MainActivity extends Activity {
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.addView(paletteButton("Lucid Violet", "#0866FF", BLUE));
+        row.addView(paletteButton("Lucid Blue", "#0866FF", BLUE));
         row.addView(paletteButton("Violet", "#7657FF", Color.rgb(118, 87, 255)));
         row.addView(paletteButton("Cyan", "#00AFC8", Color.rgb(0, 175, 200)));
         card.addView(row);
