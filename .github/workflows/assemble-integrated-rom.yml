@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/assemble-integrated-rom.yml'
       - 'theme/updater/**'
+      - 'launcher/**'
       - 'theme/wallpaper-app/**'
       - 'theme/about-app/**'
       - 'theme/assets/**'
@@ -297,6 +298,18 @@ jobs:
           sha256sum out/LucidOS-bootanimation.zip > report/bootanimation-sha256.txt
           sha256sum out/LucidSetup.apk out/LucidAbout.apk out/LucidWallpapers.apk > report/lucid-apk-sha256.txt
           sha256sum out/LucidSystemUpdater.apk >> report/lucid-apk-sha256.txt
+          sha256sum out/LucidLauncher.apk >> report/lucid-apk-sha256.txt
+
+          # Build the current Lucid Launcher source as part of the ROM, not as a detached artifact.
+          gradle -p launcher --no-daemon :app:assembleDebug
+          LAUNCHER_APK=launcher/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$LAUNCHER_APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$LAUNCHER_APK" > report/launcher-app-signature.txt
+          cp "$LAUNCHER_APK" out/LucidLauncher.apk
+          "$BUILD_TOOLS/aapt" dump badging out/LucidLauncher.apk > report/launcher-app-badging.txt
+          grep -q "package: name='tech.lucid.launcher'" report/launcher-app-badging.txt
+          grep -q "versionCode='3' versionName='0.1.2-dev'" report/launcher-app-badging.txt
+          sha256sum out/LucidLauncher.apk > report/launcher-app-sha256.txt
           printf 'static_framework_rro=excluded\nreason=runtime idmap2 and target policy are not yet verified\n' > report/rro-decision.txt
           ls -lh out/LucidSetup.apk out/LucidAbout.apk out/LucidWallpapers.apk out/LucidOS-bootanimation.zip > report/built-assets.txt
           OVERLAY_SOURCE="$RUNNER_TEMP/assembly/overlay-source"
@@ -440,11 +453,15 @@ jobs:
             "$ROOT/product/media" "$ROOT/product/etc/permissions"
           sudo cp "$GITHUB_WORKSPACE/out/LucidWallpapers.apk" "$ROOT/product/priv-app/LucidWallpapers/LucidWallpapers.apk"
           sudo cp "$GITHUB_WORKSPACE/out/LucidAbout.apk" "$ROOT/product/app/LucidAbout/LucidAbout.apk"
+          sudo mkdir -p "$ROOT/product/priv-app/LucidLauncher"
+          sudo cp "$GITHUB_WORKSPACE/out/LucidLauncher.apk" "$ROOT/product/priv-app/LucidLauncher/LucidLauncher.apk"
           sudo cp "$GITHUB_WORKSPACE/out/LucidOS-bootanimation.zip" "$ROOT/product/media/bootanimation.zip"
           sudo cp theme/privapp-permissions-lucid.xml "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
           sudo chmod 0644 "$ROOT/product/priv-app/LucidWallpapers/LucidWallpapers.apk" \
             "$ROOT/product/app/LucidAbout/LucidAbout.apk" "$ROOT/product/media/bootanimation.zip" \
-            "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
+            "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml" \
+            "$ROOT/product/priv-app/LucidLauncher" \
+            "$ROOT/product/priv-app/LucidLauncher/LucidLauncher.apk"
           sudo chown -hR 0:0 "$ROOT/product/priv-app/LucidWallpapers" "$ROOT/product/app/LucidAbout" \
             "$ROOT/product/media/bootanimation.zip" "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
           # Confirm every source-built Lucid app exists in the final extracted partition tree.
@@ -452,7 +469,8 @@ jobs:
             "$SYSTEM_FS_ROOT/priv-app/LucidSetup/LucidSetup.apk" \
             "$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk" \
             "$ROOT/product/priv-app/LucidWallpapers/LucidWallpapers.apk" \
-            "$ROOT/product/app/LucidAbout/LucidAbout.apk"; do
+            "$ROOT/product/app/LucidAbout/LucidAbout.apk" \
+            "$ROOT/product/priv-app/LucidLauncher/LucidLauncher.apk"; do
             sudo test -s "$app" || { echo "Missing integrated Lucid app: $app" >&2; exit 1; }
           done
           mkdir -p report/integrated-apps
@@ -460,7 +478,8 @@ jobs:
             "LucidSetup:$SYSTEM_FS_ROOT/priv-app/LucidSetup/LucidSetup.apk" \
             "LucidSystemUpdater:$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk" \
             "LucidWallpapers:$ROOT/product/priv-app/LucidWallpapers/LucidWallpapers.apk" \
-            "LucidAbout:$ROOT/product/app/LucidAbout/LucidAbout.apk"; do
+            "LucidAbout:$ROOT/product/app/LucidAbout/LucidAbout.apk" \
+            "LucidLauncher:$ROOT/product/priv-app/LucidLauncher/LucidLauncher.apk"; do
             name="${spec%%:*}"; path="${spec#*:}"
             sudo sha256sum "$path" | tee "report/integrated-apps/$name.sha256"
           done
@@ -520,6 +539,7 @@ jobs:
           /system/usr/lucid(/.*)? u:object_r:system_file:s0
           /product/priv-app/LucidWallpapers(/.*)? u:object_r:system_file:s0
           /product/app/LucidAbout(/.*)? u:object_r:system_file:s0
+          /product/priv-app/LucidLauncher(/.*)? u:object_r:system_file:s0
           /product/media/bootanimation\.zip u:object_r:system_file:s0
           /product/etc/permissions/privapp-permissions-lucid\.xml u:object_r:system_file:s0
           /system_ext/priv-app/LucidSystemUpdater(/.*)? u:object_r:system_file:s0
