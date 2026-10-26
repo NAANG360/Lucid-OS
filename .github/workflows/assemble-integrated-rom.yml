@@ -264,6 +264,7 @@ jobs:
           "$BUILD_TOOLS/apksigner" verify --verbose out/LucidWallpapers.apk
           "$BUILD_TOOLS/aapt" dump badging out/LucidWallpapers.apk > report/wallpaper-app-badging.txt
           grep -q "package: name='com.lucid.os.wallpapers'" report/wallpaper-app-badging.txt
+          grep -q "versionCode='2' versionName='0.2.1-dev'" report/wallpaper-app-badging.txt
           sha256sum out/LucidWallpapers.apk > report/wallpaper-app-sha256.txt
 
           # Build the updater from current repository source and integrate it into
@@ -276,6 +277,7 @@ jobs:
           cp "$UPDATER_APK" out/LucidSystemUpdater.apk
           "$BUILD_TOOLS/aapt" dump badging out/LucidSystemUpdater.apk > report/updater-app-badging.txt
           grep -q "package: name='com.lucid.os.updater'" report/updater-app-badging.txt
+          grep -q "versionCode='8' versionName='0.4.5-dev'" report/updater-app-badging.txt
           sha256sum out/LucidSystemUpdater.apk > report/updater-app-sha256.txt
 
           chmod +x tools/build_lucid_setup.sh tools/build_lucid_about.sh
@@ -284,7 +286,9 @@ jobs:
           "$BUILD_TOOLS/aapt" dump badging out/LucidSetup.apk > report/setup-app-badging.txt
           "$BUILD_TOOLS/aapt" dump badging out/LucidAbout.apk > report/about-app-badging.txt
           grep -q "package: name='com.cosmos.setup'" report/setup-app-badging.txt
+          grep -q "versionCode='3' versionName='0.3.1-dev'" report/setup-app-badging.txt
           grep -q "package: name='com.lucid.os.about'" report/about-app-badging.txt
+          grep -q "versionCode='2' versionName='0.2.1-dev'" report/about-app-badging.txt
           "$BUILD_TOOLS/apksigner" verify --verbose out/LucidSetup.apk > report/setup-app-signature.txt
           "$BUILD_TOOLS/apksigner" verify --verbose out/LucidAbout.apk > report/about-app-signature.txt
           grep -q 'android.permission.WRITE_SECURE_SETTINGS' setup-app/AndroidManifest.xml
