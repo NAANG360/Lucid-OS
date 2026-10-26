@@ -45,6 +45,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -181,6 +183,7 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
     var clock by remember { mutableStateOf(nowTime()) }
     var date by remember { mutableStateOf(nowDate()) }
     var drawerOpen by remember { mutableStateOf(false) }
+    var selectedCategory by remember { mutableStateOf("All") }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -192,11 +195,12 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
         }
     }
 
-    val filtered by remember(model.apps, model.query) {
+    val filtered by remember(model.apps, model.query, selectedCategory) {
         derivedStateOf {
             val q = model.query.trim()
-            if (q.isEmpty()) model.apps else model.apps.filter {
-                it.label.contains(q, ignoreCase = true)
+            model.apps.filter { app ->
+                (selectedCategory == "All" || app.category == selectedCategory) &&
+                    (q.isEmpty() || app.label.contains(q, ignoreCase = true))
             }
         }
     }
@@ -308,6 +312,26 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
                         )
                         Text("×", Modifier.clickable { model.query = ""; drawerOpen = false },
                             color = Ink, fontSize = 22.sp)
+                    }
+                }
+                val categories = remember(model.apps) {
+                    listOf("All") + model.apps.map { it.category }.distinct().sorted()
+                }
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    categories.forEach { category ->
+                        val selected = selectedCategory == category
+                        Box(
+                            Modifier.clip(RoundedCornerShape(16.dp))
+                                .background(if (selected) Accent else SoftPlum.copy(alpha = .82f))
+                                .border(1.dp, if (selected) Color.White.copy(alpha = .42f) else Hairline.copy(alpha = .45f), RoundedCornerShape(16.dp))
+                                .clickable { selectedCategory = category }
+                                .padding(horizontal = 15.dp, vertical = 9.dp)
+                        ) {
+                            Text(category, color = if (selected) DeepPlum else Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
                 if (model.loading) {
