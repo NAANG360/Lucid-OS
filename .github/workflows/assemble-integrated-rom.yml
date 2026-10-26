@@ -315,7 +315,7 @@ jobs:
           sha256sum out/LucidLauncher.apk > report/launcher-app-sha256.txt
           sha256sum out/LucidLauncher.apk >> report/lucid-apk-sha256.txt
           printf 'static_framework_rro=excluded\nreason=runtime idmap2 and target policy are not yet verified\n' > report/rro-decision.txt
-          ls -lh out/LucidSetup.apk out/LucidAbout.apk out/LucidWallpapers.apk out/LucidOS-bootanimation.zip > report/built-assets.txt
+          ls -lh out/LucidSetup.apk out/LucidAbout.apk out/LucidWallpapers.apk out/LucidSystemUpdater.apk out/LucidLauncher.apk out/LucidOS-bootanimation.zip > report/built-assets.txt
           OVERLAY_SOURCE="$RUNNER_TEMP/assembly/overlay-source"
           mkdir -p "$OVERLAY_SOURCE/system-tree/system/etc/init" \
             "$OVERLAY_SOURCE/system-tree/system/etc/permissions" \
@@ -421,7 +421,7 @@ jobs:
           if sdk!='35' or release not in ('15','15.0'):
               raise SystemExit(f'Base system build identity changed unexpectedly: release={release!r} sdk={sdk!r}')
           build_id=props.get('ro.build.id',props.get('ro.system.build.id','BP1A.250505.005'))
-          incremental='LucidOS-20261020'
+          incremental='LucidOS-20261026'
           fingerprint=f'Lucid/lucid_lavender/lavender:15/{build_id}/{incremental}:userdebug/test-keys'
           updates={
               'ro.product.system.brand':'Lucid',
@@ -429,7 +429,7 @@ jobs:
               'ro.product.system.manufacturer':'Lucid',
               'ro.product.system.model':'Lucid Phone',
               'ro.product.system.name':'lucid_lavender',
-              'ro.build.display.id':'LucidOS-0.1',
+              'ro.build.display.id':'LucidOS-0.4',
               'ro.build.fingerprint':fingerprint,
               'ro.system.build.fingerprint':fingerprint,
               'ro.product.system.fingerprint':fingerprint,
@@ -439,7 +439,7 @@ jobs:
               'ro.system.build.tags':'test-keys',
               'ro.build.version.incremental':incremental,
               'ro.system.build.version.incremental':incremental,
-              'ro.lucid.version':'0.1-android15-lavender',
+              'ro.lucid.version':'0.4-android15-lavender',
           }
           for key,value in updates.items():
               lines=[line for line in lines if not line.startswith(key+'=')]
