@@ -4,6 +4,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
@@ -15,6 +17,7 @@ import android.view.View
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -29,6 +32,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,7 +57,9 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -184,6 +190,11 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
     var date by remember { mutableStateOf(nowDate()) }
     var drawerOpen by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf("All") }
+    var showSettings by remember { mutableStateOf(false) }
+    var selectedApp by remember { mutableStateOf<AppEntry?>(null) }
+    val pinnedPackages = remember { mutableStateOf(context.getSharedPreferences("cosmos_launcher", Context.MODE_PRIVATE).getStringSet("pinned_apps", emptySet())?.toSet() ?: emptySet()) }
+    val pinnedApps = remember(model.apps, pinnedPackages.value) { model.apps.filter { it.packageName in pinnedPackages.value } }
+    BackHandler(enabled = drawerOpen || showSettings || selectedApp != null) { if (selectedApp != null) selectedApp = null else if (showSettings) showSettings = false else { drawerOpen = false; model.query = "" } }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -228,12 +239,12 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
                     }
                 }
                 GlassSurface(
-                    modifier = Modifier.size(54.dp).clickable { drawerOpen = !drawerOpen },
+                    modifier = Modifier.size(54.dp).clickable { if (drawerOpen) drawerOpen = false else showSettings = true },
                     shape = RoundedCornerShape(19.dp),
                     contentPadding = PaddingValues(0.dp)
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(if (drawerOpen) "⌂" else "⌕", color = Ink, fontSize = 27.sp)
+                        Text("⋮", color = Ink, fontSize = 27.sp)
                     }
                 }
             }
@@ -347,13 +358,56 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         items(filtered, key = { it.packageName }, contentType = { "app" }) { app ->
-                            AppIcon(app, context, showLabel = true, modifier = Modifier.animateItem())
+                            AppIcon(app, context, showLabel = true, modifier = Modifier.animateItem(), onLongPress = { selectedApp = it })
                         }
                     }
                 }
             }
             }
         }
+    }
+}
+
+    androidx.compose.animation.AnimatedVisibility(visible = showSettings, enter = androidx.compose.animation.slideInHorizontally { it } + fadeIn(), exit = androidx.compose.animation.slideOutHorizontally { it } + fadeOut()) {
+        Box(Modifier.fillMaxSize().background(DeepPlum).padding(WindowInsets.statusBars.asPaddingValuesCompat())) {
+            Column(Modifier.fillMaxSize().padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("←", color = Ink, fontSize = 26.sp, modifier = Modifier.clickable { showSettings = false }.padding(end = 16.dp))
+                    Column { Text("Cosmos Settings", color = Ink, fontSize = 23.sp, fontWeight = FontWeight.SemiBold); Text("Personalize your launcher", color = Ink.copy(alpha = .65f), fontSize = 12.sp) }
+                }
+                Spacer(Modifier.height(22.dp))
+                Text("PERSONALIZATION", color = Accent, fontSize = 11.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Bold)
+                SettingsRow("Change wallpaper", "Open Android wallpaper picker") { runCatching { context.startActivity(Intent(Intent.ACTION_SET_WALLPAPER)) } }
+                SettingsRow("Pinned apps", "${pinnedApps.size} apps pinned") { showSettings = false; drawerOpen = true }
+                Spacer(Modifier.height(20.dp))
+                Text("SYSTEM", color = Accent, fontSize = 11.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Bold)
+                SettingsRow("Android settings", "Network, display, battery and more") { runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS)) } }
+                SettingsRow("Cosmos Launcher", "Version 0.420 · fluid preview") {}
+            }
+        }
+    }
+    selectedApp?.let { app ->
+        AlertDialog(onDismissRequest = { selectedApp = null }, containerColor = DeepPlum, title = { Text(app.label, color = Ink) },
+            text = { Column {
+                Text(if (app.packageName in pinnedPackages.value) "Remove from pinned apps" else "Pin to home screen", color = Accent, modifier = Modifier.fillMaxWidth().clickable {
+                    val updated = pinnedPackages.value.toMutableSet()
+                    if (!updated.add(app.packageName)) updated.remove(app.packageName)
+                    pinnedPackages.value = updated.toSet()
+                    context.getSharedPreferences("cosmos_launcher", Context.MODE_PRIVATE).edit().putStringSet("pinned_apps", updated).apply()
+                    selectedApp = null
+                }.padding(vertical = 12.dp))
+                Text("App info", color = Ink, modifier = Modifier.fillMaxWidth().clickable {
+                    runCatching { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + app.packageName))) }
+                    selectedApp = null
+                }.padding(vertical = 12.dp))
+            } }, confirmButton = { TextButton(onClick = { selectedApp = null }) { Text("Done", color = Ink) } })
+    }
+}
+
+@Composable
+private fun SettingsRow(title: String, subtitle: String, onClick: () -> Unit) {
+    GlassSurface(Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(onClick = onClick), shape = RoundedCornerShape(18.dp), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
+        Column { Text(title, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Medium); Spacer(Modifier.height(3.dp)); Text(subtitle, color = Ink.copy(alpha = .64f), fontSize = 12.sp) }
     }
 }
 
@@ -377,18 +431,13 @@ private fun GlassSurface(
 }
 
 @Composable
-private fun AppIcon(app: AppEntry, context: Context, showLabel: Boolean, modifier: Modifier = Modifier) {
+private fun AppIcon(app: AppEntry, context: Context, showLabel: Boolean, modifier: Modifier = Modifier, onLongPress: (AppEntry) -> Unit = {}) {
     Column(
         modifier = modifier.clip(RoundedCornerShape(20.dp))
-            .pointerInput(app.packageName) {
-                detectTapGestures(onTap = {
-                    val intent = context.packageManager.getLaunchIntentForPackage(app.packageName)
-                    if (intent != null) {
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        runCatching { context.startActivity(intent) }
-                    }
-                })
-            }
+            .combinedClickable(onClick = {
+                val intent = context.packageManager.getLaunchIntentForPackage(app.packageName)
+                if (intent != null) { intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); runCatching { context.startActivity(intent) } }
+            }, onLongClick = { onLongPress(app) })
             .padding(vertical = 4.dp, horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(5.dp)
