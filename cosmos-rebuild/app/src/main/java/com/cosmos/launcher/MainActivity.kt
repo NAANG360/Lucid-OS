@@ -7,6 +7,9 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
@@ -79,6 +82,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -88,20 +92,23 @@ private val Ink = Color(0xFFF8F7FF)
 private val GlassTop = Color(0x48FFFFFF)
 private val GlassBottom = Color(0x16FFFFFF)
 private val Hairline = Color(0x65FFFFFF)
-private val Accent = Color(0xFFB7D7FF)
+private val Accent = Color(0xFFC38FFF)
+private val DeepPlum = Color(0xFF2A2633)
+private val SoftPlum = Color(0xFF3A3445)
 
-data class AppEntry(val label: String, val packageName: String, val icon: Bitmap)
+data class AppEntry(val label: String, val packageName: String, val icon: Bitmap, val category: String = "Apps")
 
 class CosmosModel : ViewModel() {
     var apps by mutableStateOf<List<AppEntry>>(emptyList())
         private set
     var query by mutableStateOf("")
     var loading by mutableStateOf(true)
+    var weather by mutableStateOf<Pair<String, String>?>(null)
 
     fun load(context: Context) {
         if (apps.isNotEmpty() || !loading) return
         loading = true
-        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val pm = context.packageManager
             val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
             val resolved = try {
@@ -113,13 +120,26 @@ class CosmosModel : ViewModel() {
                     val activity = info.activityInfo ?: return@mapNotNull null
                     if (activity.packageName == context.packageName) return@mapNotNull null
                     val drawable = info.loadIcon(pm)
-                    AppEntry(info.loadLabel(pm).toString(), activity.packageName, drawable.toBitmapSafe(96))
+                    val categoryId = activity.applicationInfo.category
+                val category = when (categoryId) {
+                    android.content.pm.ApplicationInfo.CATEGORY_GAME -> "Games"
+                    android.content.pm.ApplicationInfo.CATEGORY_AUDIO,
+                    android.content.pm.ApplicationInfo.CATEGORY_VIDEO,
+                    android.content.pm.ApplicationInfo.CATEGORY_IMAGE -> "Media"
+                    android.content.pm.ApplicationInfo.CATEGORY_SOCIAL -> "Social"
+                    android.content.pm.ApplicationInfo.CATEGORY_NEWS -> "News"
+                    android.content.pm.ApplicationInfo.CATEGORY_PRODUCTIVITY -> "Work"
+                    else -> "Apps"
+                }
+                AppEntry(info.loadLabel(pm).toString(), activity.packageName, drawable.toBitmapSafe(96), category)
                 } catch (_: Exception) { null }
             }.distinctBy { it.packageName }.sortedBy { it.label.lowercase(Locale.getDefault()) }
             withContext(Dispatchers.Main) {
                 apps = built
                 loading = false
             }
+            val freshWeather = fetchCosmosWeather()
+            withContext(Dispatchers.Main) { weather = freshWeather }
         }
     }
 }
@@ -189,7 +209,7 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
 
     Box(
         Modifier.fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0x140D1830), Color(0x06000000), Color(0x35000000))))
+            .background(Brush.verticalGradient(listOf(Color(0x182A1838), Color(0x06000000), Color(0x3A100E17))))
             .padding(WindowInsets.statusBars.asPaddingValuesCompat())
             .padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 8.dp)
     ) {
@@ -223,16 +243,29 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
                 label = "home-drawer-transition"
             ) { showDrawer ->
             if (!showDrawer) {
-                GlassSurface(Modifier.fillMaxWidth().height(86.dp), shape = RoundedCornerShape(26.dp)) {
-                    Row(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Your space", color = Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                            Text("A little room to breathe.", color = Ink.copy(alpha = .72f), fontSize = 12.sp)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    GlassSurface(
+                        Modifier.weight(1f).height(112.dp),
+                        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 22.dp, bottomEnd = 30.dp, bottomStart = 30.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+                            Text("WEATHER", color = Ink.copy(alpha = .68f), fontSize = 10.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(2.dp))
+                            Text(model.weather?.first ?: "—°C", color = Ink, fontSize = 31.sp, fontWeight = FontWeight.Light)
+                            Text(model.weather?.second ?: "Fetching conditions", color = Ink.copy(alpha = .78f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Box(Modifier.size(44.dp).clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xA9D8E8FF), Color(0x338C9DFF))))
-                            .border(1.dp, Hairline, CircleShape), contentAlignment = Alignment.Center) {
-                            Text("✦", color = Ink, fontSize = 22.sp)
+                    }
+                    GlassSurface(
+                        Modifier.weight(1f).height(112.dp),
+                        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 30.dp, bottomEnd = 30.dp, bottomStart = 30.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+                            Text("COSMOS", color = Accent, fontSize = 10.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(6.dp))
+                            Text(clock, color = Ink, fontSize = 25.sp, fontWeight = FontWeight.Light)
+                            Text(date, color = Ink.copy(alpha = .75f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -357,3 +390,33 @@ private fun nowDate() = SimpleDateFormat("EEEE, d MMM", Locale.getDefault()).for
 
 private fun WindowInsets.asPaddingValuesCompat(): PaddingValues =
     PaddingValues(top = 0.dp, bottom = 0.dp)
+
+private suspend fun fetchCosmosWeather(): Pair<String, String>? = withContext(Dispatchers.IO) {
+    var connection: HttpURLConnection? = null
+    try {
+        connection = (URL("https://api.open-meteo.com/v1/forecast?latitude=25.28&longitude=85.85&current_weather=true")
+            .openConnection() as HttpURLConnection).apply {
+            connectTimeout = 3500
+            readTimeout = 3500
+            requestMethod = "GET"
+        }
+        if (connection.responseCode !in 200..299) return@withContext null
+        val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+            .getJSONObject("current_weather")
+        val temperature = "${json.getDouble("temperature").toInt()}°C"
+        val condition = when (json.getInt("weathercode")) {
+            0 -> "Clear sky"
+            1, 2, 3 -> "Partly cloudy"
+            45, 48 -> "Fog"
+            51, 53, 55, 61, 63, 65, 80, 81, 82 -> "Rain"
+            71, 73, 75, 77, 85, 86 -> "Snow"
+            95, 96, 99 -> "Thunderstorm"
+            else -> "Current conditions"
+        }
+        temperature to condition
+    } catch (_: Exception) {
+        null
+    } finally {
+        connection?.disconnect()
+    }
+}
