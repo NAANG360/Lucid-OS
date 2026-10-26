@@ -193,9 +193,13 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
     var selectedCategory by remember { mutableStateOf("All") }
     var showSettings by remember { mutableStateOf(false) }
     var selectedApp by remember { mutableStateOf<AppEntry?>(null) }
+    var showHiddenManager by remember { mutableStateOf(false) }
+    var gridColumns by remember { mutableStateOf(context.getSharedPreferences("cosmos_launcher", Context.MODE_PRIVATE).getInt("grid_columns", 4)) }
+    val hiddenPackages = remember { mutableStateOf(context.getSharedPreferences("cosmos_launcher", Context.MODE_PRIVATE).getStringSet("hidden_apps", emptySet())?.toSet() ?: emptySet()) }
     val pinnedPackages = remember { mutableStateOf(context.getSharedPreferences("cosmos_launcher", Context.MODE_PRIVATE).getStringSet("pinned_apps", emptySet())?.toSet() ?: emptySet()) }
-    val pinnedApps = remember(model.apps, pinnedPackages.value) { model.apps.filter { it.packageName in pinnedPackages.value } }
-    BackHandler(enabled = drawerOpen || showSettings || selectedApp != null) { if (selectedApp != null) selectedApp = null else if (showSettings) showSettings = false else { drawerOpen = false; model.query = "" } }
+    val visibleApps = remember(model.apps, hiddenPackages.value) { model.apps.filter { it.packageName !in hiddenPackages.value } }
+    val pinnedApps = remember(visibleApps, pinnedPackages.value) { visibleApps.filter { it.packageName in pinnedPackages.value } }
+    BackHandler(enabled = drawerOpen || showSettings || showHiddenManager || selectedApp != null) { if (showHiddenManager) showHiddenManager = false else if (selectedApp != null) selectedApp = null else if (showSettings) showSettings = false else { drawerOpen = false; model.query = "" } }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -210,7 +214,7 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
     val filtered by remember(model.apps, model.query, selectedCategory) {
         derivedStateOf {
             val q = model.query.trim()
-            model.apps.filter { app ->
+            visibleApps.filter { app ->
                 (selectedCategory == "All" || app.category == selectedCategory) &&
                     (q.isEmpty() || app.label.contains(q, ignoreCase = true))
             }
@@ -336,8 +340,8 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
                             color = Ink, fontSize = 22.sp)
                     }
                 }
-                val categories = remember(model.apps) {
-                    listOf("All") + model.apps.map { it.category }.distinct().sorted()
+                val categories = remember(visibleApps) {
+                    listOf("All") + visibleApps.map { it.category }.distinct().sorted()
                 }
                 Row(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -362,7 +366,7 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
                     }
                 } else {
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 76.dp),
+                        columns = GridCells.Fixed(gridColumns.coerceIn(3, 6)),
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -389,12 +393,52 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
                 Text("PERSONALIZATION", color = Accent, fontSize = 11.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Bold)
                 SettingsRow("Change wallpaper", "Open Android wallpaper picker") { runCatching { context.startActivity(Intent(Intent.ACTION_SET_WALLPAPER)) } }
                 SettingsRow("Pinned apps", "${pinnedApps.size} apps pinned") { showSettings = false; drawerOpen = true }
+                SettingsRow("App grid", "$gridColumns columns · tap to cycle density") {
+                    gridColumns = if (gridColumns >= 6) 3 else gridColumns + 1
+                    context.getSharedPreferences("cosmos_launcher", Context.MODE_PRIVATE).edit().putInt("grid_columns", gridColumns).apply()
+                }
+                SettingsRow("Hidden apps", "${hiddenPackages.value.size} hidden · manage visibility") { showHiddenManager = true }
+                SettingsRow("Widgets", "Open Android widget picker") {
+                    runCatching { context.startActivity(Intent("android.intent.action.APPWIDGET_PICK").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        .onFailure { runCatching { context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) } }
+                }
                 Spacer(Modifier.height(20.dp))
                 Text("SYSTEM", color = Accent, fontSize = 11.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Bold)
                 SettingsRow("Android settings", "Network, display, battery and more") { runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS)) } }
                 SettingsRow("Cosmos Launcher", "Version 0.420 · fluid preview") {}
             }
         }
+    }
+    if (showHiddenManager) {
+        AlertDialog(
+            onDismissRequest = { showHiddenManager = false },
+            containerColor = DeepPlum,
+            title = { Text("App visibility", color = Ink) },
+            text = {
+                Column(Modifier.height(420.dp)) {
+                    Text("Tap an app to hide or show it in Cosmos.", color = Ink.copy(alpha = .7f), fontSize = 12.sp)
+                    androidx.compose.foundation.lazy.LazyColumn {
+                        items(model.apps, key = { it.packageName }) { app ->
+                            Row(
+                                Modifier.fillMaxWidth().clickable {
+                                    val updated = hiddenPackages.value.toMutableSet()
+                                    if (!updated.add(app.packageName)) updated.remove(app.packageName)
+                                    hiddenPackages.value = updated.toSet()
+                                    context.getSharedPreferences("cosmos_launcher", Context.MODE_PRIVATE).edit().putStringSet("hidden_apps", updated).apply()
+                                }.padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Image(app.icon.asImageBitmap(), contentDescription = null, modifier = Modifier.size(30.dp))
+                                Text(app.label, color = Ink, modifier = Modifier.weight(1f).padding(start = 10.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(if (app.packageName in hiddenPackages.value) "HIDDEN" else "VISIBLE",
+                                    color = if (app.packageName in hiddenPackages.value) Accent else Ink.copy(alpha = .55f), fontSize = 10.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showHiddenManager = false }) { Text("Done", color = Ink) } }
+        )
     }
     selectedApp?.let { app ->
         AlertDialog(onDismissRequest = { selectedApp = null }, containerColor = DeepPlum, title = { Text(app.label, color = Ink) },
