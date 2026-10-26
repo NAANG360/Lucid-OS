@@ -13,9 +13,15 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -208,7 +214,15 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
                 }
             }
 
-            if (!drawerOpen) {
+            AnimatedContent(
+                targetState = drawerOpen,
+                transitionSpec = {
+                    (fadeIn(tween(170)) + scaleIn(initialScale = 0.975f)) togetherWith
+                        (fadeOut(tween(120)) + scaleOut(targetScale = 0.985f))
+                },
+                label = "home-drawer-transition"
+            ) { showDrawer ->
+            if (!showDrawer) {
                 GlassSurface(Modifier.fillMaxWidth().height(86.dp), shape = RoundedCornerShape(26.dp)) {
                     Row(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -280,6 +294,7 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
                         }
                     }
                 }
+            }
             }
         }
     }
