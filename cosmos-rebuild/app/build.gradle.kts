@@ -12,8 +12,8 @@ android {
         applicationId = "com.cosmos.launcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1-Fluid"
+        versionCode = 420
+        versionName = "0.420"
     }
 
     buildFeatures { compose = true }
