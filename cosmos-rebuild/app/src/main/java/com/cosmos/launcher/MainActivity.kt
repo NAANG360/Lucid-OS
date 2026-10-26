@@ -340,5 +340,5 @@ private fun AppIcon(app: AppEntry, context: Context, showLabel: Boolean, modifie
 private fun nowTime() = SimpleDateFormat("h:mm", Locale.getDefault()).format(Date())
 private fun nowDate() = SimpleDateFormat("EEEE, d MMM", Locale.getDefault()).format(Date())
 
-private fun WindowInsets.statusBars.asPaddingValuesCompat(): PaddingValues =
+private fun WindowInsets.asPaddingValuesCompat(): PaddingValues =
     PaddingValues(top = 0.dp, bottom = 0.dp)
