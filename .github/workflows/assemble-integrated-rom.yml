@@ -460,10 +460,10 @@ jobs:
           sudo chmod 0644 "$ROOT/product/priv-app/LucidWallpapers/LucidWallpapers.apk" \
             "$ROOT/product/app/LucidAbout/LucidAbout.apk" "$ROOT/product/media/bootanimation.zip" \
             "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml" \
-            "$ROOT/product/priv-app/LucidLauncher" \
             "$ROOT/product/priv-app/LucidLauncher/LucidLauncher.apk"
           sudo chown -hR 0:0 "$ROOT/product/priv-app/LucidWallpapers" "$ROOT/product/app/LucidAbout" \
-            "$ROOT/product/media/bootanimation.zip" "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
+            "$ROOT/product/priv-app/LucidLauncher" "$ROOT/product/media/bootanimation.zip" \
+            "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
           # Confirm every source-built Lucid app exists in the final extracted partition tree.
           for app in \
             "$SYSTEM_FS_ROOT/priv-app/LucidSetup/LucidSetup.apk" \
