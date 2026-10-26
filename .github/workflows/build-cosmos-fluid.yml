@@ -21,9 +21,22 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      - name: Validate Android project
+        working-directory: cosmos-rebuild
+        run: gradle --no-daemon --stacktrace --warning-mode all :app:tasks
       - name: Build debug APK
         working-directory: cosmos-rebuild
-        run: gradle --no-daemon :app:assembleDebug
+        run: gradle --no-daemon --stacktrace --warning-mode all :app:assembleDebug
+      - name: Upload build diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmos-build-diagnostics
+          path: |
+            cosmos-rebuild/**/build/reports/**
+            cosmos-rebuild/**/build/outputs/logs/**
+          if-no-files-found: ignore
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: cosmos-fluid-debug
