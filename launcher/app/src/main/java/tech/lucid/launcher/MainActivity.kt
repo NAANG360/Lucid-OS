@@ -95,7 +95,7 @@ private fun LauncherRoot(loadApps: () -> List<LaunchableApp>, launchApp: (String
     LaunchedEffect(Unit) {
         wallpaper = withContext(Dispatchers.IO) {
             runCatching {
-                val drawable = WallpaperManager.getInstance(context).drawable
+                val drawable = WallpaperManager.getInstance(context).drawable ?: return@runCatching null
                 val w = 540
                 val h = 1200
                 val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565)
