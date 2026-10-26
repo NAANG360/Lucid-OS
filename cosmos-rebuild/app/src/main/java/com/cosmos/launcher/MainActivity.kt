@@ -366,7 +366,6 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
             }
         }
     }
-}
 
     androidx.compose.animation.AnimatedVisibility(visible = showSettings, enter = androidx.compose.animation.slideInHorizontally { it } + fadeIn(), exit = androidx.compose.animation.slideOutHorizontally { it } + fadeOut()) {
         Box(Modifier.fillMaxSize().background(DeepPlum).padding(WindowInsets.statusBars.asPaddingValuesCompat())) {
