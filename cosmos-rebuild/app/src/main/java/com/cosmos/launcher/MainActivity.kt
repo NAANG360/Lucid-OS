@@ -257,6 +257,7 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
             }
 
             AnimatedContent(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
                 targetState = drawerOpen,
                 transitionSpec = {
                     (fadeIn(tween(170)) + scaleIn(initialScale = 0.975f)) togetherWith
@@ -306,7 +307,13 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 9.dp)) {
                     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically) {
-                        dock.forEach { app -> AppIcon(app, context, showLabel = false, modifier = Modifier.weight(1f)) }
+                        dock.forEach { app ->
+                            AppIcon(
+                                app, context, showLabel = false,
+                                modifier = Modifier.weight(1f),
+                                onLongPress = { selectedApp = it }
+                            )
+                        }
                         if (dock.isEmpty()) Text("Open apps", color = Ink.copy(alpha = .75f), fontSize = 13.sp)
                     }
                 }
