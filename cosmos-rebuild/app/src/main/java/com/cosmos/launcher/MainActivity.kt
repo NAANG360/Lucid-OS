@@ -284,6 +284,16 @@ private fun CosmosHome(model: CosmosModel = viewModel()) {
                         }
                     }
                 }
+                if (pinnedApps.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Text("PINNED", color = Ink.copy(alpha = .68f), fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Bold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            pinnedApps.take(5).forEach { app ->
+                                AppIcon(app, context, showLabel = false, modifier = Modifier.weight(1f), onLongPress = { selectedApp = it })
+                            }
+                        }
+                    }
+                }
                 Spacer(Modifier.weight(1f))
                 GlassSurface(Modifier.fillMaxWidth().height(74.dp), shape = RoundedCornerShape(28.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 9.dp)) {
