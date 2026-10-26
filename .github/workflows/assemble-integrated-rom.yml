@@ -6,7 +6,11 @@ on:
     paths:
       - '.github/workflows/assemble-integrated-rom.yml'
       - 'theme/updater/**'
+      - 'theme/wallpaper-app/**'
+      - 'theme/about-app/**'
+      - 'theme/assets/**'
       - 'theme/privapp-permissions-lucid.xml'
+      - 'setup-app/**'
       - 'system-tree/**'
       - 'tools/**'
   workflow_dispatch:
@@ -443,6 +447,23 @@ jobs:
             "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
           sudo chown -hR 0:0 "$ROOT/product/priv-app/LucidWallpapers" "$ROOT/product/app/LucidAbout" \
             "$ROOT/product/media/bootanimation.zip" "$ROOT/product/etc/permissions/privapp-permissions-lucid.xml"
+          # Confirm every source-built Lucid app exists in the final extracted partition tree.
+          for app in \
+            "$SYSTEM_FS_ROOT/priv-app/LucidSetup/LucidSetup.apk" \
+            "$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk" \
+            "$ROOT/product/priv-app/LucidWallpapers/LucidWallpapers.apk" \
+            "$ROOT/product/app/LucidAbout/LucidAbout.apk"; do
+            sudo test -s "$app" || { echo "Missing integrated Lucid app: $app" >&2; exit 1; }
+          done
+          mkdir -p report/integrated-apps
+          for spec in \
+            "LucidSetup:$SYSTEM_FS_ROOT/priv-app/LucidSetup/LucidSetup.apk" \
+            "LucidSystemUpdater:$ROOT/system_ext/priv-app/LucidSystemUpdater/LucidSystemUpdater.apk" \
+            "LucidWallpapers:$ROOT/product/priv-app/LucidWallpapers/LucidWallpapers.apk" \
+            "LucidAbout:$ROOT/product/app/LucidAbout/LucidAbout.apk"; do
+            name="${spec%%:*}"; path="${spec#*:}"
+            sudo sha256sum "$path" | tee "report/integrated-apps/$name.sha256"
+          done
           sudo test -s "$SYSTEM_FS_ROOT/usr/lucid/ubuntu-base-arm64.tar.gz"
           sudo test -s "$SYSTEM_FS_ROOT/priv-app/LucidSetup/LucidSetup.apk"
           sudo test -s "$SYSTEM_FS_ROOT/etc/init/init.lucid.rc"
