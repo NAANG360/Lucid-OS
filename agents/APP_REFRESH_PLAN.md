@@ -8,8 +8,8 @@ This branch stages the next ROM build. **Do not run the ROM assembly workflow un
 |---|---|---|
 | Lucid Setup | `com.cosmos.setup` / `LucidSetup.apk` | `0.3.1-dev` |
 | Lucid System Updater | `com.lucid.os.updater` / `LucidSystemUpdater.apk` | `0.4.5-dev`, versionCode 8 |
-| Lucid Wallpapers | `com.lucid.os.wallpapers` / `LucidWallpapers.apk` | `0.2.1-dev` |
-| Lucid About | `com.lucid.os.about` / `LucidAbout.apk` | `0.2.1-dev` |
+| Lucid Wallpapers | `com.lucid.os.wallpapers` / `LucidWallpapers.apk` | `0.3.0-dev` |
+| Lucid About | `com.lucid.os.about` / `LucidAbout.apk` | `0.3.0-dev` |
 | Lucid Launcher | `tech.lucid.launcher` / `LucidLauncher.apk` | `0.1.2-dev`, versionCode 3 |
 | Boot animation | `LucidOS-bootanimation.zip` | regenerated from current Lucid artwork |
 
@@ -29,3 +29,13 @@ The setup, updater, and wallpaper sources were synchronized from the current mai
 - Android framework and vendor apps should stay matched to the selected Android 15 base. Do not replace random platform APKs with files from a different Android release; that can break signatures, shared libraries, permissions, or framework compatibility.
 - The launcher is packaged as an additional selectable HOME app. Making it the default launcher is a separate change and must be verified on-device.
 - A successful build is not proof that the update was installed. After the maintainer authorizes a build, validate the ROM ZIP and OTA metadata, then verify the install path and app versions on the phone.
+
+
+## Wallpapers + About redesign (2026-10-26)
+
+- Both apps now use the same warm paper / charcoal / acid-lime visual identity as the System Updater: `#F4F0E8`, `#20201D`, `#77736A`, `#C7F36B`, and `#252622`.
+- Lucid Wallpapers is version `0.3.0-dev` (versionCode 3). It contains only the two committed, original Figma image-fill assets: **Violet Dusk** (`wallpaper 4`, node `553:124`, original file `lucid-wallpaper-dusk.jpg`) and **Blue Alpine** (`wallpaper 1`, node `551:34`, original file `lucid-wallpaper-alpine.jpg`). No generated wallpaper is referenced or packaged.
+- Lucid About is version `0.3.0-dev` (versionCode 3). It uses the same identity, the existing original Violet Dusk artwork, real device/build information, and a direct link to the Figma project.
+- Figma project: https://www.figma.com/design/UPUZotxcIfcIdElWklOHFN/cosmosOS?node-id=553-124
+- Workflow assertions were updated to require the new Wallpaper and About version strings.
+- Still **not built**: the earlier instruction to wait for explicit build authorization remains in force. These are source changes only; no APK or ROM output has been produced by this branch.
