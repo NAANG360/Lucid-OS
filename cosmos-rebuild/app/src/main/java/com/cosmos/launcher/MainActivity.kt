@@ -28,6 +28,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -485,6 +486,7 @@ private fun GlassSurface(
     ) { content() }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AppIcon(app: AppEntry, context: Context, showLabel: Boolean, modifier: Modifier = Modifier, onLongPress: (AppEntry) -> Unit = {}) {
     Column(
