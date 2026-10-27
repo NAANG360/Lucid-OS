@@ -93,7 +93,44 @@ jobs:
             --name lucid-theme-overlay-prototype --dir "$RUNNER_TEMP/theme"
           test -s "$RUNNER_TEMP/theme/out/LucidWallpapers.apk"
           test -s "$RUNNER_TEMP/theme/out/LucidOS-bootanimation.zip"
+
           echo "theme_source_run=$RUN_ID" >> report/source-tree-inventory.txt
+
+      - name: Download verified Lucid native app APK artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/lucid-apps"
+          for spec in \
+            "build-lucid-control-centre.yml:lucid-control-centre-apk:LucidControlCentre.apk" \
+            "build-lucid-settings.yml:lucid-settings-apk:LucidSettings.apk" \
+            "build-lucid-wallpaper.yml:lucid-wallpaper-apk:LucidWallpapersNative.apk" \
+            "build-lucid-launcher.yml:lucid-launcher-apk:LucidLauncher.apk" \
+            "build-lucid-desktop.yml:lucid-desktop-apk:LucidDesktop.apk" \
+            "build-lucid-updater.yml:lucid-updater-apk:LucidUpdater.apk"; do
+            IFS=: read -r WORKFLOW ARTIFACT OUTPUT <<< "$spec"
+            RUN_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW/runs?branch=feature%2Flucid-control-centre-connect&status=success&per_page=20" --jq '[.workflow_runs[] | select(.conclusion=="success")][0].id')"
+            if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
+              echo "No successful build run found for $WORKFLOW; refusing to package an incomplete Lucid app set." >&2
+              exit 1
+            fi
+            DEST="$RUNNER_TEMP/lucid-apps/$OUTPUT"
+            TMP="$RUNNER_TEMP/lucid-apps/$WORKFLOW"
+            mkdir -p "$TMP"
+            gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$ARTIFACT" --dir "$TMP"
+            FOUND="$(find "$TMP" -type f -name '*.apk' -print -quit)"
+            if [[ -z "$FOUND" ]]; then
+              echo "Artifact $ARTIFACT from run $RUN_ID contains no APK." >&2
+              exit 1
+            fi
+            cp "$FOUND" "$DEST"
+            test -s "$DEST"
+            sha256sum "$DEST" >> report/lucid-app-apk-sha256.txt
+            echo "Downloaded $OUTPUT from run $RUN_ID"
+          done
+
 
       - name: Fetch AOSP host filesystem tools
         shell: bash
@@ -130,11 +167,24 @@ jobs:
           cp system-tree/system/etc/selinux/plat_file_contexts "$FILE_CONTEXTS"
 
           mkdir -p "$TREE/priv-app/LucidWallpapers" "$TREE/media" "$TREE/etc/permissions"
+          # Install native Lucid apps as product apps. They remain ordinary apps;
+          # ROM-side privileged permission grants are not assumed.
+          mkdir -p "$TREE/app/LucidControlCentre" "$TREE/app/LucidSettings" \
+            "$TREE/app/LucidWallpapersNative" "$TREE/app/LucidLauncher" \
+            "$TREE/app/LucidDesktop" "$TREE/app/LucidUpdater"
+          cp "$RUNNER_TEMP/lucid-apps/LucidControlCentre.apk" "$TREE/app/LucidControlCentre/LucidControlCentre.apk"
+          cp "$RUNNER_TEMP/lucid-apps/LucidSettings.apk" "$TREE/app/LucidSettings/LucidSettings.apk"
+          cp "$RUNNER_TEMP/lucid-apps/LucidWallpapersNative.apk" "$TREE/app/LucidWallpapersNative/LucidWallpapersNative.apk"
+          cp "$RUNNER_TEMP/lucid-apps/LucidLauncher.apk" "$TREE/app/LucidLauncher/LucidLauncher.apk"
+          cp "$RUNNER_TEMP/lucid-apps/LucidDesktop.apk" "$TREE/app/LucidDesktop/LucidDesktop.apk"
+          cp "$RUNNER_TEMP/lucid-apps/LucidUpdater.apk" "$TREE/app/LucidUpdater/LucidUpdater.apk"
+          # Retain the existing wallpaper app from the theme overlay as an independent fallback.
           cp "$RUNNER_TEMP/theme/out/LucidWallpapers.apk" \
             "$TREE/priv-app/LucidWallpapers/LucidWallpapers.apk"
           cp "$RUNNER_TEMP/theme/out/LucidOS-bootanimation.zip" \
             "$TREE/media/bootanimation.zip"
           cp theme/privapp-permissions-lucid.xml "$TREE/etc/permissions/privapp-permissions-lucid.xml"
+          find "$TREE/app" -type f -name '*.apk' -exec chmod 0644 {} +
           printf 'status=clean\nsource=cloud-rebuilt\n' > "$TREE/etc/lucid-base-product-verified"
           chmod 0644 "$TREE/priv-app/LucidWallpapers/LucidWallpapers.apk" \
             "$TREE/media/bootanimation.zip" "$TREE/etc/lucid-base-product-verified" \
