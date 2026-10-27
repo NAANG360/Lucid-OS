@@ -52,7 +52,7 @@ public final class MainActivity extends Activity {
             if(!url.startsWith("https://")||sha.length()!=64||!sha.matches("[0-9a-f]{64}"))throw new IOException("Invalid HTTPS URL or SHA-256 in manifest");
             long size=j.optLong("size",-1);if(size<=0)throw new IOException("Manifest has no valid archive size");
             runOnUiThread(()->{update=j;version.setText(j.optString("version","Lucid build"));details.setText("Target: lavender  •  "+human(size));status.setText(j.optString("changelog","Update available."));download.setEnabled(true);check.setEnabled(true);});
-        }catch(Exception e){runOnUiThread(()->{status.setText("Update check failed: "+e.getMessage());check.setEnabled(true);});}finally{if(c!=null)c.disconnect();}}).start();
+        }catch(Exception e){String message=e.getMessage()==null?"Unknown error":e.getMessage();runOnUiThread(()->{if(message.contains("marked non-installable")){version.setText("No verified update");details.setText("Target: lavender • OTA paused");status.setText("No installable OTA is published. The latest archive is blocked until its Android metadata and device bootability are verified.");}else{status.setText("Update check failed: "+message);}check.setEnabled(true);});}finally{if(c!=null)c.disconnect();}}).start();
     }
     private void downloadUpdate(){
         if(update==null)return;download.setEnabled(false);check.setEnabled(false);install.setEnabled(false);progress.setProgress(0);status.setText("Starting download…");
