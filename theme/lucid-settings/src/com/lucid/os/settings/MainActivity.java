@@ -104,7 +104,8 @@ public class MainActivity extends Activity {
         String text="LUCID OS\\n\\nDevice: "+android.os.Build.MODEL+" ("+device+")\\nTarget codename: "+codename+"\\nAndroid: "+android.os.Build.VERSION.RELEASE+" (SDK "+android.os.Build.VERSION.SDK_INT+")\\nBuild ID: "+android.os.Build.DISPLAY+"\\nFingerprint: "+android.os.Build.FINGERPRINT+"\\n\\nLucid OS is a work in progress. Build identity is reported by this installed system and does not by itself certify a verified Lucid release.";
         new AlertDialog.Builder(this).setTitle("About Lucid OS").setMessage(text).setPositiveButton("Android device details",(d,w)->{try{startActivity(new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS));}catch(Exception ignored){}}).setNegativeButton("Close",null).show();
     }
-\n    private int selectedAccent(int[] colors){for(int i=0;i<colors.length;i++)if(colors[i]==ACCENT)return i;return 0;}
+
+    private int selectedAccent(int[] colors){for(int i=0;i<colors.length;i++)if(colors[i]==ACCENT)return i;return 0;}
     private void launch(String pkg){try{Intent i=getPackageManager().getLaunchIntentForPackage(pkg);if(i!=null)startActivity(i);else new AlertDialog.Builder(this).setMessage("This Lucid component is not installed in the current build yet.").setPositiveButton("OK",null).show();}catch(Exception e){}}
     private String groupName(String g){switch(g){case "CONNECTIVITY":return "CONNECTIONS";case "PERSONAL":return "PERSONALIZATION";case "LUCID":return "LUCID EXPERIENCE";case "SECURITY":return "SECURITY & PRIVACY";case "DEVICE":return "DEVICE";default:return g;}}
     private String icon(int i){String[] a={"⌁","◉","▦","◌","☼","♫","✧","◈","◌","◇","⌖","▤","▧","⚙","ⓘ","↻"};return a[i%a.length];}
