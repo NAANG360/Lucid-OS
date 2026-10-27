@@ -27,7 +27,8 @@ import java.util.List;
 
 public final class MainActivity extends Activity {
     private static final int BG=Color.rgb(13,14,19), CARD=Color.rgb(28,29,38), CARD2=Color.rgb(39,39,51);
-    private static final int FG=Color.rgb(246,244,251), MUTED=Color.rgb(172,171,190), ACCENT=Color.rgb(196,151,255);
+    private static final int FG=Color.rgb(246,244,251), MUTED=Color.rgb(172,171,190);
+    private int ACCENT=Color.rgb(196,151,255);
     private LinearLayout root, tiles, devices;
     private TextView scanStatus;
     private NsdManager nsd;
@@ -42,7 +43,16 @@ public final class MainActivity extends Activity {
         getWindow().setStatusBarColor(BG); getWindow().setNavigationBarColor(BG);
         getWindow().getDecorView().setSystemUiVisibility(0);
         nsd=(NsdManager)getSystemService(NSD_SERVICE); wifi=(WifiManager)getApplicationContext().getSystemService(WIFI_SERVICE);
+        loadLucidAppearance();
         buildUi();
+    }
+
+    private void loadLucidAppearance(){
+        android.database.Cursor cursor=null;
+        try{
+            cursor=getContentResolver().query(Uri.parse("content://com.lucid.os.settings.appearance/profile"),new String[]{"accent"},null,null,null);
+            if(cursor!=null&&cursor.moveToFirst())ACCENT=cursor.getInt(0);
+        }catch(Exception ignored){}finally{if(cursor!=null)cursor.close();}
     }
 
     private void buildUi() {
