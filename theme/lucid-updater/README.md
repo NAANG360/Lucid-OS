@@ -1,0 +1,2 @@
+# Lucid Updater
+Native Java updater prototype. Reads the public `ota/stable.json` manifest, downloads the listed lavender ROM ZIP, checks declared byte size and SHA-256, and only finalizes the file after verification. It deliberately does not flash from an ordinary unprivileged app; recovery handoff/root installer integration remains separate work.
