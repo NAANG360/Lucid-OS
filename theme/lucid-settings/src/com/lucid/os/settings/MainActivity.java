@@ -39,6 +39,7 @@ public class MainActivity extends Activity {
         items.add(new Item("Battery","Battery status and power use","DEVICE",11,Settings.ACTION_BATTERY_SAVER_SETTINGS));
         items.add(new Item("Storage","Space used by apps and files","DEVICE",12,Settings.ACTION_INTERNAL_STORAGE_SETTINGS));
         items.add(new Item("System & updates","Languages, gestures, system update","DEVICE",13,Settings.ACTION_SETTINGS));
+        items.add(new Item("Lucid Updater","Check and download the latest lavender ROM","LUCID",15,"lucid_updater"));
         items.add(new Item("About this device","Device details and Lucid OS build","DEVICE",14,Settings.ACTION_DEVICE_INFO_SETTINGS));
     }
     private void build(){
@@ -73,6 +74,7 @@ public class MainActivity extends Activity {
     }
     private void open(Item i){
         if(i.action.equals("lucid_control")){launch("com.lucid.os.controlcentre");return;}
+        if(i.action.equals("lucid_updater")){launch("com.lucid.os.updater");return;}
         if(i.action.equals("lucid_wallpaper")){launch("com.lucid.os.wallpaper");return;}
         if(i.action.equals("lucid_theme")){String[] names={"Violet Dusk","Blue Pulse","Cyan Horizon"};int[] colors={Color.rgb(139,119,255),Color.rgb(8,102,255),Color.rgb(0,175,200)};new AlertDialog.Builder(this).setTitle("Lucid accent").setSingleChoiceItems(names,selectedAccent(colors), (dialog,which)->{getSharedPreferences("lucid_appearance",MODE_PRIVATE).edit().putInt("accent",colors[which]).apply();dialog.dismiss();recreate();}).setNegativeButton("Cancel",null).show();return;}
         try{startActivity(new Intent(i.action));}catch(Exception e){try{startActivity(new Intent(Settings.ACTION_SETTINGS));}catch(Exception ignored){}}
@@ -80,7 +82,7 @@ public class MainActivity extends Activity {
     private int selectedAccent(int[] colors){for(int i=0;i<colors.length;i++)if(colors[i]==ACCENT)return i;return 0;}
     private void launch(String pkg){try{Intent i=getPackageManager().getLaunchIntentForPackage(pkg);if(i!=null)startActivity(i);else new AlertDialog.Builder(this).setMessage("This Lucid component is not installed in the current build yet.").setPositiveButton("OK",null).show();}catch(Exception e){}}
     private String groupName(String g){switch(g){case "CONNECTIVITY":return "CONNECTIONS";case "PERSONAL":return "PERSONALIZATION";case "LUCID":return "LUCID EXPERIENCE";case "SECURITY":return "SECURITY & PRIVACY";case "DEVICE":return "DEVICE";default:return g;}}
-    private String icon(int i){String[] a={"⌁","◉","▦","◌","☼","♫","✧","◈","◌","◇","⌖","▤","▧","⚙","ⓘ"};return a[i%a.length];}
+    private String icon(int i){String[] a={"⌁","◉","▦","◌","☼","♫","✧","◈","◌","◇","⌖","▤","▧","⚙","ⓘ","↻"};return a[i%a.length];}
     private LinearLayout card(){LinearLayout l=new LinearLayout(this);l.setBackground(shape(CARD,22));return l;}
     private TextView txt(String s,int size,int color,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(color);t.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));return t;}
     private GradientDrawable shape(int color,int radius){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));return d;}
