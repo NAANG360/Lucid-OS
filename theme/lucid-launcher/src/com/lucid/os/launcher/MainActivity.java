@@ -19,11 +19,16 @@ import android.text.Editable;
 import java.util.*;
 
 public final class MainActivity extends Activity {
-    private final int bg=Color.rgb(12,13,19),panel=Color.rgb(25,25,37),fg=Color.rgb(246,244,252),muted=Color.rgb(166,164,187),accent=Color.rgb(196,151,255);
+    private final int bg=Color.rgb(12,13,19),panel=Color.rgb(25,25,37),fg=Color.rgb(246,244,252),muted=Color.rgb(166,164,187); private int accent=Color.rgb(196,151,255);
     private LinearLayout root,grid,dock;private EditText search;private final List<AppEntry> apps=new ArrayList<>();private int columns=4;
     static final class AppEntry{String label,pkg;DrawableIcon icon;AppEntry(String l,String p,DrawableIcon i){label=l;pkg=p;icon=i;}}
     interface DrawableIcon{android.graphics.drawable.Drawable get();}
-    @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(bg);getWindow().setNavigationBarColor(bg);loadApps();build();}
+    @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(bg);getWindow().setNavigationBarColor(bg);loadAppearance();loadApps();build();}
+    private void loadAppearance(){
+        android.database.Cursor cursor=null;
+        try{cursor=getContentResolver().query(android.net.Uri.parse("content://com.lucid.os.settings.appearance/profile"),new String[]{"accent"},null,null,null);if(cursor!=null&&cursor.moveToFirst())accent=cursor.getInt(0);}
+        catch(Exception ignored){}finally{if(cursor!=null)cursor.close();}
+    }
     private void loadApps(){apps.clear();Intent q=new Intent(Intent.ACTION_MAIN);q.addCategory(Intent.CATEGORY_LAUNCHER);PackageManager pm=getPackageManager();for(ResolveInfo r:pm.queryIntentActivities(q,0)){String p=r.activityInfo.packageName;apps.add(new AppEntry(r.loadLabel(pm).toString(),p,()->r.loadIcon(pm)));}Collections.sort(apps,(a,b)->a.label.compareToIgnoreCase(b.label));}
     private void build(){
         root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(20),dp(16),dp(20),dp(12));root.setBackgroundColor(bg);
