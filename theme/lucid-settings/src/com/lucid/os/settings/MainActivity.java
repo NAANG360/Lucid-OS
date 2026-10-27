@@ -28,7 +28,7 @@ public class MainActivity extends Activity {
         items.add(new Item("Network & internet","Wi-Fi, mobile network, hotspot","CONNECTIVITY",0,Settings.ACTION_WIRELESS_SETTINGS));
         items.add(new Item("Connected devices","Bluetooth, pairing, connection preferences","CONNECTIVITY",1,Settings.ACTION_BLUETOOTH_SETTINGS));
         items.add(new Item("Apps","Default apps, recent apps, permissions","APPS",2,Settings.ACTION_APPLICATION_SETTINGS));
-        items.add(new Item("Notifications","Notification history and conversations","PERSONAL",3,Settings.ACTION_NOTIFICATION_SETTINGS));
+        items.add(new Item("Notifications","Notification history and conversations","PERSONAL",3,Settings.ACTION_APP_NOTIFICATION_SETTINGS));
         items.add(new Item("Display & colour","Brightness, dark theme, screen timeout","PERSONAL",4,Settings.ACTION_DISPLAY_SETTINGS));
         items.add(new Item("Sound & vibration","Volume, ringtones, vibration","PERSONAL",5,Settings.ACTION_SOUND_SETTINGS));
         items.add(new Item("Wallpaper & style","Wallpaper, colour palette and icons","LUCID",6,"lucid_wallpaper"));
