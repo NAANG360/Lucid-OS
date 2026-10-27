@@ -1,0 +1,8 @@
+{
+  "device": "lavender",
+  "version": "0.3-dev",
+  "url": "https://github.com/NAANG360/Lucid-OS/releases/download/lucid-android15-lavender-build-3/LucidOS-Android15-lavender-unsigned.zip",
+  "sha256": "c7262b06d6c2a60ceae395b21539de972c3c52085640bee87a7a55dacab7aba7",
+  "size": 1326072199,
+  "changelog": "LucidOS Android 15 lavender build 3. The OTA client validates device, HTTPS URL, size, and SHA-256 before staging. This archive is unsigned; verify recovery compatibility and back up data before installation. Physical-device installation and boot are not confirmed."
+}
