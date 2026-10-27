@@ -29,4 +29,4 @@ jobs:
 
       - name: Lint all GitHub Actions workflows
         run: |
-          "$RUNNER_TEMP/actionlint/actionlint" -color -ignore 'SC2046|SC2005'
+          "$RUNNER_TEMP/actionlint/actionlint" -color
