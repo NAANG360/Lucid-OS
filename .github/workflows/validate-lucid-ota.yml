@@ -1,0 +1,64 @@
+name: Validate Lucid OTA Manifest
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, feature/lucid-control-centre-connect]
+    paths:
+      - 'ota/**'
+      - '.github/workflows/validate-lucid-ota.yml'
+  pull_request:
+    paths:
+      - 'ota/**'
+      - '.github/workflows/validate-lucid-ota.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate manifest schema and release URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, re, urllib.request
+          from pathlib import Path
+
+          path = Path("ota/stable.json")
+          if not path.is_file():
+              raise SystemExit("Missing ota/stable.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          required = ("device", "version", "url", "sha256", "size", "changelog")
+          missing = [key for key in required if key not in data]
+          if missing:
+              raise SystemExit("Missing manifest fields: " + ", ".join(missing))
+          if data["device"] != "lavender":
+              raise SystemExit("OTA target must be lavender")
+          if not isinstance(data["version"], str) or not data["version"].strip():
+              raise SystemExit("OTA version must be a non-empty string")
+          if not isinstance(data["url"], str) or not data["url"].startswith("https://"):
+              raise SystemExit("OTA URL must use HTTPS")
+          if not re.fullmatch(r"[0-9a-fA-F]{64}", str(data["sha256"])):
+              raise SystemExit("OTA SHA-256 must contain exactly 64 hexadecimal characters")
+          if not isinstance(data["size"], int) or data["size"] <= 0:
+              raise SystemExit("OTA size must be a positive integer")
+          if not isinstance(data["changelog"], str):
+              raise SystemExit("OTA changelog must be a string")
+
+          req = urllib.request.Request(data["url"], method="HEAD", headers={"User-Agent": "LucidOS-OTA-Validator/1.0"})
+          try:
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  if response.status != 200:
+                      raise SystemExit(f"ROM URL returned HTTP {response.status}")
+                  length = response.headers.get("Content-Length")
+                  if length and int(length) != data["size"]:
+                      raise SystemExit(f"Manifest size {data['size']} != remote Content-Length {length}")
+                  print(f"Manifest schema valid; ROM URL reachable (HTTP {response.status}); size={data['size']}; SHA-256 syntax valid.")
+          except Exception as exc:
+              raise SystemExit(f"Could not validate public ROM URL: {exc}")
+          PY
