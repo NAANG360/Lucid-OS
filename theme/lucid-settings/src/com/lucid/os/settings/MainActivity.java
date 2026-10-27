@@ -40,7 +40,7 @@ public class MainActivity extends Activity {
         items.add(new Item("Storage","Space used by apps and files","DEVICE",12,Settings.ACTION_INTERNAL_STORAGE_SETTINGS));
         items.add(new Item("System & updates","Languages, gestures, system update","DEVICE",13,Settings.ACTION_SETTINGS));
         items.add(new Item("Lucid Updater","Check and download the latest lavender ROM","LUCID",15,"lucid_updater"));
-        items.add(new Item("About this device","Device details and Lucid OS build","DEVICE",14,Settings.ACTION_DEVICE_INFO_SETTINGS));
+        items.add(new Item("About this device","Lucid OS, device, Android and build details","DEVICE",14,"lucid_about"));\n        items.add(new Item("Lock screen","Clock, notifications and display settings","PERSONAL",16,Settings.ACTION_DISPLAY_SETTINGS));
     }
     private void build(){
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(BG);
@@ -76,10 +76,34 @@ public class MainActivity extends Activity {
         if(i.action.equals("lucid_control")){launch("com.lucid.os.controlcentre");return;}
         if(i.action.equals("lucid_updater")){launch("com.lucid.os.updater");return;}
         if(i.action.equals("lucid_wallpaper")){launch("com.lucid.os.wallpaper");return;}
-        if(i.action.equals("lucid_theme")){String[] names={"Violet Dusk","Blue Pulse","Cyan Horizon"};int[] colors={Color.rgb(139,119,255),Color.rgb(8,102,255),Color.rgb(0,175,200)};new AlertDialog.Builder(this).setTitle("Lucid accent").setSingleChoiceItems(names,selectedAccent(colors), (dialog,which)->{getSharedPreferences("lucid_appearance",MODE_PRIVATE).edit().putInt("accent",colors[which]).apply();dialog.dismiss();recreate();}).setNegativeButton("Cancel",null).show();return;}
+        if(i.action.equals("lucid_theme")){showAppearance();return;}
+        if(i.action.equals("lucid_about")){showAbout();return;}
         try{startActivity(new Intent(i.action));}catch(Exception e){try{startActivity(new Intent(Settings.ACTION_SETTINGS));}catch(Exception ignored){}}
     }
-    private int selectedAccent(int[] colors){for(int i=0;i<colors.length;i++)if(colors[i]==ACCENT)return i;return 0;}
+
+    private void showAppearance(){
+        String[] names={"Violet Dusk","Blue Pulse","Cyan Horizon","Bubbles","Rounded surfaces","Compact spacing","Reduce motion"};
+        int[] colors={Color.rgb(139,119,255),Color.rgb(8,102,255),Color.rgb(0,175,200)};
+        android.content.SharedPreferences prefs=getSharedPreferences("lucid_appearance",MODE_PRIVATE);
+        boolean[] checked={prefs.getInt("accent",colors[0])==colors[0],prefs.getInt("accent",colors[0])==colors[1],prefs.getInt("accent",colors[0])==colors[2],prefs.getBoolean("bubbles",true),prefs.getBoolean("rounded",true),prefs.getBoolean("compact",false),prefs.getBoolean("reduce_motion",false)};
+        new AlertDialog.Builder(this).setTitle("Lucid appearance").setMultiChoiceItems(names,checked,(dialog,which,isChecked)->{
+            android.content.SharedPreferences.Editor e=prefs.edit();
+            if(which<3){e.putInt("accent",colors[which]);ACCENT=colors[which];}
+            else if(which==3)e.putBoolean("bubbles",isChecked);
+            else if(which==4)e.putBoolean("rounded",isChecked);
+            else if(which==5)e.putBoolean("compact",isChecked);
+            else e.putBoolean("reduce_motion",isChecked);
+            e.apply();
+            if(which<3){dialog.dismiss();recreate();}
+        }).setPositiveButton("Apply",(d,w)->recreate()).setNegativeButton("Cancel",null).show();
+    }
+    private void showAbout(){
+        String device=android.os.Build.DEVICE;
+        String codename="lavender".equalsIgnoreCase(device)?"lavender":"unverified";
+        String text="LUCID OS\\n\\nDevice: "+android.os.Build.MODEL+" ("+device+")\\nTarget codename: "+codename+"\\nAndroid: "+android.os.Build.VERSION.RELEASE+" (SDK "+android.os.Build.VERSION.SDK_INT+")\\nBuild ID: "+android.os.Build.DISPLAY+"\\nFingerprint: "+android.os.Build.FINGERPRINT+"\\n\\nLucid OS is a work in progress. Build identity is reported by this installed system and does not by itself certify a verified Lucid release.";
+        new AlertDialog.Builder(this).setTitle("About Lucid OS").setMessage(text).setPositiveButton("Android device details",(d,w)->{try{startActivity(new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS));}catch(Exception ignored){}}).setNegativeButton("Close",null).show();
+    }
+\n    private int selectedAccent(int[] colors){for(int i=0;i<colors.length;i++)if(colors[i]==ACCENT)return i;return 0;}
     private void launch(String pkg){try{Intent i=getPackageManager().getLaunchIntentForPackage(pkg);if(i!=null)startActivity(i);else new AlertDialog.Builder(this).setMessage("This Lucid component is not installed in the current build yet.").setPositiveButton("OK",null).show();}catch(Exception e){}}
     private String groupName(String g){switch(g){case "CONNECTIVITY":return "CONNECTIONS";case "PERSONAL":return "PERSONALIZATION";case "LUCID":return "LUCID EXPERIENCE";case "SECURITY":return "SECURITY & PRIVACY";case "DEVICE":return "DEVICE";default:return g;}}
     private String icon(int i){String[] a={"⌁","◉","▦","◌","☼","♫","✧","◈","◌","◇","⌖","▤","▧","⚙","ⓘ","↻"};return a[i%a.length];}
