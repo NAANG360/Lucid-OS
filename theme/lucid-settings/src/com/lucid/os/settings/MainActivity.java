@@ -40,7 +40,8 @@ public class MainActivity extends Activity {
         items.add(new Item("Storage","Space used by apps and files","DEVICE",12,Settings.ACTION_INTERNAL_STORAGE_SETTINGS));
         items.add(new Item("System & updates","Languages, gestures, system update","DEVICE",13,Settings.ACTION_SETTINGS));
         items.add(new Item("Lucid Updater","Check and download the latest lavender ROM","LUCID",15,"lucid_updater"));
-        items.add(new Item("About this device","Lucid OS, device, Android and build details","DEVICE",14,"lucid_about"));\n        items.add(new Item("Lock screen","Clock, notifications and display settings","PERSONAL",16,Settings.ACTION_DISPLAY_SETTINGS));
+        items.add(new Item("About this device","Lucid OS, device, Android and build details","DEVICE",14,"lucid_about"));
+        items.add(new Item("Lock screen","Clock, notifications and display settings","PERSONAL",16,Settings.ACTION_DISPLAY_SETTINGS));
     }
     private void build(){
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(BG);
