@@ -47,6 +47,7 @@ public final class MainActivity extends Activity {
             if(c.getResponseCode()!=200)throw new IOException("Manifest HTTP "+c.getResponseCode());
             JSONObject j;try(InputStream in=c.getInputStream()){j=new JSONObject(readText(in));}
             if(!"lavender".equals(j.optString("device")))throw new IOException("Manifest target is not lavender");
+            if(j.has("installable")&&!j.optBoolean("installable",false))throw new IOException("This ROM is marked non-installable pending device/metadata validation.");
             String url=j.getString("url"),sha=j.getString("sha256").toLowerCase(Locale.ROOT);
             if(!url.startsWith("https://")||sha.length()!=64||!sha.matches("[0-9a-f]{64}"))throw new IOException("Invalid HTTPS URL or SHA-256 in manifest");
             long size=j.optLong("size",-1);if(size<=0)throw new IOException("Manifest has no valid archive size");
