@@ -217,11 +217,30 @@ public final class MainActivity extends Activity {
     }
 
     private void showService(NsdServiceInfo info) {
+        String type=info.getServiceType()==null?"":info.getServiceType().toLowerCase(java.util.Locale.ROOT);
+        boolean connectable=type.contains("_http._tcp")||type.contains("_https._tcp")||type.contains("_smb._tcp");
         new AlertDialog.Builder(this).setTitle(info.getServiceName())
-            .setMessage("Service type: "+info.getServiceType()+"\n\nLucid discovered this service on your local network. Discovery alone does not establish a trusted connection. Only proceed if you recognise the device; service-specific connection and authentication support may be required.")
-            .setPositiveButton("OK",null).setNeutralButton("Network settings",(d,w)->{try{startActivity(new Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY));}catch(Exception e){openSettings();}}).show();
+            .setMessage("Service type: "+info.getServiceType()+"\n\nLucid found this service on your local network. Discovery does not establish trust. Web services open in a browser; SMB requires a compatible file app. Cast/AirPlay still need native protocol and pairing support.")
+            .setPositiveButton(connectable?"Connect":"Details",(d,w)->connectService(info))
+            .setNegativeButton("Close",null).setNeutralButton("Network settings",(d,w)->{try{startActivity(new Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY));}catch(Exception e){openSettings();}}).show();
     }
 
+    private void connectService(NsdServiceInfo info) {
+        if(nsd==null)return;
+        try { nsd.resolveService(info,new NsdManager.ResolveListener(){
+            public void onResolveFailed(NsdServiceInfo serviceInfo,int errorCode){runOnUiThread(()->Toast.makeText(MainActivity.this,"Could not resolve service; it may be offline.",Toast.LENGTH_LONG).show());}
+            public void onServiceResolved(NsdServiceInfo serviceInfo){runOnUiThread(()->{
+                try{
+                    String type=serviceInfo.getServiceType()==null?"":serviceInfo.getServiceType().toLowerCase(java.util.Locale.ROOT);
+                    java.net.InetAddress host=serviceInfo.getHost(); if(host==null)throw new IllegalStateException("No host address");
+                    String address=host.getHostAddress();
+                    if(type.contains("_http._tcp")||type.contains("_https._tcp")){String scheme=type.contains("_https._tcp")?"https":"http";startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(scheme+"://"+address+":"+serviceInfo.getPort()+"/")));}
+                    else if(type.contains("_smb._tcp")){startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("smb://"+address+":"+serviceInfo.getPort()+"/")));}
+                    else new AlertDialog.Builder(MainActivity.this).setTitle("Protocol support needed").setMessage("Resolved at "+address+":"+serviceInfo.getPort()+". This build does not yet implement the service-specific cast/AirPlay protocol or pairing flow.").setPositiveButton("OK",null).show();
+                }catch(Exception e){Toast.makeText(MainActivity.this,"No compatible app or connection handler is available.",Toast.LENGTH_LONG).show();}
+            });}
+        }); } catch(Exception e){Toast.makeText(this,"Could not start service resolution.",Toast.LENGTH_SHORT).show();}
+    }
     private LinearLayout cardColumn(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);l.setPadding(dp(14),dp(14),dp(14),dp(14));l.setBackground(round(CARD,21));return l;}
     private TextView section(String s){TextView t=text(s,10,ACCENT,true);t.setLetterSpacing(.12f);t.setPadding(0,0,0,dp(10));return t;}
     private TextView node(String s){TextView t=text(s,11,FG,true);t.setGravity(Gravity.CENTER);t.setBackground(round(CARD,22));t.setElevation(dp(3));t.setOnDragListener((v,e)->{if(e.getAction()==android.view.DragEvent.ACTION_DROP){scanServices();return true;}return true;});return t;}
