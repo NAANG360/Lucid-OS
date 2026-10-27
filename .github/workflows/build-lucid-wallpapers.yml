@@ -1,0 +1,61 @@
+name: Build Lucid Wallpapers APK
+
+on:
+  push:
+    branches:
+      - prep/lucid-app-refresh
+    paths:
+      - 'theme/wallpaper-app/**'
+      - '.github/workflows/build-lucid-wallpapers.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-wallpapers:
+    name: Build standalone Wallpapers APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android build tools
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - name: Verify wallpaper assets
+        run: |
+          set -eu
+          for asset in wallpaper-bubbles.png wallpaper-purple-crescent.png wallpaper-clock-home.png wallpaper-lucid-crescent.png wallpaper-dynapunch.png wallpaper-brushwork.png; do
+            test -s "theme/wallpaper-app/assets/$asset" || { echo "::error::Missing required wallpaper asset: $asset"; exit 1; }
+          done
+      - name: Compile and package APK
+        run: |
+          set -euxo pipefail
+          APP="$GITHUB_WORKSPACE/theme/wallpaper-app"
+          BUILD="$RUNNER_TEMP/lucid-wallpapers-build"
+          mkdir -p "$BUILD/classes" "$BUILD/dex" "$BUILD/apk/assets"
+          cp -R "$APP/assets/." "$BUILD/apk/assets/"
+          javac -source 8 -target 8 -bootclasspath "$ANDROID_HOME/platforms/android-35/android.jar" -classpath "$ANDROID_HOME/platforms/android-35/android.jar" -d "$BUILD/classes" "$APP/src/com/lucid/os/wallpapers/MainActivity.java"
+          "$ANDROID_HOME/build-tools/35.0.0/d8" --lib "$ANDROID_HOME/platforms/android-35/android.jar" --output "$BUILD/dex" $(find "$BUILD/classes" -name '*.class')
+          cp "$BUILD/dex/classes.dex" "$BUILD/apk/classes.dex"
+          aapt package -f -M "$APP/AndroidManifest.xml" -I "$ANDROID_HOME/platforms/android-35/android.jar" -F "$BUILD/unsigned.apk" "$BUILD/apk"
+          zip -q -j "$BUILD/unsigned.apk" "$BUILD/apk/classes.dex"
+          mkdir -p "$BUILD/signed"
+          apksigner sign --ks "$ANDROID_HOME/debug.keystore" --ks-pass pass:android --key-pass pass:android --out "$BUILD/Lucid-Wallpapers.apk" "$BUILD/unsigned.apk" || {
+            keytool -genkeypair -keystore "$BUILD/debug.keystore" -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+            apksigner sign --ks "$BUILD/debug.keystore" --ks-pass pass:android --key-pass pass:android --out "$BUILD/Lucid-Wallpapers.apk" "$BUILD/unsigned.apk"
+          }
+          apksigner verify "$BUILD/Lucid-Wallpapers.apk"
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-wallpapers-apk
+          path: ${{ runner.temp }}/lucid-wallpapers-build/Lucid-Wallpapers.apk
+          if-no-files-found: error
+          retention-days: 14
