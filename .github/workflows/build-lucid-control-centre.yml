@@ -6,6 +6,10 @@ on:
     paths:
       - 'theme/lucid-control-centre/**'
       - '.github/workflows/build-lucid-control-centre.yml'
+  pull_request:
+    paths:
+      - 'theme/lucid-control-centre/**'
+      - '.github/workflows/build-lucid-control-centre.yml'
   workflow_dispatch:
 permissions:
   contents: read
