@@ -76,7 +76,7 @@ public final class MainActivity extends Activity {
             params(-1, -2, 0, 0, 0, dp(18)));
 
         int width = getResources().getDisplayMetrics().widthPixels;
-        int usable = width - dp(40);
+        int usable = Math.round(width / getResources().getDisplayMetrics().density) - 40;
         int gap = dp(10);
         int cardWidth = (usable - gap) / 2;
         LinearLayout row = null;
