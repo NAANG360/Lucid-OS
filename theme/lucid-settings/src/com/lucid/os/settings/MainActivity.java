@@ -73,7 +73,7 @@ public class MainActivity extends Activity {
     }
     private void open(Item i){
         if(i.action.equals("lucid_control")){launch("com.lucid.os.controlcentre");return;}
-        if(i.action.equals("lucid_wallpaper")){launch("com.android.wallpaper");return;}
+        if(i.action.equals("lucid_wallpaper")){launch("com.lucid.os.wallpaper");return;}
         if(i.action.equals("lucid_theme")){String[] names={"Violet Dusk","Blue Pulse","Cyan Horizon"};int[] colors={Color.rgb(139,119,255),Color.rgb(8,102,255),Color.rgb(0,175,200)};new AlertDialog.Builder(this).setTitle("Lucid accent").setSingleChoiceItems(names,selectedAccent(colors), (dialog,which)->{getSharedPreferences("lucid_appearance",MODE_PRIVATE).edit().putInt("accent",colors[which]).apply();dialog.dismiss();recreate();}).setNegativeButton("Cancel",null).show();return;}
         try{startActivity(new Intent(i.action));}catch(Exception e){try{startActivity(new Intent(Settings.ACTION_SETTINGS));}catch(Exception ignored){}}
     }
