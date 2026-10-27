@@ -25,6 +25,8 @@ permissions:
 jobs:
   compile:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
     strategy:
       fail-fast: false
       matrix:
@@ -42,15 +44,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Locate Android SDK tools
+      - name: Locate preinstalled Android SDK tools
         shell: bash
         run: |
           set -euo pipefail
-          : "${ANDROID_HOME:=$ANDROID_SDK_ROOT}"
           test -d "$ANDROID_HOME/platforms"
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
           test -n "$SDKMANAGER"
-          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
       - name: Install Android platform and build tools
         run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
