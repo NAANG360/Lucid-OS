@@ -2,6 +2,7 @@ package com.lucid.os.controlcentre;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.media.AudioManager;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -10,6 +11,7 @@ import android.net.nsd.NsdServiceInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.net.Uri;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -56,7 +58,11 @@ public final class MainActivity extends Activity {
         addTileRow(tiles, new String[]{"Internet","Bluetooth"},new String[]{"Wi-Fi, mobile network","Pair and manage devices"},new int[]{0,1});
         addTileRow(tiles, new String[]{"Flashlight","Do Not Disturb"},new String[]{"Open flashlight controls","Notification preferences"},new int[]{2,3});
         addTileRow(tiles, new String[]{"Display","Sound"},new String[]{"Brightness and screen","Volume and audio settings"},new int[]{4,5});
-        quick.addView(tiles); root.addView(quick,margins(-1,-2,0,0,0,dp(14)));
+        quick.addView(tiles);
+        quick.addView(section("LEVELS"),margins(-1,-2,0,dp(14),0,0));
+        quick.addView(levelControl("Brightness", true),margins(-1,-2,0,dp(2),0,dp(8)));
+        quick.addView(levelControl("Media volume", false),margins(-1,-2,0,0,0,0));
+        root.addView(quick,margins(-1,-2,0,0,0,dp(14)));
 
         LinearLayout connect=cardColumn();
         LinearLayout heading=new LinearLayout(this); heading.setGravity(Gravity.CENTER_VERTICAL);
@@ -97,12 +103,49 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private View levelControl(String label, boolean brightness) {
+        LinearLayout box=new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout title=new LinearLayout(this); title.setGravity(Gravity.CENTER_VERTICAL);
+        title.addView(text(label,14,FG,true),new LinearLayout.LayoutParams(0,-2,1));
+        TextView value=text("",12,MUTED,false); title.addView(value); box.addView(title);
+        SeekBar seek=new SeekBar(this); seek.setMax(100);
+        if(brightness) {
+            int current=128;
+            try { current=Settings.System.getInt(getContentResolver(),Settings.System.SCREEN_BRIGHTNESS,128); } catch(Exception ignored) {}
+            seek.setProgress(Math.max(0,Math.min(100,current*100/255)));
+            value.setText(seek.getProgress()+"%");
+            seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+                public void onProgressChanged(SeekBar b,int p,boolean fromUser){value.setText(p+"%");}
+                public void onStartTrackingTouch(SeekBar b){}
+                public void onStopTrackingTouch(SeekBar b){
+                    if(!Settings.System.canWrite(MainActivity.this)) {
+                        Toast.makeText(MainActivity.this,"Allow Lucid Control Centre to modify system settings to control brightness.",Toast.LENGTH_LONG).show();
+                        try { startActivity(new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS,Uri.parse("package:"+getPackageName()))); } catch(Exception ignored) {}
+                        return;
+                    }
+                    try { Settings.System.putInt(getContentResolver(),Settings.System.SCREEN_BRIGHTNESS,Math.max(1,b.getProgress()*255/100)); }
+                    catch(Exception e){Toast.makeText(MainActivity.this,"Brightness could not be changed.",Toast.LENGTH_SHORT).show();}
+                }
+            });
+        } else {
+            AudioManager audio=(AudioManager)getSystemService(AUDIO_SERVICE);
+            int max=audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC), cur=audio.getStreamVolume(AudioManager.STREAM_MUSIC);
+            seek.setProgress(max==0?0:cur*100/max); value.setText(seek.getProgress()+"%");
+            seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+                public void onProgressChanged(SeekBar b,int p,boolean fromUser){value.setText(p+"%");if(fromUser){int m=audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC);audio.setStreamVolume(AudioManager.STREAM_MUSIC,Math.round(m*p/100f),0);}}
+                public void onStartTrackingTouch(SeekBar b){}
+                public void onStopTrackingTouch(SeekBar b){}
+            });
+        }
+        box.addView(seek); return box;
+    }
+
     private void runControl(int action) {
         try {
             switch(action) {
                 case 0: startActivity(new Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY)); break;
                 case 1: startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)); break;
-                case 2: startActivity(new Intent("android.intent.action.MAIN").setClassName("com.android.settings","com.android.settings.Settings$FlashlightSettingsActivity")); break;
+                case 2: openSettings(); Toast.makeText(this,"Use your device flashlight tile in system Quick Settings until the ROM tile is integrated.",Toast.LENGTH_LONG).show(); break;
                 case 3: startActivity(new Intent(Settings.ACTION_SOUND_SETTINGS)); break;
                 case 4: startActivity(new Intent(Settings.ACTION_DISPLAY_SETTINGS)); break;
                 default: startActivity(new Intent(Settings.ACTION_SOUND_SETTINGS)); break;
