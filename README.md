@@ -1,6 +1,6 @@
 # Lucid-OS
 
-Private development repository for Lucid OS targeting the Xiaomi Redmi Note 7 (`lavender`).
+Lucid OS development repository targeting the Xiaomi Redmi Note 7 (`lavender`).
 
 ## Project status
 
@@ -16,14 +16,14 @@ This repository currently contains an extracted Android system filesystem and re
 - `.github/workflows/rom-cloud-audit.yml` — cloud inventory of the unsigned release archive.
 - `.github/workflows/rom-reconstruct-partitions.yml` — reconstructs OTA block images in a cloud runner and inventories the actual Settings/SystemUI/launcher APKs.
 - `.github/workflows/lucid-theme-overlay.yml` — builds the LucidOS Material color resource overlay, wallpaper picker, Control Center, Settings dashboard, and boot animation.
-- `.github/workflows/rebuild-product-full.yml` — rebuilds the product partition as a complete filesystem and produces a self-contained full product payload.
+- `.github/workflows/rebuild-product-full.yml` — rebuilds the product partition as a complete filesystem, integrates the six native Lucid APKs, and produces a self-contained full product payload. This workflow still requires a complete `product_mod` source-tree archive.
 - `docs/PRODUCT_REBUILD_INPUT.md` — explains the one required source-tree upload for repairing the incomplete product payload.
 - `theme/assets/` — selected original Figma wallpaper assets (dusk default candidate and alpine alternate).
 - `theme/scripts/generate-palette.mjs` — generates the 65 Android tonal palette resources from the Figma-inspired blue source color.
 
 ## Design direction
 
-Use the LucidOS designs in the [Figma file](https://www.figma.com/design/UPUZotxcIfcIdElWklOHFN/cosmosOS) as the visual source, while translating the screens into native Android behavior. Do not ship cosmosOS wordmarks or iPhone mockup frames as ROM assets.
+Use the LucidOS visual system as the source of truth, translating its screens into native Android behavior and retaining Lucid's dark, restrained violet identity.
 
 ## Device and build constraints
 
@@ -33,4 +33,4 @@ The committed build properties declare SDK 35 / Android 15 and LineageOS 22.2 wh
 
 **Current confirmed packaging risk:** the product OTA payload writes only 123,902 of the 601,750 declared filesystem blocks. Reconstructing it from an empty image produces invalid extents and a corrupt root directory, so the payload is not independently reconstructable. The installer does not explicitly discard the physical product partition, however, so whether the original product blocks survive and are mapped as the OTA base remains unverified. Do not reflash while bootability is unresolved. See `docs/ROM_INSTALLER_FINDINGS.md` and `docs/PRODUCT_REBUILD_INPUT.md`.
 
-The framework palette overlay and wallpaper app compile in cloud CI. Runtime framework overlay policy is not yet proven against the custom-signed ROM, so the static overlay is excluded from flashable packages. The privileged Lucid Wallpapers app applies system colors through Android's native dynamic-palette setting. The full product rebuild still requires the complete `product_mod` tree. No artifact should be described as bootable until the rebuilt product filesystem, installer, partition metadata, image contents, and relevant boot configuration have been checked. Prefer reversible overlays and cloud validation before modifying boot-critical images.
+The six native apps (Control Centre, Settings, Wallpapers, Updater, Launcher, and Desktop) compile in cloud CI. The OTA manifest validates the public release URL and archive size, but the latest archive is deliberately marked non-installable until its Android metadata mismatch and physical-device bootability are resolved. The updater refuses a manifest that explicitly marks an archive non-installable. The framework palette overlay and wallpaper app compile in cloud CI. Runtime framework overlay policy is not yet proven against the custom-signed ROM, so the static overlay is excluded from flashable packages. The privileged Lucid Wallpapers app applies system colors through Android's native dynamic-palette setting. The full product rebuild still requires the complete `product_mod` tree. No artifact should be described as bootable until the rebuilt product filesystem, installer, partition metadata, image contents, and relevant boot configuration have been checked. Prefer reversible overlays and cloud validation before modifying boot-critical images.
