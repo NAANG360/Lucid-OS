@@ -17,12 +17,13 @@ import android.widget.*;
 import java.util.*;
 
 public class MainActivity extends Activity {
-    private final int BG=Color.rgb(12,13,19), CARD=Color.rgb(24,25,35), CARD2=Color.rgb(34,35,48), FG=Color.rgb(245,245,252), MUTED=Color.rgb(163,165,184), ACCENT=Color.rgb(139,119,255);
+    private final int BG=Color.rgb(12,13,19), CARD=Color.rgb(24,25,35), CARD2=Color.rgb(34,35,48), FG=Color.rgb(245,245,252), MUTED=Color.rgb(163,165,184);
+    private int ACCENT=Color.rgb(139,119,255);
     private LinearLayout list;
     private EditText search;
     private final List<Item> items=new ArrayList<>();
     static class Item { String title,subtitle,group; int icon; String action; Item(String t,String s,String g,int i,String a){title=t;subtitle=s;group=g;icon=i;action=a;} }
-    @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);getWindow().getDecorView().setSystemUiVisibility(0);populate();build();}
+    @Override public void onCreate(Bundle b){super.onCreate(b);ACCENT=getSharedPreferences("lucid_appearance",MODE_PRIVATE).getInt("accent",Color.rgb(139,119,255));getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);getWindow().getDecorView().setSystemUiVisibility(0);populate();build();}
     private void populate(){
         items.add(new Item("Network & internet","Wi-Fi, mobile network, hotspot","CONNECTIVITY",0,Settings.ACTION_WIRELESS_SETTINGS));
         items.add(new Item("Connected devices","Bluetooth, pairing, connection preferences","CONNECTIVITY",1,Settings.ACTION_BLUETOOTH_SETTINGS));
@@ -73,9 +74,10 @@ public class MainActivity extends Activity {
     private void open(Item i){
         if(i.action.equals("lucid_control")){launch("com.lucid.os.controlcentre");return;}
         if(i.action.equals("lucid_wallpaper")){launch("com.android.wallpaper");return;}
-        if(i.action.equals("lucid_theme")){new AlertDialog.Builder(this).setTitle("Lucid appearance").setMessage("Lucid's accent profiles and framework overlay are build-time components today. Runtime theme switching will be enabled when the ROM theme service is integrated.").setPositiveButton("OK",null).show();return;}
+        if(i.action.equals("lucid_theme")){String[] names={"Violet Dusk","Blue Pulse","Cyan Horizon"};int[] colors={Color.rgb(139,119,255),Color.rgb(8,102,255),Color.rgb(0,175,200)};new AlertDialog.Builder(this).setTitle("Lucid accent").setSingleChoiceItems(names,selectedAccent(colors), (dialog,which)->{getSharedPreferences("lucid_appearance",MODE_PRIVATE).edit().putInt("accent",colors[which]).apply();dialog.dismiss();recreate();}).setNegativeButton("Cancel",null).show();return;}
         try{startActivity(new Intent(i.action));}catch(Exception e){try{startActivity(new Intent(Settings.ACTION_SETTINGS));}catch(Exception ignored){}}
     }
+    private int selectedAccent(int[] colors){for(int i=0;i<colors.length;i++)if(colors[i]==ACCENT)return i;return 0;}
     private void launch(String pkg){try{Intent i=getPackageManager().getLaunchIntentForPackage(pkg);if(i!=null)startActivity(i);else new AlertDialog.Builder(this).setMessage("This Lucid component is not installed in the current build yet.").setPositiveButton("OK",null).show();}catch(Exception e){}}
     private String groupName(String g){switch(g){case "CONNECTIVITY":return "CONNECTIONS";case "PERSONAL":return "PERSONALIZATION";case "LUCID":return "LUCID EXPERIENCE";case "SECURITY":return "SECURITY & PRIVACY";case "DEVICE":return "DEVICE";default:return g;}}
     private String icon(int i){String[] a={"⌁","◉","▦","◌","☼","♫","✧","◈","◌","◇","⌖","▤","▧","⚙","ⓘ"};return a[i%a.length];}
