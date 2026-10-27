@@ -1,6 +1,8 @@
 package com.lucid.os.controlcentre;
 
 import android.app.Activity;
+import android.app.NotificationManager;
+import android.hardware.camera2.CameraManager;
 import android.app.AlertDialog;
 import android.media.AudioManager;
 import android.content.Context;
@@ -145,14 +147,25 @@ public final class MainActivity extends Activity {
             switch(action) {
                 case 0: startActivity(new Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY)); break;
                 case 1: startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)); break;
-                case 2: openSettings(); Toast.makeText(this,"Use your device flashlight tile in system Quick Settings until the ROM tile is integrated.",Toast.LENGTH_LONG).show(); break;
-                case 3: startActivity(new Intent(Settings.ACTION_SOUND_SETTINGS)); break;
+                case 2: toggleFlashlight(); break;
+                case 3: toggleDnd(); break;
                 case 4: startActivity(new Intent(Settings.ACTION_DISPLAY_SETTINGS)); break;
                 default: startActivity(new Intent(Settings.ACTION_SOUND_SETTINGS)); break;
             }
         } catch(Exception e) { openSettings(); }
     }
 
+    private void toggleFlashlight(){
+        if(android.os.Build.VERSION.SDK_INT>=23 && checkSelfPermission(android.Manifest.permission.CAMERA)!=android.content.pm.PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{android.Manifest.permission.CAMERA},901);return;}
+        try{CameraManager cm=(CameraManager)getSystemService(CAMERA_SERVICE);String[] ids=cm.getCameraIdList();for(String id:ids){android.hardware.camera2.CameraCharacteristics ch=cm.getCameraCharacteristics(id);Boolean flash=ch.get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE);if(Boolean.TRUE.equals(flash)){boolean on=getPreferences(MODE_PRIVATE).getBoolean("torch_on",false);cm.setTorchMode(id,!on);getPreferences(MODE_PRIVATE).edit().putBoolean("torch_on",!on).apply();Toast.makeText(this,!on?"Flashlight on":"Flashlight off",Toast.LENGTH_SHORT).show();return;}}Toast.makeText(this,"No flashlight found.",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(this,"Flashlight unavailable: "+e.getMessage(),Toast.LENGTH_LONG).show();}
+    }
+    private void toggleDnd(){
+        NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+        if(nm==null)return;
+        if(!nm.isNotificationPolicyAccessGranted()){try{startActivity(new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS));}catch(Exception e){openSettings();}Toast.makeText(this,"Allow Lucid Control Centre to manage Do Not Disturb, then tap again.",Toast.LENGTH_LONG).show();return;}
+        try{int current=nm.getCurrentInterruptionFilter();nm.setInterruptionFilter(current==NotificationManager.INTERRUPTION_FILTER_NONE?NotificationManager.INTERRUPTION_FILTER_ALL:NotificationManager.INTERRUPTION_FILTER_NONE);Toast.makeText(this,current==NotificationManager.INTERRUPTION_FILTER_NONE?"Do Not Disturb off":"Do Not Disturb on",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(this,"Could not change Do Not Disturb.",Toast.LENGTH_SHORT).show();}
+    }
+    @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){super.onRequestPermissionsResult(requestCode,permissions,grantResults);if(requestCode==901&&grantResults.length>0&&grantResults[0]==android.content.pm.PackageManager.PERMISSION_GRANTED)toggleFlashlight();}
     private void openSettings(){try{startActivity(new Intent(Settings.ACTION_SETTINGS));}catch(Exception ignored){}}
 
     private void scanServices() {
