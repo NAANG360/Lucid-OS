@@ -29,7 +29,7 @@ public final class MainActivity extends Activity {
         TextView title=new TextView(this);title.setText("Your phone. A desktop.");title.setTextColor(fg);title.setTextSize(29);title.setTypeface(Typeface.create("sans-serif-medium",0));LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,-2);tp.topMargin=10;root.addView(title,tp);
         TextView desc=new TextView(this);desc.setText("Start the Ubuntu environment on-device, then render its desktop through the X11 display server. Lucid checks prerequisites before it launches anything.");desc.setTextColor(muted);desc.setTextSize(14);desc.setLineSpacing(3,1);LinearLayout.LayoutParams dp=new LinearLayout.LayoutParams(-1,-2);dp.topMargin=8;dp.bottomMargin=20;root.addView(desc,dp);
         status=new TextView(this);status.setText("STATUS  •  Not checked");status.setTextColor(fg);status.setTextSize(14);status.setPadding(16,16,16,16);status.setBackground(shape(card,18));root.addView(status);
-        addButton("Start Lucid Desktop","Launch X11 and start the chroot desktop",()->runController("start"));
+        addButton("Start Lucid Desktop","Start the chroot desktop after the X11 display is running",()->runController("start"));
         addButton("Stop desktop","Stop the desktop session without rebooting",()->runController("stop"));
         addButton("Check requirements","Check root, rootfs, X11 server, mounts and DNS",()->runController("check"));
         addButton("Open X11 server","Open the installed Termux:X11 app",()->openX11());
