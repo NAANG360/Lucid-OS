@@ -106,7 +106,7 @@ jobs:
           for spec in \
             "build-lucid-control-centre.yml:lucid-control-centre-apk:LucidControlCentre.apk" \
             "build-lucid-settings.yml:lucid-settings-apk:LucidSettings.apk" \
-            "build-lucid-wallpaper.yml:lucid-wallpaper-apk:LucidWallpapersNative.apk" \
+            "build-lucid-wallpaper.yml:lucid-wallpapers-apk:LucidWallpapersNative.apk" \
             "build-lucid-launcher.yml:lucid-launcher-apk:LucidLauncher.apk" \
             "build-lucid-desktop.yml:lucid-desktop-apk:LucidDesktop.apk" \
             "build-lucid-updater.yml:lucid-updater-apk:LucidUpdater.apk"; do
