@@ -195,7 +195,7 @@ jobs:
             /system/app/LucidDesktop /system/app/LucidDesktop/Lucid-Desktop.apk \
             /system/app/LucidDynamicIsland /system/app/LucidDynamicIsland/Lucid-Dynamic-Island.apk \
             /system/bin/lucid_desktop.sh /system/bin/lucid_root_toggle.sh \
-            /system/usr/lucid/ubuntu-base-arm64.tar.gz \
+            /system/usr/lucid /system/usr/lucid/ubuntu-base-arm64.tar.gz \
             /system/etc/lucid /system/etc/lucid/wallpapers \
             /system/etc/lucid/wallpapers/lucid-wallpaper-alpine.jpg \
             /system/etc/lucid/wallpapers/lucid-wallpaper-dusk.jpg \
