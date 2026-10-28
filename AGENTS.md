@@ -18,6 +18,13 @@
 5. The intended upstream base is **RisingOS Revived**, not LineageOS. Do not claim that the latest Lucid archive is RisingOS-based until concrete archive evidence supports that conclusion. If the latest archive does not contain enough evidence to identify the base, stop and ask for the authoritative RisingOS Revived archive/source location rather than guessing.
 6. Do not delete old releases, reports, or source artifacts just to clean up history. Label them as prohibited historical inputs and keep the investigation reproducible.
 
+## System-tree authority and explicit product-rebuild ban
+
+- **Do not rebuild, replace, reconstruct, or request uploads for the product partition.** The former product-rebuild workflow and its input instructions are obsolete and must not be revived. Do not make a product-only archive and do not use product-rebuild logic as the route to the ROM goal.
+- Use the already extracted `system-tree/system/` as the candidate system tree. Verify it against the system partition from the latest published build-3 ROM using `.github/workflows/verify-system-tree-build3.yml`.
+- If comparison shows only build-3-only/newer paths while the checked-in extracted tree contains the more complete/newer files, keep the checked-in extracted tree; do not replace it wholesale with an older partition snapshot. If the comparison shows same-path content differences or an incremental system payload that cannot be reconstructed independently, inspect evidence and stop short of overwriting anything until the differences are understood.
+- Preserve comparison reports as workflow artifacts. Never assume the tree is newer merely because it is checked into Git.
+
 ## Required investigation before modifying ROM packaging or OTA
 
 - Inspect the latest published Lucid ROM ZIP in CI/cloud storage; do not commit the 1.3 GB binary to the git tree.
