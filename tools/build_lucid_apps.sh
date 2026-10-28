@@ -27,6 +27,7 @@ build_app() {
   "$TOOLS/apksigner" verify --verbose "$out/$name.apk"
   "$TOOLS/aapt" dump badging "$out/$name.apk" > "$out/badging.txt"
   test -s "$out/$name.apk"
+  cp "$out/$name.apk" "$OUT_ROOT/$name.apk"
 }
 build_app Lucid-Control-Centre theme/lucid-control-centre AndroidManifest.xml
 build_app Lucid-Settings theme/lucid-settings AndroidManifest.xml
