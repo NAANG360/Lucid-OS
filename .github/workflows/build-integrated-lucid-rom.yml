@@ -271,7 +271,7 @@ jobs:
           d["size"]=int(size)
           d["installable"]=False
           d["changelog"]="Experimental Build 4: Build 3 system image with Lucid companion apps, desktop payload, and wallpapers overlaid. Android-version/fingerprint discrepancy and physical-device boot remain unverified; do not flash until validated."
-          with open(path,"w") as f: json.dump(d,f,indent=2); f.write("\\n")
+          with open(path,"w") as f: json.dump(d,f,indent=2); f.write("\n")
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
