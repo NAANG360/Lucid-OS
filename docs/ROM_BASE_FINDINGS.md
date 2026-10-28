@@ -1,25 +1,23 @@
-# ROM base findings (preliminary)
+# ROM base and system-tree verification status
 
-## Evidence from the committed tree
+## Authoritative selection rules
 
-The current `system-tree/system/build.prop` contains these conflicting identifiers:
+See `AGENTS.md`. The intended upstream base is RisingOS Revived. The latest Lucid output archive to inspect is the published build-3 asset `LucidOS-Android15-lavender-unsigned.zip` (1,326,072,199 bytes; SHA-256 `c7262b06d6c2a60ceae395b21539de972c3c52085640bee87a7a55dacab7aba7`).
 
-- `ro.build.version.release=15`
-- `ro.build.version.sdk=35`
-- `ro.lineage.version=22.2-20251222-UNOFFICIAL-lavender`
-- Build fingerprint: `xiaomi/lavender/lavender:10/QKQ1.190910.002/V12.5.3.0.QFGCNXM:user/release-keys`
+The build-3 asset is the inspection target, not proof by itself that the upstream base is RisingOS Revived. Historical `tobelucid-source-v1` and the draft Lineage-named archive are prohibited as current ROM inputs.
 
-This means the fingerprint's vendor/base label says Android 10 while the declared system build is Android 15. Do not use the fingerprint alone to choose an overlay target or conclude that the system is Android 10.
+## Existing extracted system tree
 
-The committed extracted tree currently has `system/framework/framework-res.apk`, but no `Settings.apk` or `SystemUI.apk` at the expected `system/priv-app/Settings/` and `system/priv-app/SystemUI/` paths. The release ZIP is the authoritative next source for package and installer inventory.
+The repository already contains `system-tree/system/`. Preserve this tree as the candidate source rather than rebuilding the product partition or replacing the tree blindly with archive contents.
 
-## Release archive
+Run `.github/workflows/verify-system-tree-build3.yml` to download and verify build 3, inspect the archive, reconstruct its system partition if the payload permits independent reconstruction, and compare file hashes and paths against the checked-in tree.
 
-- Release tag: `tobelucid-source-v1`
-- Asset: `LucidOS-unsigned.zip`
-- The archive is explicitly unsigned and has not been verified as bootable.
-- The draft release has an asset attached. The audit workflow must locate draft assets via the Releases API rather than the tag-based `gh release view` command, which returns “release not found” for this draft.
+Interpretation:
+- If the trees match, the existing extraction is corroborated for the compared files.
+- If build 3 contains only additional/newer files while the checked-in tree is otherwise the desired newer/complete snapshot, preserve the checked-in tree.
+- If same-path file contents differ, do not overwrite either side automatically; investigate those differences.
+- If the system transfer list leaves filesystem blocks untouched, a blank-image reconstruction is incomplete. Do not treat that comparison as valid without a compatible base image.
 
-## Safety for the next build
+## Current verification boundary
 
-Do not flash new system, boot, vbmeta, super, or cust images based only on this report. First inspect the actual installer, boot image metadata, dynamic-partition configuration, SELinux/file-context handling, and the target framework resource table. Keep any theme overlay separately installable and reversible.
+No comparison report has yet been produced by the new workflow in this commit. Do not claim the existing tree is newer, identical, or fully verified until the workflow artifact is inspected. Do not claim the ROM is bootable until physical-device boot and hardware smoke tests pass.
