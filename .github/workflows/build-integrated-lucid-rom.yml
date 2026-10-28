@@ -21,6 +21,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: lucid-rom-integration-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   integrate:
     runs-on: ubuntu-latest
