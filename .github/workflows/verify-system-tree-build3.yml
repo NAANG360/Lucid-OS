@@ -122,8 +122,10 @@ jobs:
             return out
           a,b=scan(old),scan(new)
           # Choose path normalization by maximum overlap; a few common root files must not hide a system/ prefix mismatch.
-          if b and all(p.startswith('system/') for p in b):
-            stripped={p[len('system/'):]:v for p,v in b.items()}
+          if b and sum(p.startswith('system/') for p in b) > len(b) // 2:
+            stripped={p[len('system/'):]:v for p,v in b.items() if p.startswith('system/')}
+            # Preserve non-system root entries such as lost+found.
+            stripped.update({p:v for p,v in b.items() if not p.startswith('system/')})
             if len(set(a) & set(stripped)) > len(set(a) & set(b)):
               b=stripped
           only_old=sorted(set(a)-set(b)); only_new=sorted(set(b)-set(a))
