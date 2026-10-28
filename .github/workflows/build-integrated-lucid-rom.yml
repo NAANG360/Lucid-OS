@@ -209,7 +209,7 @@ jobs:
           OUT="$RUNNER_TEMP/rom/LucidOS-Android15-lavender-build-4-experimental.zip"
           "$RUNNER_TEMP/venv/bin/python" tools/repack_transfer_image.py \
             "$PARTS/system.transfer.list" "$PARTS/system.img" "$PARTS/system.new.dat"
-          brotli -q 11 -f -o "$PARTS/system.new.dat.br.repacked" "$PARTS/system.new.dat"
+          brotli -q 5 -f -o "$PARTS/system.new.dat.br.repacked" "$PARTS/system.new.dat"
           mv "$PARTS/system.new.dat.br.repacked" "$PARTS/system.new.dat.br"
           brotli -d -f -o "$PARTS/system.new.dat.roundtrip" "$PARTS/system.new.dat.br"
           cmp "$PARTS/system.new.dat" "$PARTS/system.new.dat.roundtrip"
