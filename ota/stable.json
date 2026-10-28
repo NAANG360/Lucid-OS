@@ -1,0 +1,9 @@
+{
+  "device": "lavender",
+  "version": "0.4-dev",
+  "url": "https://github.com/NAANG360/Lucid-OS/releases/download/lucid-android15-lavender-build-4/LucidOS-Android15-lavender-build-4-experimental.zip",
+  "sha256": "d2b81388a57c685b82e3cb8f29da475f540dfcb9f5114003846d9337533d3219",
+  "size": 1355867286,
+  "changelog": "Build 4 upgrade based directly on the published Build 3 flashable ZIP. Preserves Build 3's original recovery/installer entries and overlays the Lucid companion apps, desktop payload, and wallpapers. Back up first; this is a system-overlay update and has not been physically boot-tested.",
+  "installable": true
+}

@@ -1,0 +1,153 @@
+name: Verify extracted system tree against LucidOS build 3
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/lucid-control-centre-connect]
+    paths:
+      - AGENTS.md
+      - system-tree/**
+      - .github/workflows/verify-system-tree-build3.yml
+      - tools/reconstruct_transfer_image.py
+
+permissions:
+  contents: read
+
+jobs:
+  compare-system:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install system image tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq e2fsprogs brotli unzip
+
+      - name: Download and verify latest published Lucid ROM
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rom" "$RUNNER_TEMP/parts" report
+          printf 'Build-3 system comparison started at %s\n' "$(date -u +%FT%TZ)" > report/run-status.txt
+          gh api repos/$GITHUB_REPOSITORY/releases/tags/lucid-android15-lavender-build-3 > "$RUNNER_TEMP/release.json"
+          python3 - "$RUNNER_TEMP/release.json" "$RUNNER_TEMP/asset.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]))
+          if r.get('draft'): raise SystemExit('Expected a published release, not a draft')
+          print('release prerelease:', r.get('prerelease'), 'published_at:', r.get('published_at'))
+          a=next((x for x in r.get('assets',[]) if x.get('name')=='LucidOS-Android15-lavender-unsigned.zip'),None)
+          if not a: raise SystemExit('Build 3 ROM asset not found')
+          if a.get('size') != 1326072199: raise SystemExit(f'Unexpected release size: {a.get("size")}')
+          if a.get('digest') != 'sha256:c7262b06d6c2a60ceae395b21539de972c3c52085640bee87a7a55dacab7aba7': raise SystemExit(f'Unexpected published digest: {a.get("digest")}')
+          json.dump(a,open(sys.argv[2],'w'))
+          PY
+          ASSET_ID="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["id"])' "$RUNNER_TEMP/asset.json")"
+          curl --fail --location --retry 3 --retry-all-errors -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/octet-stream' "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" -o "$RUNNER_TEMP/rom/build3.zip"
+          echo '=== archive hash ===' > report/build3-download.txt
+          sha256sum "$RUNNER_TEMP/rom/build3.zip" | tee -a report/build3-download.txt
+          echo '=== zip integrity ===' >> report/build3-download.txt
+          unzip -t "$RUNNER_TEMP/rom/build3.zip" | tail -n 2 | tee -a report/build3-download.txt
+
+      - name: Inventory archive and extract system payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/rom/build3.zip" "$RUNNER_TEMP/parts" report <<'PY'
+          import json,os,sys,zipfile
+          zpath,out,report=sys.argv[1:]
+          os.makedirs(out,exist_ok=True)
+          with zipfile.ZipFile(zpath) as z:
+            names=z.namelist()
+            open(os.path.join(report,'build3-zip-inventory.txt'),'w').write('\n'.join(f'{i.file_size:12d}  {i.filename}' for i in z.infolist())+'\n')
+            for n in ('META-INF/com/android/metadata','META-INF/com/google/android/updater-script','system/build.prop','system.transfer.list','system.new.dat.br','system.img'):
+              matches=[x for x in names if x==n or x.endswith('/'+n)]
+              if not matches: continue
+              chosen=matches[0]
+              if chosen.endswith('.transfer.list') or chosen.endswith('.new.dat.br') or chosen.endswith('.img'): dest=os.path.join(out,os.path.basename(chosen))
+              else: dest=os.path.join(report,chosen.replace('/','_')+'.txt')
+              with z.open(chosen) as src,open(dest,'wb') as dst:
+                while True:
+                  b=src.read(4*1024*1024)
+                  if not b: break
+                  dst.write(b)
+              print(f'extracted {chosen} -> {dest}')
+          PY
+          test -s "$RUNNER_TEMP/parts/system.img" -o -s "$RUNNER_TEMP/parts/system.new.dat.br"
+
+      - name: Reconstruct system payload if archive uses transfer list
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -s "$RUNNER_TEMP/parts/system.img" ]]; then
+            cp "$RUNNER_TEMP/parts/system.img" "$RUNNER_TEMP/parts/system-verified.img"
+            echo 'Source: standalone system.img in build 3' > report/system-reconstruction.txt
+          else
+            test -s "$RUNNER_TEMP/parts/system.transfer.list"
+            python3 -m venv "$RUNNER_TEMP/venv"
+            "$RUNNER_TEMP/venv/bin/pip" install --quiet brotli
+            "$RUNNER_TEMP/venv/bin/python" tools/reconstruct_transfer_image.py "$RUNNER_TEMP/parts/system.transfer.list" "$RUNNER_TEMP/parts/system.new.dat.br" "$RUNNER_TEMP/parts/system-verified.img" | tee report/system-reconstruction.txt
+            if grep -q 'transfer list leaves declared filesystem blocks untouched' report/system-reconstruction.txt; then
+              echo 'Build 3 system payload is incremental; a zero-based reconstruction cannot verify the extracted tree. Refusing to compare incomplete image.' >&2
+              exit 1
+            fi
+          fi
+          sha256sum "$RUNNER_TEMP/parts/system-verified.img" > report/build3-system-image-sha256.txt
+          e2fsck -fn "$RUNNER_TEMP/parts/system-verified.img" > report/build3-system-e2fsck.txt 2>&1 || { cat report/build3-system-e2fsck.txt; exit 1; }
+
+      - name: Compare tracked extracted tree with build 3 system partition
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mnt/system"
+          sudo mount -t ext4 -o loop,ro,noload "$RUNNER_TEMP/parts/system-verified.img" "$RUNNER_TEMP/mnt/system"
+          sudo python3 - "$GITHUB_WORKSPACE/system-tree/system" "$RUNNER_TEMP/mnt/system" report/system-tree-comparison.json report/system-tree-comparison.md <<'PY'
+          import hashlib,json,os,sys
+          old,new,jpath,mdpath=sys.argv[1:]
+          def scan(root):
+            out={}
+            for base,dirs,files in os.walk(root,followlinks=False):
+              dirs.sort(); files.sort()
+              for name in files:
+                p=os.path.join(base,name); rel=os.path.relpath(p,root).replace(os.sep,'/')
+                if os.path.islink(p): out[rel]={'type':'symlink','target':os.readlink(p)}
+                else:
+                  h=hashlib.sha256()
+                  with open(p,'rb') as f:
+                    for b in iter(lambda:f.read(1024*1024),b''): h.update(b)
+                  out[rel]={'type':'file','sha256':h.hexdigest(),'size':os.path.getsize(p)}
+            return out
+          a,b=scan(old),scan(new)
+          # Choose path normalization by maximum overlap; a few common root files must not hide a system/ prefix mismatch.
+          if b and sum(p.startswith('system/') for p in b) > len(b) // 2:
+            stripped={p[len('system/'):]:v for p,v in b.items() if p.startswith('system/')}
+            # Preserve non-system root entries such as lost+found.
+            stripped.update({p:v for p,v in b.items() if not p.startswith('system/')})
+            if len(set(a) & set(stripped)) > len(set(a) & set(b)):
+              b=stripped
+          only_old=sorted(set(a)-set(b)); only_new=sorted(set(b)-set(a))
+          common=sorted(set(a)&set(b)); changed=[p for p in common if a[p]!=b[p]]
+          report={'checked_out_tree':'system-tree/system','reference':'build 3 system partition','extracted_only_count':len(only_old),'build3_only_count':len(only_new),'content_or_type_difference_count':len(changed),'extracted_only':only_old,'build3_only':only_new,'different':[{ 'path':p,'extracted':a[p],'build3':b[p]} for p in changed]}
+          json.dump(report,open(jpath,'w'),indent=2)
+          with open(mdpath,'w') as f:
+            f.write('# Extracted system tree vs build 3 system partition\n\n')
+            f.write(f'- Extracted-tree-only paths: {len(only_old)}\n- Build-3-only paths: {len(only_new)}\n- Same-path content/type differences: {len(changed)}\n\n')
+            f.write('## Extracted tree only\n\n'+('\n'.join(f'- `{p}`' for p in only_old) or '- None')+'\n\n')
+            f.write('## Build 3 only\n\n'+('\n'.join(f'- `{p}`' for p in only_new) or '- None')+'\n\n')
+            f.write('## Different content at same path\n\n'+('\n'.join(f'- `{p}`: extracted sha256={a[p].get("sha256",a[p])}; build3 sha256={b[p].get("sha256",b[p])}' for p in changed) or '- None')+'\n')
+          print(f'extracted-only={len(only_old)} build3-only={len(only_new)} same-path-differences={len(changed)}')
+          PY
+          sudo chmod a+r report/system-tree-comparison.json report/system-tree-comparison.md
+          sudo umount "$RUNNER_TEMP/mnt/system"
+
+      - name: Upload comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-build3-system-tree-verification
+          path: report/
+          if-no-files-found: error
+          retention-days: 14
