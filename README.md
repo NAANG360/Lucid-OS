@@ -1,36 +1,33 @@
 # Lucid-OS
 
-Lucid OS development repository targeting the Xiaomi Redmi Note 7 (`lavender`).
+Lucid OS development repository targeting the Xiaomi Redmi Note 7 / Note 7S (`lavender`, Snapdragon 660), with RisingOS Revived as the intended upstream base.
 
-## Project status
+## Source-of-truth and current status
 
-This repository currently contains an extracted Android system filesystem and related reconstruction work. It is **not yet a complete, independently buildable ROM source tree**, and the unsigned release archive has not been verified as bootable.
+- The latest published Lucid ROM to inspect is [build 3](https://github.com/NAANG360/Lucid-OS/releases/tag/lucid-android15-lavender-build-3), asset `LucidOS-Android15-lavender-unsigned.zip` (1,326,072,199 bytes).
+- The build-3 archive's exact upstream ancestry has not yet been proven from its internal metadata. Do not label it a verified RisingOS-based or bootable ROM until the evidence establishes that.
+- `system-tree/system/` is the existing extracted system tree and is the candidate to preserve. Verify it against build 3 using `.github/workflows/verify-system-tree-build3.yml`; do not replace it with a potentially older snapshot just because the archive contains one.
+- `AGENTS.md` defines the authoritative source rules and excludes historical ROM archives.
+- The OTA manifest currently points at build 3 but marks it non-installable pending compatibility and device verification.
 
-## Work areas
+## Main work areas
 
-- `system-tree/` — extracted Android system filesystem.
-- `system_original_metadata.tsv` — original filesystem metadata, if available.
-- `design/LUCIDOS_VISUAL_SYSTEM.md` — Figma-to-Android visual implementation map.
-- `docs/ROM_BASE_FINDINGS.md` — evidence-based notes about the current ROM base.
-- `docs/ROM_INSTALLER_FINDINGS.md` — block-transfer, boot-image, AVB, and product-filesystem findings.
-- `.github/workflows/rom-cloud-audit.yml` — cloud inventory of the unsigned release archive.
-- `.github/workflows/rom-reconstruct-partitions.yml` — reconstructs OTA block images in a cloud runner and inventories the actual Settings/SystemUI/launcher APKs.
-- `.github/workflows/lucid-theme-overlay.yml` — builds the LucidOS Material color resource overlay, wallpaper picker, Control Center, Settings dashboard, and boot animation.
-- `.github/workflows/rebuild-product-full.yml` — rebuilds the product partition as a complete filesystem, integrates the six native Lucid APKs, and produces a self-contained full product payload. This workflow still requires a complete `product_mod` source-tree archive.
-- `docs/PRODUCT_REBUILD_INPUT.md` — explains the one required source-tree upload for repairing the incomplete product payload.
-- `theme/assets/` — selected original Figma wallpaper assets (dusk default candidate and alpine alternate).
-- `theme/scripts/generate-palette.mjs` — generates the 65 Android tonal palette resources from the Figma-inspired blue source color.
+- `system-tree/` — existing extracted Android system filesystem and related assets.
+- `theme/` — Lucid UI, native app projects, original visual assets, and theme resources.
+- `design/` — Lucid visual-system references.
+- `agents/FEATURE_INTEGRATION_PLAN.md` — feature integration checklist.
+- `.github/workflows/verify-system-tree-build3.yml` — downloads build 3, verifies its published size/digest, inspects the archive, reconstructs the system partition when possible, and compares file hashes against the existing extracted tree.
+- `.github/workflows/rom-cloud-audit.yml` and `.github/workflows/rom-reconstruct-partitions.yml` — legacy audit workflows; their old archive source references must be corrected before their results are used.
+- `ota/stable.json` — current OTA manifest.
+
+## Explicitly out of scope
+
+**Do not rebuild or replace the product partition.** The previous product-partition rebuild workflow and its source-upload instructions are obsolete and must not be used. The goal is to verify and use the existing extracted system tree, then continue toward an integrated ROM—not a product-only payload.
 
 ## Design direction
 
-Use the LucidOS visual system as the source of truth, translating its screens into native Android behavior and retaining Lucid's dark, restrained violet identity.
+Preserve Lucid's own dark, restrained violet identity and original artwork. Keep standard Android behavior functional and avoid substituting generic visual styles.
 
-## Device and build constraints
+## Safety and verification
 
-The committed build properties declare SDK 35 / Android 15 and LineageOS 22.2 while retaining an Android 10 base fingerprint. That mismatch must be resolved from the actual release archive before targeting overlays or rebuilding images.
-
-## Build and safety status
-
-**Current confirmed packaging risk:** the product OTA payload writes only 123,902 of the 601,750 declared filesystem blocks. Reconstructing it from an empty image produces invalid extents and a corrupt root directory, so the payload is not independently reconstructable. The installer does not explicitly discard the physical product partition, however, so whether the original product blocks survive and are mapped as the OTA base remains unverified. Do not reflash while bootability is unresolved. See `docs/ROM_INSTALLER_FINDINGS.md` and `docs/PRODUCT_REBUILD_INPUT.md`.
-
-The six native apps (Control Centre, Settings, Wallpapers, Updater, Launcher, and Desktop) compile in cloud CI. The OTA manifest validates the public release URL and archive size, but the latest archive is deliberately marked non-installable until its Android metadata mismatch and physical-device bootability are resolved. The updater refuses a manifest that explicitly marks an archive non-installable. The framework palette overlay and wallpaper app compile in cloud CI. Runtime framework overlay policy is not yet proven against the custom-signed ROM, so the static overlay is excluded from flashable packages. The privileged Lucid Wallpapers app applies system colors through Android's native dynamic-palette setting. The full product rebuild still requires the complete `product_mod` tree. No artifact should be described as bootable until the rebuilt product filesystem, installer, partition metadata, image contents, and relevant boot configuration have been checked. Prefer reversible overlays and cloud validation before modifying boot-critical images.
+ZIP integrity, partition filesystem checks, successful APK builds, or CI packaging do not prove device bootability. Keep the OTA marked non-installable until archive metadata, partition compatibility, integration, and physical-device boot are verified.
