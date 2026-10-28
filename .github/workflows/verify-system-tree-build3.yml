@@ -121,6 +121,9 @@ jobs:
                   out[rel]={'type':'file','sha256':h.hexdigest(),'size':os.path.getsize(p)}
             return out
           a,b=scan(old),scan(new)
+          # Some extracted ext4 images expose a leading system/ directory; normalize it only when needed.
+          if not (set(a) & set(b)) and b and all(p.startswith('system/') for p in b):
+            b={p[len('system/'):]:v for p,v in b.items()}
           only_old=sorted(set(a)-set(b)); only_new=sorted(set(b)-set(a))
           common=sorted(set(a)&set(b)); changed=[p for p in common if a[p]!=b[p]]
           report={'checked_out_tree':'system-tree/system','reference':'build 3 system partition','extracted_only_count':len(only_old),'build3_only_count':len(only_new),'content_or_type_difference_count':len(changed),'extracted_only':only_old,'build3_only':only_new,'different':[{ 'path':p,'extracted':a[p],'build3':b[p]} for p in changed]}
@@ -133,7 +136,8 @@ jobs:
             f.write('## Different content at same path\n\n'+('\n'.join(f'- `{p}`: extracted sha256={a[p].get("sha256",a[p])}; build3 sha256={b[p].get("sha256",b[p])}' for p in changed) or '- None')+'\n')
           print(f'extracted-only={len(only_old)} build3-only={len(only_new)} same-path-differences={len(changed)}')
           PY
-          sudo chmod a+r report/system-tree-comparison.json report/system-tree-comparison.md\n          sudo umount "$RUNNER_TEMP/mnt/system"
+          sudo chmod a+r report/system-tree-comparison.json report/system-tree-comparison.md
+          sudo umount "$RUNNER_TEMP/mnt/system"
 
       - name: Upload comparison evidence
         if: always()
