@@ -40,3 +40,4 @@
 - The goal is a genuinely integrated Lucid OS ROM, not only standalone APKs or a product-only rebuild.
 - Preserve Lucid's established design identity and original artwork.
 - Prefer free tools and GitHub Actions; do not claim a workflow ran or an artifact was verified unless there is evidence from its run/report.
+- The legacy `rom-cloud-audit.yml` and `rom-boot-image-audit.yml` workflows were retired because they inspected the obsolete `tobelucid-source-v1` archive. Do not recreate them with that source; any replacement must inspect build 3 and produce evidence tied to that exact release.
