@@ -1,0 +1,133 @@
+name: Publish Lucid Updater APK and Recovery Installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/lucid-control-centre-connect]
+    paths:
+      - 'theme/lucid-updater/**'
+      - '.github/workflows/release-lucid-updater.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lucid-updater-release
+  cancel-in-progress: false
+
+jobs:
+  build-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      RELEASE_TAG: lucid-android15-lavender-build-4
+      APK_NAME: LucidSystemUpdater-v0.4.5-lavender.apk
+      ZIP_NAME: LucidSystemUpdater-v0.4.5-lavender-recovery.zip
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Compile and verify updater APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$GITHUB_WORKSPACE/theme/lucid-updater"
+          OUT="$RUNNER_TEMP/lucid-updater"
+          mkdir -p "$OUT/classes" "$OUT/dex"
+          javac -source 8 -target 8 -classpath "$ANDROID_HOME/platforms/android-35/android.jar" -d "$OUT/classes" "$APP/src/com/lucid/os/updater/MainActivity.java"
+          mapfile -t CLASSES < <(find "$OUT/classes" -type f -name '*.class' -print | sort)
+          test "${#CLASSES[@]}" -gt 0
+          "$ANDROID_HOME/build-tools/35.0.0/d8" --lib "$ANDROID_HOME/platforms/android-35/android.jar" --output "$OUT/dex" "${CLASSES[@]}"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" package -f -M "$APP/AndroidManifest.xml" -I "$ANDROID_HOME/platforms/android-35/android.jar" -F "$OUT/updater-unsigned.apk"
+          (cd "$OUT/dex" && zip -q "$OUT/updater-unsigned.apk" classes.dex)
+          keytool -genkeypair -noprompt -keystore "$OUT/lucid-updater.keystore" -storepass lucidbuild -keypass lucidbuild -alias lucidupdater -dname "CN=Lucid OS Updater,O=Lucid,C=IN" -keyalg RSA -keysize 2048 -validity 10000
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$OUT/lucid-updater.keystore" --ks-pass pass:lucidbuild --key-pass pass:lucidbuild --out "$OUT/$APK_NAME" "$OUT/updater-unsigned.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$OUT/$APK_NAME"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$OUT/$APK_NAME" | tee "$OUT/apk-badging.txt"
+      - name: Build recovery installer for the updater app
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/lucid-updater"
+          PKG="$OUT/recovery-package"
+          mkdir -p "$PKG/META-INF/com/google/android" "$PKG/system/app/LucidSystemUpdater"
+          cp "$OUT/$APK_NAME" "$PKG/system/app/LucidSystemUpdater/LucidSystemUpdater.apk"
+          cat > "$PKG/module.prop" <<'EOF'
+          id=lucid_system_updater
+          name=Lucid System Updater
+          version=0.4.5
+          versionCode=405
+          author=Lucid OS
+          description=Systemless Lucid OTA updater app; does not install or modify the ROM itself.
+          EOF
+          cat > "$PKG/META-INF/com/google/android/update-binary" <<'EOF'
+          #!/sbin/sh
+          OUTFD="$2"
+          ZIPFILE="$3"
+          ui_print() {
+            echo "ui_print $1" > "/proc/self/fd/$OUTFD"
+            echo "ui_print" > "/proc/self/fd/$OUTFD"
+          }
+          abort() { ui_print "ERROR: $1"; exit 1; }
+          ui_print "Lucid System Updater installer"
+          ui_print "This package installs the updater app as a Magisk module."
+          [ -n "$ZIPFILE" ] && [ -f "$ZIPFILE" ] || abort "Recovery did not provide the installer ZIP path."
+          [ -d /data/adb/modules ] || abort "Magisk modules directory not found. Boot Android with Magisk installed, then retry."
+          if command -v unzip >/dev/null 2>&1; then UNZIP=unzip
+          elif command -v busybox >/dev/null 2>&1; then UNZIP="busybox unzip"
+          else abort "Recovery has no unzip utility."
+          fi
+          MOD=/data/adb/modules/lucid_system_updater
+          mkdir -p "$MOD/system/app/LucidSystemUpdater" || abort "Cannot create Magisk module."
+          "$UNZIP" -p "$ZIPFILE" module.prop > "$MOD/module.prop" || abort "module.prop missing from ZIP."
+          "$UNZIP" -p "$ZIPFILE" system/app/LucidSystemUpdater/LucidSystemUpdater.apk > "$MOD/system/app/LucidSystemUpdater/LucidSystemUpdater.apk" || abort "Updater APK missing from ZIP."
+          [ -s "$MOD/system/app/LucidSystemUpdater/LucidSystemUpdater.apk" ] || abort "Updater APK extracted as an empty file."
+          chmod 0644 "$MOD/module.prop" "$MOD/system/app/LucidSystemUpdater/LucidSystemUpdater.apk"
+          touch "$MOD/update"
+          sync
+          ui_print "Updater app installed systemlessly."
+          ui_print "Reboot Android to finish. This ZIP does NOT install a ROM update."
+          exit 0
+          EOF
+          chmod 0755 "$PKG/META-INF/com/google/android/update-binary"
+          (cd "$PKG" && zip -qr "$OUT/$ZIP_NAME" META-INF module.prop system)
+          unzip -t "$OUT/$ZIP_NAME"
+          unzip -p "$OUT/$ZIP_NAME" META-INF/com/google/android/update-binary | grep -q '^#!/sbin/sh$'
+          unzip -p "$OUT/$ZIP_NAME" system/app/LucidSystemUpdater/LucidSystemUpdater.apk > "$OUT/recovered.apk"
+          cmp "$OUT/$APK_NAME" "$OUT/recovered.apk"
+          (cd "$OUT" && sha256sum "$APK_NAME" "$ZIP_NAME" > SHA256SUMS.txt)
+      - name: Publish updater assets to Build 4 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" >/dev/null
+          gh release upload "$RELEASE_TAG" \
+            "$RUNNER_TEMP/lucid-updater/$APK_NAME" \
+            "$RUNNER_TEMP/lucid-updater/$ZIP_NAME" \
+            "$RUNNER_TEMP/lucid-updater/SHA256SUMS.txt" --clobber
+      - name: Upload build outputs for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-updater-v0.4.5
+          path: |
+            ${{ runner.temp }}/lucid-updater/LucidSystemUpdater-v0.4.5-lavender.apk
+            ${{ runner.temp }}/lucid-updater/LucidSystemUpdater-v0.4.5-lavender-recovery.zip
+            ${{ runner.temp }}/lucid-updater/SHA256SUMS.txt
+            ${{ runner.temp }}/lucid-updater/apk-badging.txt
+          if-no-files-found: error
+          retention-days: 30
