@@ -86,17 +86,21 @@ jobs:
           ui_print "This package installs the updater app as a Magisk module."
           [ -n "$ZIPFILE" ] && [ -f "$ZIPFILE" ] || abort "Recovery did not provide the installer ZIP path."
           [ -d /data/adb/modules ] || abort "Magisk modules directory not found. Boot Android with Magisk installed, then retry."
-          if command -v unzip >/dev/null 2>&1; then UNZIP=unzip
-          elif command -v busybox >/dev/null 2>&1; then UNZIP="busybox unzip"
-          else abort "Recovery has no unzip utility."
-          fi
+          extract_entry() {
+            if command -v unzip >/dev/null 2>&1; then
+              unzip -p "$ZIPFILE" "$1"
+            elif command -v busybox >/dev/null 2>&1; then
+              busybox unzip -p "$ZIPFILE" "$1"
+            else
+              abort "Recovery has no unzip utility."
+            fi
+          }
           MOD=/data/adb/modules/lucid_system_updater
           mkdir -p "$MOD/system/app/LucidSystemUpdater" || abort "Cannot create Magisk module."
-          "$UNZIP" -p "$ZIPFILE" module.prop > "$MOD/module.prop" || abort "module.prop missing from ZIP."
-          "$UNZIP" -p "$ZIPFILE" system/app/LucidSystemUpdater/LucidSystemUpdater.apk > "$MOD/system/app/LucidSystemUpdater/LucidSystemUpdater.apk" || abort "Updater APK missing from ZIP."
+          extract_entry module.prop > "$MOD/module.prop" || abort "module.prop missing from ZIP."
+          extract_entry system/app/LucidSystemUpdater/LucidSystemUpdater.apk > "$MOD/system/app/LucidSystemUpdater/LucidSystemUpdater.apk" || abort "Updater APK missing from ZIP."
           [ -s "$MOD/system/app/LucidSystemUpdater/LucidSystemUpdater.apk" ] || abort "Updater APK extracted as an empty file."
           chmod 0644 "$MOD/module.prop" "$MOD/system/app/LucidSystemUpdater/LucidSystemUpdater.apk"
-          touch "$MOD/update"
           sync
           ui_print "Updater app installed systemlessly."
           ui_print "Reboot Android to finish. This ZIP does NOT install a ROM update."
