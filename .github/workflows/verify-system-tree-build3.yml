@@ -31,12 +31,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/rom" "$RUNNER_TEMP/parts" report\n          printf 'Build-3 system comparison started at %s\\n' "$(date -u +%FT%TZ)" > report/run-status.txt
+          mkdir -p "$RUNNER_TEMP/rom" "$RUNNER_TEMP/parts" report
+          printf 'Build-3 system comparison started at %s\n' "$(date -u +%FT%TZ)" > report/run-status.txt
           gh api repos/$GITHUB_REPOSITORY/releases/tags/lucid-android15-lavender-build-3 > "$RUNNER_TEMP/release.json"
           python3 - "$RUNNER_TEMP/release.json" "$RUNNER_TEMP/asset.json" <<'PY'
           import json,sys
           r=json.load(open(sys.argv[1]))
-          if r.get('draft'): raise SystemExit('Expected a published release, not a draft')\n          print('release prerelease:', r.get('prerelease'), 'published_at:', r.get('published_at'))
+          if r.get('draft'): raise SystemExit('Expected a published release, not a draft')
+          print('release prerelease:', r.get('prerelease'), 'published_at:', r.get('published_at'))
           a=next((x for x in r.get('assets',[]) if x.get('name')=='LucidOS-Android15-lavender-unsigned.zip'),None)
           if not a: raise SystemExit('Build 3 ROM asset not found')
           if a.get('size') != 1326072199: raise SystemExit(f'Unexpected release size: {a.get("size")}')
