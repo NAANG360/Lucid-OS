@@ -1,9 +1,9 @@
 {
   "device": "lavender",
-  "version": "0.3-dev",
-  "url": "https://github.com/NAANG360/Lucid-OS/releases/download/lucid-android15-lavender-build-3/LucidOS-Android15-lavender-unsigned.zip",
-  "sha256": "c7262b06d6c2a60ceae395b21539de972c3c52085640bee87a7a55dacab7aba7",
-  "size": 1326072199,
-  "changelog": "EXPERIMENTAL ONLY: Android 15 SDK metadata and Android 10 fingerprint discrepancy remains unresolved; do not flash this archive until a compatible integrated ROM is verified. OTA manifest validation confirms URL/size only, not device bootability.",
+  "version": "0.4-dev",
+  "url": "https://github.com/NAANG360/Lucid-OS/releases/download/lucid-android15-lavender-build-4/LucidOS-Android15-lavender-build-4-experimental.zip",
+  "sha256": "d2b81388a57c685b82e3cb8f29da475f540dfcb9f5114003846d9337533d3219",
+  "size": 1355867286,
+  "changelog": "Experimental Build 4: Build 3 system image with Lucid companion apps, desktop payload, and wallpapers overlaid. Android-version/fingerprint discrepancy and physical-device boot remain unverified; do not flash until validated.",
   "installable": false
 }
