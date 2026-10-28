@@ -16,7 +16,7 @@
 
    This is the newest **Lucid output archive to inspect**, not proof of the upstream base. Its RisingOS Revived ancestry remains unverified until the archive is unpacked and its metadata, build properties/fingerprint, OTA metadata, partition payloads, boot/dtbo/vbmeta images, and embedded installer are inspected.
 5. The intended upstream base is **RisingOS Revived**, not LineageOS. Do not claim that the latest Lucid archive is RisingOS-based until concrete archive evidence supports that conclusion. If the latest archive does not contain enough evidence to identify the base, stop and ask for the authoritative RisingOS Revived archive/source location rather than guessing.
-6. Do not delete old releases, reports, or source artifacts just to clean up history. Label them as prohibited historical inputs and keep the investigation reproducible.
+6. Preserve old releases and binary source artifacts for historical traceability, but retire obsolete workflows and documentation that implement or instruct the prohibited product-partition rebuild path. Do not use those historical inputs in current builds.
 
 ## System-tree authority and explicit product-rebuild ban
 
