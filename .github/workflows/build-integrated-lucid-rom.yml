@@ -233,6 +233,10 @@ jobs:
           set -euo pipefail
           ROM="$RUNNER_TEMP/rom/LucidOS-Android15-lavender-build-4-experimental.zip"
           TAG="lucid-android15-lavender-build-4"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Build 4 release already exists; refusing to overwrite or publish a duplicate."
+            exit 0
+          fi
           cat > "$RUNNER_TEMP/report/release-notes.md" <<'EOF'
           ## Experimental integrated LucidOS Build 4 — lavender
 
