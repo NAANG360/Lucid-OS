@@ -104,7 +104,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/mnt/system"
           sudo mount -t ext4 -o loop,ro,noload "$RUNNER_TEMP/parts/system-verified.img" "$RUNNER_TEMP/mnt/system"
-          python3 - "$GITHUB_WORKSPACE/system-tree/system" "$RUNNER_TEMP/mnt/system" report/system-tree-comparison.json report/system-tree-comparison.md <<'PY'
+          sudo python3 - "$GITHUB_WORKSPACE/system-tree/system" "$RUNNER_TEMP/mnt/system" report/system-tree-comparison.json report/system-tree-comparison.md <<'PY'
           import hashlib,json,os,sys
           old,new,jpath,mdpath=sys.argv[1:]
           def scan(root):
@@ -133,7 +133,7 @@ jobs:
             f.write('## Different content at same path\n\n'+('\n'.join(f'- `{p}`: extracted sha256={a[p].get("sha256",a[p])}; build3 sha256={b[p].get("sha256",b[p])}' for p in changed) or '- None')+'\n')
           print(f'extracted-only={len(only_old)} build3-only={len(only_new)} same-path-differences={len(changed)}')
           PY
-          sudo umount "$RUNNER_TEMP/mnt/system"
+          sudo chmod a+r report/system-tree-comparison.json report/system-tree-comparison.md\n          sudo umount "$RUNNER_TEMP/mnt/system"
 
       - name: Upload comparison evidence
         if: always()
