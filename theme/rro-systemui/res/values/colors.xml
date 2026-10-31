@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Lucid OS SystemUI / Quick Settings shade palette -->
+    <color name="qs_background_dark">#FF0D0E13</color>
+    <color name="notification_shade_background_color">#FF0D0E13</color>
+    <color name="qs_tile_background_active">#FF8B77FF</color>
+    <color name="qs_tile_background_inactive">#FF1C1D26</color>
+    <color name="qs_tile_background_unavailable">#FF14151D</color>
+    <color name="qs_tile_text">#FFF6F4FB</color>
+    <color name="qs_tile_secondary_text">#FFACABBE</color>
+    <color name="qs_detail_background">#FF181923</color>
+    <color name="quick_settings_status_bar_background_color">#FF0D0E13</color>
+    <color name="gm2_grey_900">#FF0D0E13</color>
+    <color name="gm2_grey_800">#FF181923</color>
+</resources>
