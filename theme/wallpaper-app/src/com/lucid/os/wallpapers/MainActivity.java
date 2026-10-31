@@ -1,5 +1,6 @@
 package com.lucid.os.wallpaper;
 
+import com.lucid.motion.LucidMotion;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -151,6 +152,7 @@ public final class MainActivity extends Activity {
         page.addView(footer, params(-1, -2, 0, dp(6), 0, 0));
 
         setContentView(scroll);
+        LucidMotion.apply(this);
     }
 
     private View paletteCard() {
@@ -292,6 +294,7 @@ public final class MainActivity extends Activity {
         root.addView(applyBtn, new LinearLayout.LayoutParams(-1, dp(52)));
 
         dialog.setContentView(root);
+        LucidMotion.apply(this);
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(BG));
