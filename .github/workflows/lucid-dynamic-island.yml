@@ -2,7 +2,7 @@ name: Lucid Dynamic Island APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, lucid-ui-foundation]
+    branches: ['**']
     paths: ['theme/dynamic-island/**', '.github/workflows/lucid-dynamic-island.yml']
 permissions: { contents: read }
 jobs:
