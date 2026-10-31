@@ -1,0 +1,110 @@
+name: Lucid Full App Emulator Screenshots
+on:
+  push:
+    branches: ['**']
+    paths:
+      - '.github/workflows/lucid-all-apps-emulator.yml'
+      - 'theme/**'
+      - 'tools/build_lucid_apps.sh'
+  pull_request:
+    paths:
+      - '.github/workflows/lucid-all-apps-emulator.yml'
+      - 'theme/**'
+      - 'tools/build_lucid_apps.sh'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-and-capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Rebuild every Lucid app from current source
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        run: |
+          set -euo pipefail
+          bash tools/build_lucid_apps.sh "$GITHUB_WORKSPACE/out/lucid-apps"
+          test "$(find out/lucid-apps -maxdepth 1 -name '*.apk' | wc -l)" -eq 7
+          mkdir -p report/emulator
+          cp out/lucid-apps/app-inventory.txt report/emulator/
+      - name: Boot Android 15 emulator, install and launch all seven apps
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            mkdir -p report/emulator/screenshots report/emulator/ui
+            adb wait-for-device
+            adb shell settings put system font_scale 1.0
+            adb shell wm size 1080x1920
+            adb shell wm density 420
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+            declare -A APPS=(
+              ["Lucid-Launcher"]="com.lucid.os.launcher/.MainActivity"
+              ["Lucid-Control-Centre"]="com.lucid.os.controlcentre/.MainActivity"
+              ["Lucid-Settings"]="com.lucid.os.settings/.MainActivity"
+              ["Lucid-Updater"]="com.lucid.os.updater/.MainActivity"
+              ["Lucid-Wallpapers"]="com.lucid.os.wallpaper/.MainActivity"
+              ["Lucid-Desktop"]="com.lucid.os.desktop/.MainActivity"
+              ["Lucid-About"]="com.lucid.os.about/.MainActivity"
+            )
+            for name in "${!APPS[@]}"; do
+              apk="out/lucid-apps/$name.apk"
+              test -s "$apk"
+              adb install -r "$apk"
+              pkg="${APPS[$name]%%/*}"
+              adb shell dumpsys package "$pkg" > "report/emulator/ui/$name-package.txt"
+              adb shell am force-stop "$pkg" || true
+              adb shell am start -W -n "${APPS[$name]}" | tee "report/emulator/ui/$name-launch.txt"
+              sleep 5
+              adb shell dumpsys activity activities > "report/emulator/ui/$name-activities.txt"
+              if ! grep -q "$pkg" "report/emulator/ui/$name-activities.txt"; then
+                echo "Activity did not remain foreground: $name ($pkg)" >&2
+                adb logcat -d -t 3000 > "report/emulator/ui/$name-logcat.txt"
+                exit 1
+              fi
+              adb shell uiautomator dump "/sdcard/$name.xml" >/dev/null
+              adb pull "/sdcard/$name.xml" "report/emulator/ui/$name.xml"
+              adb shell screencap -p "/sdcard/$name.png"
+              adb pull "/sdcard/$name.png" "report/emulator/screenshots/$name.png"
+              adb shell input keyevent 4
+              sleep 1
+            done
+            adb shell input keyevent HOME
+            sleep 2
+            adb shell screencap -p /sdcard/lucid-emulator-home.png
+            adb pull /sdcard/lucid-emulator-home.png report/emulator/screenshots/Lucid-Emulator-Home.png
+            adb logcat -d -t 12000 > report/emulator/logcat.txt
+            if grep -E 'FATAL EXCEPTION|Process: com\.lucid\.os\.' report/emulator/logcat.txt; then
+              echo "One or more Lucid apps crashed during emulator pass." >&2
+              exit 1
+            fi
+            echo "PASS: rebuilt seven APKs installed and all seven activities launched; screenshots and UI hierarchy captured." | tee report/emulator/result.txt
+      - name: Upload APKs, screenshots and emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-all-apps-emulator-screenshots
+          path: |
+            out/lucid-apps/
+            report/emulator/
+          if-no-files-found: warn
+          retention-days: 30
