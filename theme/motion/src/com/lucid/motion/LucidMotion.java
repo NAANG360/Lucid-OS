@@ -64,30 +64,10 @@ public final class LucidMotion {
                     .setDuration(ENTER_DURATION).setInterpolator(EMPHASIZED).start();
             }
         }
-        if (view.isClickable() || view.isLongClickable()) bindTouch(view);
         if (view instanceof ViewGroup) {
             ViewGroup group = (ViewGroup) view;
             for (int i = 0; i < group.getChildCount(); i++) prepare(group.getChildAt(i), index);
         }
-    }
-
-    private static void bindTouch(final View view) {
-        if (Boolean.TRUE.equals(view.getTag(android.R.id.accessibilityActionClick))) return;
-        view.setTag(android.R.id.accessibilityActionClick, Boolean.TRUE);
-        view.setOnTouchListener((v, event) -> {
-            if (animationsDisabled(v.getContext())) return false;
-            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
-                v.animate().cancel();
-                v.animate().scaleX(0.975f).scaleY(0.975f).setDuration(95L)
-                    .setInterpolator(EMPHASIZED).start();
-            } else if (event.getActionMasked() == MotionEvent.ACTION_UP
-                    || event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
-                v.animate().cancel();
-                v.animate().scaleX(1f).scaleY(1f).setDuration(300L)
-                    .setInterpolator(SPRING).start();
-            }
-            return false;
-        });
     }
 
     public static void transition(View outgoing, View incoming) {
