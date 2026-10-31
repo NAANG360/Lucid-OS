@@ -2,6 +2,9 @@ package com.lucid.motion;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.animation.StateListAnimator;
 import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
@@ -52,6 +55,7 @@ public final class LucidMotion {
 
     private static void prepare(View view, AtomicInteger index) {
         if (view.getVisibility() != View.VISIBLE) return;
+        if (view.isClickable() && view.getStateListAnimator() == null) addPressMotion(view);
         if (view.getParent() instanceof ViewGroup && view.getParent() != null) {
             ViewGroup parent = (ViewGroup) view.getParent();
             if (parent.getId() == android.R.id.content || parent instanceof android.widget.LinearLayout
@@ -68,6 +72,25 @@ public final class LucidMotion {
             ViewGroup group = (ViewGroup) view;
             for (int i = 0; i < group.getChildCount(); i++) prepare(group.getChildAt(i), index);
         }
+    }
+
+    private static void addPressMotion(View view) {
+        StateListAnimator states = new StateListAnimator();
+        AnimatorSet pressed = new AnimatorSet();
+        ObjectAnimator sx = ObjectAnimator.ofFloat(view, View.SCALE_X, 0.975f);
+        ObjectAnimator sy = ObjectAnimator.ofFloat(view, View.SCALE_Y, 0.975f);
+        pressed.playTogether(sx, sy);
+        pressed.setDuration(100L);
+        pressed.setInterpolator(EMPHASIZED);
+        AnimatorSet released = new AnimatorSet();
+        ObjectAnimator rx = ObjectAnimator.ofFloat(view, View.SCALE_X, 1f);
+        ObjectAnimator ry = ObjectAnimator.ofFloat(view, View.SCALE_Y, 1f);
+        released.playTogether(rx, ry);
+        released.setDuration(280L);
+        released.setInterpolator(SPRING);
+        states.addState(new int[]{android.R.attr.state_pressed}, pressed);
+        states.addState(new int[]{}, released);
+        view.setStateListAnimator(states);
     }
 
     public static void transition(View outgoing, View incoming) {
