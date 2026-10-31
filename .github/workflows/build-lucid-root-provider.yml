@@ -60,10 +60,10 @@ jobs:
           the authorization manager provisions grants safely, and enforcing-mode
           device tests pass.
           EOF
-          cd out/package && zip -qr ../../lucid-root-provider-dev.zip .
       - uses: actions/upload-artifact@v4
         with:
           name: lucid-root-provider-dev
-          path: lucid-root-provider-dev.zip
+          path: out/package/**
+
           if-no-files-found: error
           retention-days: 30
