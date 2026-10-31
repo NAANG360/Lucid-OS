@@ -21,7 +21,7 @@ static void serve(int c){
  ucred cr{};socklen_t z=sizeof(cr);if(getsockopt(c,SOL_SOCKET,SO_PEERCRED,&cr,&z)<0||!allowed(cr.uid)){int e=126;wr(c,&e,sizeof(e));close(c);return;}
  uint32_t n=0;if(!rd(c,&n,sizeof(n))||!n||n>128){close(c);return;}
  std::vector<std::string>a;size_t total=0;
- for(uint32_t i=0;i<n;i++){uint32_t l=0;if(!rd(c,&l,4)||!l||l>4096||(total+=l)>kMax){close(c);return;}std::string s(l,'\\0');if(!rd(c,s.data(),l)||s.find('\\0')!=s.npos){close(c);return;}a.push_back(std::move(s));}
+ for(uint32_t i=0;i<n;i++){uint32_t l=0;if(!rd(c,&l,4)||!l||l>4096||(total+=l)>kMax){close(c);return;}std::string s(l,'\0');if(!rd(c,s.data(),l)||s.find('\0')!=s.npos){close(c);return;}a.push_back(std::move(s));}
  if(a[0].empty()||a[0][0]!='/'){close(c);return;}
  int p[2];if(pipe2(p,O_CLOEXEC)<0){close(c);return;}pid_t pid=fork();
  if(pid==0){close(p[0]);int nullfd=open("/dev/null",O_RDONLY);if(nullfd>=0)dup2(nullfd,0);dup2(p[1],1);dup2(p[1],2);close(p[1]);std::vector<char*>v;for(auto&x:a)v.push_back(x.data());v.push_back(nullptr);execv(v[0],v.data());_exit(errno==ENOENT?127:126);}
