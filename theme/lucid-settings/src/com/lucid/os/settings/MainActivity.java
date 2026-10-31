@@ -364,7 +364,7 @@ public class MainActivity extends Activity {
             new int[]{Color.rgb(43, 37, 67), CARD, Color.rgb(22, 23, 34)}
         );
         d.setCornerRadius(dp(22));
-        d.setStroke(dp(1), Color.argb(72, ACCENT));
+        d.setStroke(dp(1), ((ACCENT & 0x00ffffff) | (72 << 24)));
         return d;
     }
 
