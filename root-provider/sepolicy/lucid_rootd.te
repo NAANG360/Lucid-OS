@@ -1,0 +1,9 @@
+type lucid_rootd, domain;
+type lucid_rootd_exec, exec_type, file_type, system_file_type;
+init_daemon_domain(lucid_rootd)
+allow lucid_rootd self:unix_stream_socket { create bind listen accept read write getattr setopt };
+allow lucid_rootd devpts:chr_file rw_file_perms;
+allow lucid_rootd shell_exec:file rx_file_perms;
+allow lucid_rootd system_file:file rx_file_perms;
+allow lucid_rootd data_file_type:dir search;
+allow lucid_rootd data_file_type:file { open read getattr };
