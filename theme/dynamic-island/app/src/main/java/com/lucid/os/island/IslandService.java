@@ -99,6 +99,8 @@ public final class IslandService extends Service {
     }
 
     private void refreshState() {
+        notificationTitle = latestTitle;
+        notificationText = latestText;
         try {
             MediaSessionManager msm = (MediaSessionManager) getSystemService(MEDIA_SESSION_SERVICE);
             List<MediaController> sessions = msm.getActiveSessions(new ComponentName(this, IslandNotificationListener.class));
