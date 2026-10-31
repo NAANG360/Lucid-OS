@@ -231,7 +231,6 @@ jobs:
             /system/app/LucidDesktop /system/app/LucidDesktop/Lucid-Desktop.apk \
             /system/app/LucidDynamicIsland /system/app/LucidDynamicIsland/Lucid-Dynamic-Island.apk \
             /system/app/LucidAbout /system/app/LucidAbout/Lucid-About.apk \
-
             /system/bin/lucid_desktop.sh /system/bin/lucid_root_toggle.sh \
             /system/usr/lucid /system/usr/lucid/ubuntu-base-arm64.tar.gz \
             /system/etc/lucid /system/etc/lucid/wallpapers \
@@ -254,7 +253,7 @@ jobs:
         run: |
           set -euo pipefail
           PARTS="$RUNNER_TEMP/parts"
-          OUT="$RUNNER_TEMP/rom/LucidOS-Android15-lavender-build-4-experimental.zip"
+          OUT="$RUNNER_TEMP/rom/LucidOS-Android15-lavender-build-5-experimental.zip"
           "$RUNNER_TEMP/venv/bin/python" tools/repack_transfer_image.py \
             "$PARTS/system.transfer.list" "$PARTS/system.img" "$PARTS/system.new.dat"
           brotli -q 5 -f -o "$PARTS/system.new.dat.br.repacked" "$PARTS/system.new.dat"
@@ -269,29 +268,29 @@ jobs:
           unzip -p "$OUT" system.transfer.list | cmp - "$PARTS/system.transfer.list"
           unzip -p "$OUT" system.new.dat.br | cmp - "$PARTS/system.new.dat.br"
 
-      - name: Publish experimental Build 4 and update OTA manifest
+      - name: Publish experimental Build 5 and update OTA manifest
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          ROM="$RUNNER_TEMP/rom/LucidOS-Android15-lavender-build-4-experimental.zip"
-          TAG="lucid-android15-lavender-build-4"
+          ROM="$RUNNER_TEMP/rom/LucidOS-Android15-lavender-build-5-experimental.zip"
+          TAG="lucid-android15-lavender-build-5"
           cat > "$RUNNER_TEMP/report/release-notes.md" <<'EOF'
-          ## Experimental integrated LucidOS Build 4 — lavender
+          ## Experimental integrated LucidOS Build 5 — lavender
 
           This package uses the published Build 3 ZIP as its system base and overlays the Lucid app APKs, desktop scripts/rootfs archive, and wallpapers from the repository.
 
           **Important:** This is an experimental integration package, not verified bootable or safe for flashing. Build 3's Android-version/fingerprint discrepancy remains unresolved. The included companion apps are packaged as regular system apps; the actual Android SystemUI source has not been rebuilt, and the Developer Options root toggle is not yet integrated. Back up first and do not flash on a primary device.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Build 4 release already exists; syncing OTA manifest to its actual published asset."
+            echo "Build 5 release already exists; syncing OTA manifest to its actual published asset."
             gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > "$RUNNER_TEMP/release-build4.json"
             read -r SHA SIZE URL < <(python3 - "$RUNNER_TEMP/release-build4.json" <<'PY'
           import json,sys
           r=json.load(open(sys.argv[1]))
-          a=next((x for x in r.get("assets",[]) if x.get("name")=="LucidOS-Android15-lavender-build-4-experimental.zip"),None)
-          if not a: raise SystemExit("Build 4 release exists but its ROM asset is missing")
+          a=next((x for x in r.get("assets",[]) if x.get("name")=="LucidOS-Android15-lavender-build-5-experimental.zip"),None)
+          if not a: raise SystemExit("Build 5 release exists but its ROM asset is missing")
           digest=a.get("digest") or ""
           if not digest.startswith("sha256:"): raise SystemExit(f"Published asset has no SHA-256 digest: {digest!r}")
           print(digest.split(":",1)[1],a["size"],a["browser_download_url"])
@@ -299,28 +298,28 @@ jobs:
             )
           else
             gh release create "$TAG" "$ROM" \
-              --title "LucidOS Android 15 lavender — Build 4 experimental integration" \
+              --title "LucidOS Android 15 lavender — Build 5 experimental integration" \
               --prerelease --notes-file "$RUNNER_TEMP/report/release-notes.md"
             SHA="$(sha256sum "$ROM" | cut -d' ' -f1)"
             SIZE="$(stat -c %s "$ROM")"
-            URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/LucidOS-Android15-lavender-build-4-experimental.zip"
+            URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/LucidOS-Android15-lavender-build-5-experimental.zip"
           fi
           python3 - "$GITHUB_WORKSPACE/ota/stable.json" "$SHA" "$SIZE" "$TAG" "$URL" <<'PY'
           import json,sys
           path,sha,size,tag,url=sys.argv[1:]
           d=json.load(open(path))
-          d["version"]="0.4-dev"
+          d["version"]="0.5-dev"
           d["url"]=url
           d["sha256"]=sha
           d["size"]=int(size)
           d["installable"]=False
-          d["changelog"]="Experimental Build 4: Build 3 system image with Lucid companion apps, desktop payload, and wallpapers overlaid. Android-version/fingerprint discrepancy and physical-device boot remain unverified; do not flash until validated."
+          d["changelog"]="Experimental Build 5: Build 3 system image with Lucid companion apps, desktop payload, and wallpapers overlaid. Android-version/fingerprint discrepancy and physical-device boot remain unverified; do not flash until validated."
           with open(path,"w") as f: json.dump(d,f,indent=2); f.write("\n")
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add ota/stable.json
-          git commit -m "Point OTA manifest to experimental integrated Build 4" || true
+          git commit -m "Point OTA manifest to experimental integrated Build 5" || true
           git fetch origin "$GITHUB_REF_NAME"
           git rebase "origin/$GITHUB_REF_NAME"
           git push origin "HEAD:$GITHUB_REF_NAME"
