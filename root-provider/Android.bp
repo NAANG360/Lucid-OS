@@ -1,0 +1,14 @@
+cc_binary {
+    name: "lucid_rootd",
+    srcs: ["daemon/lucid_rootd.cpp"],
+    cflags: ["-Wall", "-Wextra", "-Werror"],
+    init_rc: ["init.lucid-root.rc"],
+    installable: true,
+}
+cc_binary {
+    name: "lucid-su",
+    srcs: ["client/lucid-su.cpp"],
+    cflags: ["-Wall", "-Wextra", "-Werror"],
+    symlinks: ["su"],
+    installable: true,
+}
