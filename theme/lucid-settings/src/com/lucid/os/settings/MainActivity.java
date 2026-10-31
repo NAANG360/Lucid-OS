@@ -169,7 +169,7 @@ public class MainActivity extends Activity {
             LinearLayout row = new LinearLayout(this);
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(dp(13), dp(12), dp(12), dp(12));
-            row.setBackground(shape(CARD, 17));
+            row.setBackground(shape(CARD2, 17));
             TextView icon = txt(icon(item.icon), 18, ACCENT, true);
             icon.setGravity(Gravity.CENTER);
             icon.setBackground(shape(CARD2, 13));
@@ -356,6 +356,16 @@ public class MainActivity extends Activity {
         t.setTextColor(color);
         t.setTypeface(Typeface.create("sans-serif", bold ? Typeface.BOLD : Typeface.NORMAL));
         return t;
+    }
+
+    private GradientDrawable surfaceGradient() {
+        GradientDrawable d = new GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            new int[]{Color.rgb(43, 37, 67), CARD, Color.rgb(22, 23, 34)}
+        );
+        d.setCornerRadius(dp(22));
+        d.setStroke(dp(1), Color.argb(72, ACCENT));
+        return d;
     }
 
     private GradientDrawable shape(int color, int radius) {
