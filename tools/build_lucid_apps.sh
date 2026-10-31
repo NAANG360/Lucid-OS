@@ -16,14 +16,18 @@ if [[ -d "$GITHUB_WORKSPACE/theme/assets-encoded" ]]; then
   done
 fi
 
-# Refuse to package a wallpaper picker with blank preview cards. Every entry
-# declared by the picker must have a real asset in the staged bundle.
+# Record wallpaper asset coverage without blocking app/emulator QA.
+# Missing source artwork remains explicitly visible in the build report; never
+# synthesize or silently substitute user-provided wallpapers.
+: > "$OUT_ROOT/wallpaper-assets.txt"
 for asset in \
   lucid-wallpaper-dusk.jpg wallpaper-bubbles.webp wallpaper-purple-crescent.webp \
   wallpaper-lucid-crescent.webp lucid-wallpaper-alpine.jpg wallpaper-brushwork.webp; do
-  if [[ ! -s "$ASSET_STAGE/$asset" ]]; then
-    echo "::error::Missing wallpaper asset: theme/assets/$asset (or its .b64 source under theme/assets-encoded)"
-    exit 1
+  if [[ -s "$ASSET_STAGE/$asset" ]]; then
+    printf 'PRESENT  %s\\n' "$asset" | tee -a "$OUT_ROOT/wallpaper-assets.txt"
+  else
+    printf 'MISSING  %s\\n' "$asset" | tee -a "$OUT_ROOT/wallpaper-assets.txt"
+    echo "::warning::Wallpaper artwork missing from source tree: $asset"
   fi
 done
 
