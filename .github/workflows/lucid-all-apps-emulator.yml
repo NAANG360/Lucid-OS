@@ -53,7 +53,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 1800
           script: |
-            bash -euo pipefail <<'LUCID_EMULATOR_SCRIPT'
+            set -eu
             mkdir -p report/emulator/screenshots report/emulator/ui
             adb wait-for-device
             adb shell settings put system font_scale 1.0
@@ -62,23 +62,23 @@ jobs:
             adb shell settings put global window_animation_scale 0
             adb shell settings put global transition_animation_scale 0
             adb shell settings put global animator_duration_scale 0
-            declare -A APPS=(
-              ["Lucid-Launcher"]="com.lucid.os.launcher/.MainActivity"
-              ["Lucid-Control-Centre"]="com.lucid.os.controlcentre/.MainActivity"
-              ["Lucid-Settings"]="com.lucid.os.settings/.MainActivity"
-              ["Lucid-Updater"]="com.lucid.os.updater/.MainActivity"
-              ["Lucid-Wallpapers"]="com.lucid.os.wallpaper/.MainActivity"
-              ["Lucid-Desktop"]="com.lucid.os.desktop/.MainActivity"
-              ["Lucid-About"]="com.lucid.os.about/.MainActivity"
-            )
-            for name in "${!APPS[@]}"; do
+            for name in Lucid-Launcher Lucid-Control-Centre Lucid-Settings Lucid-Updater Lucid-Wallpapers Lucid-Desktop Lucid-About; do
+              case "$name" in
+                Lucid-Launcher) component="com.lucid.os.launcher/.MainActivity" ;;
+                Lucid-Control-Centre) component="com.lucid.os.controlcentre/.MainActivity" ;;
+                Lucid-Settings) component="com.lucid.os.settings/.MainActivity" ;;
+                Lucid-Updater) component="com.lucid.os.updater/.MainActivity" ;;
+                Lucid-Wallpapers) component="com.lucid.os.wallpaper/.MainActivity" ;;
+                Lucid-Desktop) component="com.lucid.os.desktop/.MainActivity" ;;
+                Lucid-About) component="com.lucid.os.about/.MainActivity" ;;
+              esac
               apk="out/lucid-apps/$name.apk"
               test -s "$apk"
               adb install -r "$apk"
-              pkg="${APPS[$name]%%/*}"
+              pkg="${component%%/*}"
               adb shell dumpsys package "$pkg" > "report/emulator/ui/$name-package.txt"
               adb shell am force-stop "$pkg" || true
-              adb shell am start -W -n "${APPS[$name]}" | tee "report/emulator/ui/$name-launch.txt"
+              adb shell am start -W -n "$component" > "report/emulator/ui/$name-launch.txt"
               sleep 5
               adb shell dumpsys activity activities > "report/emulator/ui/$name-activities.txt"
               if ! grep -q "$pkg" "report/emulator/ui/$name-activities.txt"; then
@@ -102,8 +102,7 @@ jobs:
               echo "One or more Lucid apps crashed during emulator pass." >&2
               exit 1
             fi
-            echo "PASS: rebuilt seven APKs installed and all seven activities launched; screenshots and UI hierarchy captured." | tee report/emulator/result.txt
-            LUCID_EMULATOR_SCRIPT
+            echo "PASS: rebuilt seven APKs installed and all seven activities launched; screenshots and UI hierarchy captured." > report/emulator/result.txt
       - name: Upload APKs, screenshots and emulator evidence
         if: always()
         uses: actions/upload-artifact@v4
