@@ -49,6 +49,7 @@ build_app() {
   test -f "$app/$manifest"
   mkdir -p "$out/classes" "$out/dex"
   mapfile -t java_files < <(find "$app/src" -type f -name '*.java' -print | sort)
+  java_files+=("$GITHUB_WORKSPACE/theme/motion/src/com/lucid/motion/LucidMotion.java")
   test "${#java_files[@]}" -gt 0
   javac -source 8 -target 8 -classpath "$PLATFORM" -d "$out/classes" "${java_files[@]}"
   mapfile -t class_files < <(find "$out/classes" -type f -name '*.class' -print | sort)
