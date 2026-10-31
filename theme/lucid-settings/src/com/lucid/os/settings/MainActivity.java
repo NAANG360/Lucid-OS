@@ -257,37 +257,34 @@ public class MainActivity extends Activity {
     }
 
     private void showAppearance() {
-        String[] names = {"Violet Dusk", "Blue Pulse", "Cyan Horizon", "Bubbles", "Rounded surfaces", "Compact spacing", "Reduce motion"};
-        int[] colors = {Color.rgb(139, 119, 255), Color.rgb(8, 102, 255), Color.rgb(0, 175, 200)};
         SharedPreferences prefs = getSharedPreferences("lucid_appearance", MODE_PRIVATE);
-        boolean[] checked = {
-            prefs.getInt("accent", colors[0]) == colors[0],
-            prefs.getInt("accent", colors[0]) == colors[1],
-            prefs.getInt("accent", colors[0]) == colors[2],
-            prefs.getBoolean("bubbles", true),
-            prefs.getBoolean("rounded", true),
-            prefs.getBoolean("compact", false),
-            prefs.getBoolean("reduce_motion", false)
-        };
+        String[] choices = {"Accent colour", "Wallpaper bubbles", "Rounded surfaces", "Compact spacing", "Reduce motion"};
         new AlertDialog.Builder(this)
             .setTitle("Lucid appearance")
-            .setMultiChoiceItems(names, checked, (dialog, which, isChecked) -> {
-                SharedPreferences.Editor e = prefs.edit();
-                if (which < 3) {
-                    e.putInt("accent", colors[which]);
-                    ACCENT = colors[which];
-                } else if (which == 3) e.putBoolean("bubbles", isChecked);
-                else if (which == 4) e.putBoolean("rounded", isChecked);
-                else if (which == 5) e.putBoolean("compact", isChecked);
-                else e.putBoolean("reduce_motion", isChecked);
-                e.apply();
-                if (which < 3) {
-                    dialog.dismiss();
-                    recreate();
+            .setItems(choices, (dialog, which) -> {
+                if (which == 0) {
+                    String[] colours = {"Violet Dusk", "Blue Pulse", "Cyan Horizon"};
+                    int[] values = {Color.rgb(139,119,255), Color.rgb(8,102,255), Color.rgb(0,175,200)};
+                    int current = prefs.getInt("accent", values[0]);
+                    int selected = current == values[1] ? 1 : current == values[2] ? 2 : 0;
+                    new AlertDialog.Builder(this).setTitle("Accent colour")
+                        .setSingleChoiceItems(colours, selected, (d, index) -> {
+                            prefs.edit().putInt("accent", values[index]).apply();
+                            ACCENT = values[index];
+                            d.dismiss();
+                            recreate();
+                        }).setNegativeButton("Cancel", null).show();
+                } else {
+                    String[] keys = {"", "bubbles", "rounded", "compact", "reduce_motion"};
+                    String[] labels = {"", "Wallpaper bubbles", "Rounded surfaces", "Compact spacing", "Reduce motion"};
+                    boolean[] defaults = {false, true, true, false, false};
+                    String key = keys[which];
+                    boolean value = !prefs.getBoolean(key, defaults[which]);
+                    prefs.edit().putBoolean(key, value).apply();
+                    Toast.makeText(this, labels[which] + (value ? " enabled" : " disabled"), Toast.LENGTH_SHORT).show();
                 }
             })
-            .setPositiveButton("Apply", (d, w) -> recreate())
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton("Close", null)
             .show();
     }
 
