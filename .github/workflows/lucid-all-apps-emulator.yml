@@ -18,19 +18,21 @@ jobs:
   build-and-capture:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
       - name: Install Android SDK packages
-        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - name: Rebuild every Lucid app from current source
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
         run: |
           set -euo pipefail
           bash tools/build_lucid_apps.sh "$GITHUB_WORKSPACE/out/lucid-apps"
@@ -93,7 +95,7 @@ jobs:
             adb shell screencap -p /sdcard/lucid-emulator-home.png
             adb pull /sdcard/lucid-emulator-home.png report/emulator/screenshots/Lucid-Emulator-Home.png
             adb logcat -d -t 12000 > report/emulator/logcat.txt
-            if grep -E 'FATAL EXCEPTION|Process: com\.lucid\.os\.' report/emulator/logcat.txt; then
+            if grep -E 'FATAL EXCEPTION|Process: com\\.lucid\\.os\\.' report/emulator/logcat.txt; then
               echo "One or more Lucid apps crashed during emulator pass." >&2
               exit 1
             fi
