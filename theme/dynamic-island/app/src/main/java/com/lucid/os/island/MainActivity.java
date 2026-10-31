@@ -1,5 +1,7 @@
 package com.lucid.os.island;
 
+import com.lucid.motion.LucidMotion;
+
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
@@ -36,6 +38,7 @@ public final class MainActivity extends Activity {
         TextView hint = label("Tap the notch to expand · tap again to collapse · long-press to dismiss. Media controls appear when a supported player is active. Notification access is optional.", 12, 0xff777286);
         hint.setPadding(0, dp(22), 0, 0); root.addView(hint);
         setContentView(root);
+        LucidMotion.apply(this);
     }
     @Override protected void onResume() { super.onResume(); if (status != null) status.setText((Settings.canDrawOverlays(this) ? "● Overlay ready" : "○ Overlay permission needed") + "     " + (isNotificationAccessEnabled() ? "● Notifications ready" : "○ Notification access optional")); }
     private boolean isNotificationAccessEnabled() {
