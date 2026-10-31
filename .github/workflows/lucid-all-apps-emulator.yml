@@ -53,7 +53,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 1800
           script: |
-            set -euo pipefail
+            bash -euo pipefail <<'LUCID_EMULATOR_SCRIPT'
             mkdir -p report/emulator/screenshots report/emulator/ui
             adb wait-for-device
             adb shell settings put system font_scale 1.0
@@ -103,6 +103,7 @@ jobs:
               exit 1
             fi
             echo "PASS: rebuilt seven APKs installed and all seven activities launched; screenshots and UI hierarchy captured." | tee report/emulator/result.txt
+            LUCID_EMULATOR_SCRIPT
       - name: Upload APKs, screenshots and emulator evidence
         if: always()
         uses: actions/upload-artifact@v4
