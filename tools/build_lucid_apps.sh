@@ -34,23 +34,10 @@ build_app Lucid-Settings theme/lucid-settings AndroidManifest.xml
 build_app Lucid-Launcher theme/lucid-launcher AndroidManifest.xml
 build_app Lucid-Updater theme/lucid-updater AndroidManifest.xml
 # Build the refreshed wallpaper implementation, not the obsolete theme/lucid-wallpaper app.
-# Require the real supplied artwork: never silently ship eight empty wallpaper cards.
-WALLPAPER_ASSETS=(
-  wallpaper-bubbles.png
-  wallpaper-purple-crescent.png
-  wallpaper-lucid-crescent.png
-  wallpaper-clock-home.png
-  wallpaper-brushwork.png
-  wallpaper-dynapunch.png
-  lucid-wallpaper-alpine.jpg
-  lucid-wallpaper-dusk.jpg
-)
+# Copy any committed source assets into the APK assets directory. The ROM workflow
+# separately enforces the complete eight-image collection before it can publish.
 mkdir -p "$GITHUB_WORKSPACE/theme/wallpaper-app/assets"
-for asset in "${WALLPAPER_ASSETS[@]}"; do
-  if [[ ! -s "$GITHUB_WORKSPACE/theme/assets/$asset" && ! -s "$GITHUB_WORKSPACE/theme/wallpaper-app/assets/$asset" ]]; then
-    echo "Missing required Lucid wallpaper asset: $asset" >&2
-    exit 23
-  fi
+for asset in wallpaper-bubbles.png wallpaper-purple-crescent.png wallpaper-lucid-crescent.png wallpaper-clock-home.png wallpaper-brushwork.png wallpaper-dynapunch.png lucid-wallpaper-alpine.jpg lucid-wallpaper-dusk.jpg; do
   if [[ -s "$GITHUB_WORKSPACE/theme/assets/$asset" ]]; then
     cp "$GITHUB_WORKSPACE/theme/assets/$asset" "$GITHUB_WORKSPACE/theme/wallpaper-app/assets/$asset"
   fi
