@@ -55,13 +55,11 @@ public final class MainActivity extends Activity {
 
     private final WallpaperItem[] wallpapers = new WallpaperItem[] {
         new WallpaperItem("Violet Dusk", "lucid-wallpaper-dusk.jpg", "01  ·  SIGNATURE", "Moonlit valley with violet skies and cyan horizon"),
-        new WallpaperItem("Glass Bubbles", "wallpaper-bubbles.png", "02  ·  AQUA", "Translucent glass spheres from the Lucid collection"),
-        new WallpaperItem("Purple Crescent", "wallpaper-purple-crescent.png", "03  ·  LUNAR", "Soft lavender gradient and crescent silhouette"),
-        new WallpaperItem("Lucid Crescent", "wallpaper-lucid-crescent.png", "04  ·  LUCID", "Deep electric violet atmosphere crafted for AMOLED & LCD"),
+        new WallpaperItem("Glass Bubbles", "wallpaper-bubbles.webp", "02  ·  AQUA", "The original translucent glass-sphere wallpaper"),
+        new WallpaperItem("Purple Crescent", "wallpaper-purple-crescent.webp", "03  ·  LUNAR", "Soft lavender gradient and crescent silhouette"),
+        new WallpaperItem("Lucid Crescent", "wallpaper-lucid-crescent.webp", "04  ·  LUCID", "Deep electric violet atmosphere crafted for AMOLED & LCD"),
         new WallpaperItem("Blue Alpine", "lucid-wallpaper-alpine.jpg", "05  ·  ALPINE", "Dramatic blue alpine peaks with warm dusk highlights"),
-        new WallpaperItem("Mint Clock", "wallpaper-clock-home.png", "06  ·  HOME SCREEN", "Calm slate-violet backdrop from the Lucid homescreen"),
-        new WallpaperItem("Colour Study", "wallpaper-brushwork.png", "07  ·  ABSTRACT", "Warm dark-studio abstract study"),
-        new WallpaperItem("DynaPunch", "wallpaper-dynapunch.png", "08  ·  CONCEPT", "Wide concept artwork from the cosmos/Lucid archive")
+        new WallpaperItem("Colour Study", "wallpaper-brushwork.webp", "06  ·  ABSTRACT", "Original colour-study artwork")
     };
 
     @Override
@@ -148,7 +146,7 @@ public final class MainActivity extends Activity {
         footer.setPadding(dp(16), dp(14), dp(16), dp(14));
         footer.setBackground(round(SURFACE, 18));
         footer.addView(label("LUCID WALLPAPER ARCHIVE", 10, accent, true));
-        footer.addView(label("All 8 supplied wallpapers are bundled natively in the APK and mirrored under /system/etc/lucid/wallpapers.", 12, SECONDARY, false),
+        footer.addView(label("All six selected wallpapers are bundled natively in the APK and mirrored under /system/etc/lucid/wallpapers.", 12, SECONDARY, false),
             params(-1, -2, 0, dp(5), 0, 0));
         page.addView(footer, params(-1, -2, 0, dp(6), 0, 0));
 
