@@ -1,11 +1,13 @@
 name: Validate Lucid Native Apps
 on:
   push:
-    branches: [feature/lucid-control-centre-connect]
+    branches: [fix/lucid-gemini-integration, feature/lucid-all-apps-refreshed-connect]
     paths:
       - 'theme/lucid-control-centre/**'
       - 'theme/lucid-settings/**'
-      - 'theme/lucid-wallpaper/**'
+      - 'theme/wallpaper-app/**'
+      - 'theme/about-app/**'
+      - 'theme/rro-systemui/**'
       - 'theme/lucid-updater/**'
       - 'theme/lucid-launcher/**'
       - 'theme/lucid-desktop/**'
@@ -45,7 +47,8 @@ jobs:
         app:
           - lucid-control-centre
           - lucid-settings
-          - lucid-wallpaper
+          - wallpaper-app
+          - about-app
           - lucid-updater
           - lucid-launcher
           - lucid-desktop
