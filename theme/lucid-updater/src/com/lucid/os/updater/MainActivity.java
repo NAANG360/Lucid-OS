@@ -1,5 +1,6 @@
 package com.lucid.os.updater;
 
+import com.lucid.motion.LucidMotion;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.database.Cursor;
@@ -119,6 +120,7 @@ public final class MainActivity extends Activity {
         TextView note = text("The archive is checked against the published size and SHA-256 before any install action. Installation requires a compatible root provider and TWRP/OrangeFox recovery. Nothing flashes silently; you confirm before reboot.", 12, muted, false);
         page.addView(note);
         setContentView(scroll);
+        LucidMotion.apply(this);
     }
 
     private Button button(String s, boolean primary) {
