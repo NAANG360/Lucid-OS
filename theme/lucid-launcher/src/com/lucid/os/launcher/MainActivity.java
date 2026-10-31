@@ -1,5 +1,6 @@
 package com.lucid.os.launcher;
 
+import com.lucid.motion.LucidMotion;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
@@ -236,6 +237,7 @@ public final class MainActivity extends Activity {
         });
 
         setContentView(root);
+        LucidMotion.apply(this);
         render("");
         renderDock();
     }
