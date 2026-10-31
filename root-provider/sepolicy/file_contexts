@@ -1,0 +1,3 @@
+/system/bin/lucid_rootd    u:object_r:lucid_rootd_exec:s0
+/system/bin/lucid-su       u:object_r:system_file:s0
+/data/misc/lucid-root(/.*)? u:object_r:system_data_file:s0
