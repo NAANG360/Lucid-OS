@@ -33,5 +33,37 @@ build_app Lucid-Control-Centre theme/lucid-control-centre AndroidManifest.xml
 build_app Lucid-Settings theme/lucid-settings AndroidManifest.xml
 build_app Lucid-Launcher theme/lucid-launcher AndroidManifest.xml
 build_app Lucid-Updater theme/lucid-updater AndroidManifest.xml
-build_app Lucid-Wallpapers theme/lucid-wallpaper AndroidManifest.xml
+# Build the refreshed wallpaper implementation, not the obsolete theme/lucid-wallpaper app.
+# Require the real supplied artwork: never silently ship eight empty wallpaper cards.
+WALLPAPER_ASSETS=(
+  wallpaper-bubbles.png
+  wallpaper-purple-crescent.png
+  wallpaper-lucid-crescent.png
+  wallpaper-clock-home.png
+  wallpaper-brushwork.png
+  wallpaper-dynapunch.png
+  lucid-wallpaper-alpine.jpg
+  lucid-wallpaper-dusk.jpg
+)
+mkdir -p "$GITHUB_WORKSPACE/theme/wallpaper-app/assets"
+for asset in "${WALLPAPER_ASSETS[@]}"; do
+  if [[ ! -s "$GITHUB_WORKSPACE/theme/assets/$asset" && ! -s "$GITHUB_WORKSPACE/theme/wallpaper-app/assets/$asset" ]]; then
+    echo "Missing required Lucid wallpaper asset: $asset" >&2
+    exit 23
+  fi
+  if [[ -s "$GITHUB_WORKSPACE/theme/assets/$asset" ]]; then
+    cp "$GITHUB_WORKSPACE/theme/assets/$asset" "$GITHUB_WORKSPACE/theme/wallpaper-app/assets/$asset"
+  fi
+done
+build_app Lucid-Wallpapers theme/wallpaper-app AndroidManifest.xml
+build_app Lucid-About theme/about-app AndroidManifest.xml
 build_app Lucid-Desktop theme/lucid-desktop AndroidManifest.xml
+
+# Build the static SystemUI Runtime Resource Overlay as a real APK.
+RRO="$GITHUB_WORKSPACE/theme/rro-systemui"
+RRO_OUT="$OUT_ROOT/Lucid-SystemUI-Overlay"
+mkdir -p "$RRO_OUT"
+"$TOOLS/aapt" package -f -M "$RRO/AndroidManifest.xml" -S "$RRO/res" -I "$PLATFORM" -F "$RRO_OUT/Lucid-SystemUI-Overlay-unsigned.apk"
+"$TOOLS/apksigner" sign --ks "$KEYSTORE" --ks-pass pass:lucidbuild --key-pass pass:lucidbuild --out "$OUT_ROOT/Lucid-SystemUI-Overlay.apk" "$RRO_OUT/Lucid-SystemUI-Overlay-unsigned.apk"
+"$TOOLS/apksigner" verify --verbose "$OUT_ROOT/Lucid-SystemUI-Overlay.apk"
+test -s "$OUT_ROOT/Lucid-SystemUI-Overlay.apk"
