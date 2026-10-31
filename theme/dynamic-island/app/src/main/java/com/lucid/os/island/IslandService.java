@@ -21,6 +21,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.view.animation.OvershootInterpolator;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -91,11 +92,22 @@ public final class IslandService extends Service {
         lp.y = 0;
         try {
             wm.addView(island, lp);
-            island.setOnClickListener(v -> { expanded = !expanded; render(); });
+            island.setOnClickListener(v -> { expanded = !expanded; render(); animateIsland(); });
             island.setOnLongClickListener(v -> { stopSelf(); return true; });
             handler.post(refresh);
             render();
+            animateIsland();
         } catch (Exception e) { island = null; stopSelf(); }
+    }
+
+    private void animateIsland() {
+        if (island == null) return;
+        island.animate().cancel();
+        island.setScaleX(0.92f);
+        island.setScaleY(0.92f);
+        island.setAlpha(0.86f);
+        island.animate().scaleX(1f).scaleY(1f).alpha(1f)
+            .setDuration(360L).setInterpolator(new OvershootInterpolator(0.62f)).start();
     }
 
     private void refreshState() {
