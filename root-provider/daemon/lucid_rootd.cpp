@@ -6,67 +6,26 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <cerrno>
-#include <cstdio>
-#include <cstdlib>
+#include <cstdint>
 #include <cstring>
+#include <fstream>
 #include <string>
 #include <vector>
-#include <fstream>
-#include <sstream>
-
-static constexpr const char* kSocket = "/dev/socket/lucid-root";
-static constexpr const char* kPolicy = "/data/misc/lucid-root/allowed_uids";
-static constexpr size_t kMax = 16384;
-
-static bool allowed(uid_t uid) {
-    std::ifstream in(kPolicy);
-    unsigned long value;
-    while (in >> value) if (value == static_cast<unsigned long>(uid)) return true;
-    return false;
+static constexpr const char* kSocket="/dev/socket/lucid-root";
+static constexpr const char* kPolicy="/data/misc/lucid-root/allowed_uids";
+static constexpr size_t kMax=16384;
+static bool allowed(uid_t uid){std::ifstream f(kPolicy);unsigned long v;while(f>>v)if(v==(unsigned long)uid)return true;return false;}
+static bool rd(int f,void* p,size_t n){char* c=(char*)p;while(n){ssize_t r=read(f,c,n);if(r<=0)return false;c+=r;n-=r;}return true;}
+static bool wr(int f,const void* p,size_t n){const char* c=(const char*)p;while(n){ssize_t r=write(f,c,n);if(r<=0)return false;c+=r;n-=r;}return true;}
+static void serve(int c){
+ ucred cr{};socklen_t z=sizeof(cr);if(getsockopt(c,SOL_SOCKET,SO_PEERCRED,&cr,&z)<0||!allowed(cr.uid)){int e=126;wr(c,&e,sizeof(e));close(c);return;}
+ uint32_t n=0;if(!rd(c,&n,sizeof(n))||!n||n>128){close(c);return;}
+ std::vector<std::string>a;size_t total=0;
+ for(uint32_t i=0;i<n;i++){uint32_t l=0;if(!rd(c,&l,4)||!l||l>4096||(total+=l)>kMax){close(c);return;}std::string s(l,'\\0');if(!rd(c,s.data(),l)||s.find('\\0')!=s.npos){close(c);return;}a.push_back(std::move(s));}
+ if(a[0].empty()||a[0][0]!='/'){close(c);return;}
+ int p[2];if(pipe2(p,O_CLOEXEC)<0){close(c);return;}pid_t pid=fork();
+ if(pid==0){close(p[0]);int nullfd=open("/dev/null",O_RDONLY);if(nullfd>=0)dup2(nullfd,0);dup2(p[1],1);dup2(p[1],2);close(p[1]);std::vector<char*>v;for(auto&x:a)v.push_back(x.data());v.push_back(nullptr);execv(v[0],v.data());_exit(errno==ENOENT?127:126);}
+ close(p[1]);char b[4096];ssize_t r;while((r=read(p[0],b,sizeof(b)))>0)if(!wr(c,b,(size_t)r))break;close(p[0]);
+ int st=126;if(pid>0)waitpid(pid,&st,0);int rc=WIFEXITED(st)?WEXITSTATUS(st):(WIFSIGNALED(st)?128+WTERMSIG(st):126);wr(c,&rc,sizeof(rc));close(c);
 }
-static bool read_all(int fd, void* data, size_t size) {
-    char* p = static_cast<char*>(data);
-    while (size) { ssize_t n=read(fd,p,size); if(n<=0) return false; p+=n; size-=n; }
-    return true;
-}
-static bool write_all(int fd, const void* data, size_t size) {
-    const char* p = static_cast<const char*>(data);
-    while (size) { ssize_t n=write(fd,p,size); if(n<=0) return false; p+=n; size-=n; }
-    return true;
-}
-static void serve(int client) {
-    ucred cred{}; socklen_t clen=sizeof(cred);
-    if (getsockopt(client,SOL_SOCKET,SO_PEERCRED,&cred,&clen)<0 || !allowed(cred.uid)) {
-        const int denied=126; write_all(client,&denied,sizeof(denied)); close(client); return;
-    }
-    uint32_t count=0;
-    if(!read_all(client,&count,sizeof(count)) || count==0 || count>128) { close(client); return; }
-    std::vector<std::string> args; args.reserve(count);
-    size_t total=0;
-    for(uint32_t i=0;i<count;i++) {
-        uint32_t len=0;
-        if(!read_all(client,&len,sizeof(len)) || len==0 || len>4096 || (total+=len)>kMax) { close(client); return; }
-        std::string s(len,'\0');
-        if(!read_all(client,s.data(),len) || s.find('\0')!=std::string::npos) { close(client); return; }
-        args.push_back(std::move(s));
-    }
-    if(args.empty() || args[0].empty() || args[0][0]!='/') { close(client); return; }
-    pid_t pid=fork();
-    if(pid==0) {
-        dup2(client,STDIN_FILENO); dup2(client,STDOUT_FILENO); dup2(client,STDERR_FILENO);
-        close(client);
-        std::vector<char*> argv; for(auto& a:args) argv.push_back(a.data()); argv.push_back(nullptr);
-        execv(argv[0],argv.data()); _exit(errno==ENOENT?127:126);
-    }
-    int status=126;
-    if(pid>0) waitpid(pid,&status,0);
-    int rc=WIFEXITED(status)?WEXITSTATUS(status):(WIFSIGNALED(status)?128+WTERMSIG(status):126);
-    write_all(client,&rc,sizeof(rc)); close(client);
-}
-int main() {
-    int s=socket(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC,0); if(s<0) return 1;
-    sockaddr_un addr{}; addr.sun_family=AF_UNIX; strlcpy(addr.sun_path,kSocket,sizeof(addr.sun_path));
-    unlink(kSocket);
-    if(bind(s,reinterpret_cast<sockaddr*>(&addr),sizeof(addr))<0 || chmod(kSocket,0660)<0 || listen(s,8)<0) return 2;
-    for(;;) { int c=accept4(s,nullptr,nullptr,SOCK_CLOEXEC); if(c<0) { if(errno==EINTR) continue; continue; } serve(c); }
-}
+int main(){int s=socket(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC,0);if(s<0)return 1;sockaddr_un a{};a.sun_family=AF_UNIX;strncpy(a.sun_path,kSocket,sizeof(a.sun_path)-1);unlink(kSocket);if(bind(s,(sockaddr*)&a,sizeof(a))<0||chmod(kSocket,0660)<0||listen(s,8)<0)return 2;for(;;){int c=accept4(s,nullptr,nullptr,SOCK_CLOEXEC);if(c<0){if(errno==EINTR)continue;continue;}serve(c);}}
