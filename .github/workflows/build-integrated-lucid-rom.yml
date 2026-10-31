@@ -3,19 +3,31 @@ name: Build integrated LucidOS ROM from Build 3
 on:
   workflow_dispatch:
   push:
-    branches: [feature/lucid-control-centre-connect]
+    branches: ['**']
     paths:
       - tools/build_lucid_apps.sh
       - tools/repack_transfer_image.py
       - .github/workflows/build-integrated-lucid-rom.yml
       - system/bin/**
+      - theme/about-app/**
+      - theme/wallpaper-app/**
       - theme/lucid-control-centre/**
       - theme/lucid-settings/**
       - theme/lucid-launcher/**
       - theme/lucid-updater/**
       - theme/lucid-wallpaper/**
       - theme/lucid-desktop/**
+      - theme/about-app/**
+      - theme/wallpaper-app/**
       - theme/dynamic-island/**
+      - theme/assets/**
+  pull_request:
+    paths:
+      - tools/build_lucid_apps.sh
+      - tools/repack_transfer_image.py
+      - .github/workflows/build-integrated-lucid-rom.yml
+      - system/bin/**
+      - theme/**
       - theme/assets/**
 
 permissions:
@@ -50,15 +62,16 @@ jobs:
           gradle-version: '8.9'
 
       - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 15 build tools
         shell: bash
         run: |
           set -euo pipefail
-          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
-          echo "/usr/local/lib/android/sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "/usr/local/lib/android/sdk/platform-tools" >> "$GITHUB_PATH"
-          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
-          test -n "$SDKMANAGER"
-          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/aapt"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/d8"
 
       - name: Build Lucid apps
         shell: bash
@@ -156,18 +169,23 @@ jobs:
           install_app LucidUpdater Lucid-Updater.apk
           install_app LucidWallpapers Lucid-Wallpapers.apk
           install_app LucidDesktop Lucid-Desktop.apk
+          install_app LucidAbout Lucid-About.apk
           install_app LucidDynamicIsland Lucid-Dynamic-Island.apk
 
           sudo install -d -m 0755 "$MNT/system/bin" "$MNT/system/usr/lucid" "$MNT/system/etc/lucid/wallpapers"
           sudo install -m 0755 system/bin/lucid_desktop.sh "$MNT/system/bin/lucid_desktop.sh"
           sudo install -m 0755 system/bin/lucid_root_toggle.sh "$MNT/system/bin/lucid_root_toggle.sh"
           sudo install -m 0644 system-tree/system/usr/lucid/ubuntu-base-arm64.tar.gz "$MNT/system/usr/lucid/ubuntu-base-arm64.tar.gz"
-          sudo install -m 0644 theme/assets/lucid-wallpaper-alpine.jpg "$MNT/system/etc/lucid/wallpapers/lucid-wallpaper-alpine.jpg"
-          sudo install -m 0644 theme/assets/lucid-wallpaper-dusk.jpg "$MNT/system/etc/lucid/wallpapers/lucid-wallpaper-dusk.jpg"
+          # Mirror every tracked original artwork file. The wallpaper APK also
+          # bundles these assets, so it remains functional outside the ROM.
+          find theme/assets -maxdepth 1 -type f \\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \\) -print0 |
+            while IFS= read -r -d '' asset; do
+              sudo install -m 0644 "$asset" "$MNT/system/etc/lucid/wallpapers/$(basename "$asset")"
+            done
           sudo tee "$MNT/system/etc/lucid/integration-manifest.txt" >/dev/null <<'EOF'
           LucidOS experimental integration overlay
           Base archive: lucid-android15-lavender-build-3
-          Included apps: Lucid Control Centre, Settings, Launcher, Updater, Wallpapers, Desktop, Dynamic Island
+          Included apps: Lucid Control Centre, Settings, Launcher, Updater, Wallpapers, Desktop, About, Dynamic Island
           Included desktop payload: lucid_desktop.sh, lucid_root_toggle.sh, ubuntu-base-arm64.tar.gz
           Included wallpapers: alpine, dusk
           Note: this is an experimental repack of Build 3; it is not certified bootable or safe for flashing.
@@ -202,6 +220,9 @@ jobs:
             /system/etc/lucid/integration-manifest.txt; do
             label "$path"
           done
+          while IFS= read -r -d '' asset; do
+            label "/system/etc/lucid/wallpapers/$(basename "$asset")"
+          done < <(find theme/assets -maxdepth 1 -type f \\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \\) -print0)
           e2fsck -fn "$IMAGE" > "$RUNNER_TEMP/report/e2fsck-after.txt" 2>&1 || { cat "$RUNNER_TEMP/report/e2fsck-after.txt"; exit 1; }
           sha256sum "$IMAGE" > "$RUNNER_TEMP/report/integrated-system-image.sha256"
 
