@@ -1,14 +1,13 @@
-# Lucid Root broker. The service is intentionally not started until the
-# matching compiled SELinux policy and binaries are included in the ROM.
+# Lucid Root broker. Do not add an init-created socket: lucid_rootd binds it.
 on post-fs-data
     mkdir /data/misc/lucid-root 0700 root root
     restorecon_recursive /data/misc/lucid-root
+    mkdir /dev/socket 0755 root root
 
 service lucid_rootd /system/bin/lucid_rootd
     class core
     user root
     group root
-    socket lucid-root stream 0660 root system
     disabled
     oneshot
 
