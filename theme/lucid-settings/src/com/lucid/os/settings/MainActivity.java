@@ -1,5 +1,6 @@
 package com.lucid.os.settings;
 
+import com.lucid.motion.LucidMotion;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
@@ -148,6 +149,7 @@ public class MainActivity extends Activity {
             public void afterTextChanged(Editable e) {}
         });
         setContentView(scroll);
+        LucidMotion.apply(this);
         render("");
     }
 
