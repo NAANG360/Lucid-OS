@@ -1,6 +1,51 @@
 package com.lucid.os.island;
-import android.app.Activity; import android.content.Intent; import android.net.Uri; import android.os.Bundle; import android.provider.Settings; import android.view.Gravity; import android.widget.Button; import android.widget.LinearLayout; import android.widget.TextView;
+
+import android.app.Activity;
+import android.content.ComponentName;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.Settings;
+import android.view.Gravity;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
 public final class MainActivity extends Activity {
- @Override public void onCreate(Bundle b){super.onCreate(b);LinearLayout r=new LinearLayout(this);r.setOrientation(1);r.setGravity(Gravity.CENTER_VERTICAL);r.setPadding(44,52,44,44);r.setBackgroundColor(0xfff2f0f8);TextView h=new TextView(this);h.setText("Lucid Dynamic Island");h.setTextSize(27);h.setTextColor(0xff222237);h.setTypeface(null,1);r.addView(h);TextView d=new TextView(this);d.setText("A notch-aware, tap-to-expand island for the Redmi Note 7 waterdrop camera.");d.setTextSize(15);d.setTextColor(0xff666580);LinearLayout.LayoutParams q=new LinearLayout.LayoutParams(-1,-2);q.topMargin=16;r.addView(d,q);Button p=new Button(this);p.setText("Grant overlay permission");p.setOnClickListener(v->startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+getPackageName()))));r.addView(p,margin());Button t=new Button(this);t.setText("Enable / toggle island");t.setOnClickListener(v->{if(!Settings.canDrawOverlays(this)){startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+getPackageName())));return;}startService(new Intent(this,IslandService.class).setAction(IslandService.ACTION_TOGGLE));});r.addView(t,margin());TextView f=new TextView(this);f.setText("Prototype only: media and notification integrations are not connected yet.");f.setTextSize(12);f.setTextColor(0xff666580);r.addView(f,margin());setContentView(r);}
- private LinearLayout.LayoutParams margin(){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.topMargin=14;return p;}
+    private TextView status;
+    @Override public void onCreate(Bundle b) {
+        super.onCreate(b);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(26), dp(38), dp(26), dp(26));
+        root.setBackgroundColor(0xff09090f);
+        TextView eyebrow = label("L U C I D   /   SYSTEM EXPERIENCE", 10, 0xffb9a4ff);
+        root.addView(eyebrow);
+        TextView title = label("Dynamic Island", 29, 0xffffffff);
+        title.setTypeface(null, 1); title.setPadding(0, dp(12), 0, dp(6)); root.addView(title);
+        TextView copy = label("A living extension of the camera cutout. Media and notifications appear inside the notch instead of sitting underneath it.", 14, 0xffaaa5bd);
+        copy.setPadding(0, 0, 0, dp(24)); root.addView(copy);
+        status = label("", 12, 0xffb9a4ff); root.addView(status);
+        add(root, "Allow overlay", v -> startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()))));
+        add(root, "Enable notification access", v -> startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")));
+        add(root, "Start / expand island", v -> {
+            if (!Settings.canDrawOverlays(this)) { startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()))); return; }
+            startService(new Intent(this, IslandService.class).setAction(IslandService.ACTION_TOGGLE));
+        });
+        add(root, "Stop island", v -> stopService(new Intent(this, IslandService.class)));
+        TextView hint = label("Tap the notch to expand · tap again to collapse · long-press to dismiss. Media controls appear when a supported player is active. Notification access is optional.", 12, 0xff777286);
+        hint.setPadding(0, dp(22), 0, 0); root.addView(hint);
+        setContentView(root);
+    }
+    @Override protected void onResume() { super.onResume(); if (status != null) status.setText((Settings.canDrawOverlays(this) ? "● Overlay ready" : "○ Overlay permission needed") + "     " + (isNotificationAccessEnabled() ? "● Notifications ready" : "○ Notification access optional")); }
+    private boolean isNotificationAccessEnabled() {
+        String flat = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
+        return flat != null && flat.contains(getPackageName());
+    }
+    private void add(LinearLayout root, String text, android.view.View.OnClickListener click) {
+        Button b = new Button(this); b.setText(text); b.setAllCaps(false); b.setTextColor(0xffffffff); b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff292334));
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(52)); p.topMargin = dp(10); root.addView(b, p); b.setOnClickListener(click);
+    }
+    private TextView label(String s, int size, int color) { TextView t = new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(color); return t; }
+    private int dp(float n) { return (int)(n * getResources().getDisplayMetrics().density + .5f); }
 }
