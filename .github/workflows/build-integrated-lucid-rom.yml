@@ -16,6 +16,8 @@ on:
       - theme/lucid-wallpaper/**
       - theme/lucid-desktop/**
       - theme/dynamic-island/**
+      - theme/about-app/**
+      - theme/wallpaper-app/**
       - theme/assets/**
       - theme/assets-encoded/**
   pull_request:
