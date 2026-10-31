@@ -1,5 +1,6 @@
 package com.lucid.os.controlcentre;
 
+import com.lucid.motion.LucidMotion;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.NotificationManager;
@@ -222,6 +223,7 @@ public final class MainActivity extends Activity {
         footer.addView(sysSettings);
         root.addView(footer);
         setContentView(scroll);
+        LucidMotion.apply(this);
     }
 
     private View mediaCard() {

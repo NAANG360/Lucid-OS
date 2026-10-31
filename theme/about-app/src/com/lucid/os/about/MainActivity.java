@@ -1,5 +1,6 @@
 package com.lucid.os.about;
 
+import com.lucid.motion.LucidMotion;
 import android.app.Activity;
 import android.content.Intent;
 import android.database.Cursor;
@@ -117,6 +118,7 @@ public final class MainActivity extends Activity {
         page.addView(actions);
 
         setContentView(scroll);
+        LucidMotion.apply(this);
     }
 
     private void loadAppearance() {

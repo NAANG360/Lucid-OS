@@ -1,0 +1,80 @@
+name: Lucid Launcher Emulator Visual Smoke Test
+on:
+  pull_request:
+    paths:
+      - 'theme/lucid-launcher/**'
+      - 'theme/motion/**'
+      - '.github/workflows/lucid-launcher-emulator.yml'
+  push:
+    branches: ['**']
+    paths:
+      - 'theme/lucid-launcher/**'
+      - 'theme/motion/**'
+      - '.github/workflows/lucid-launcher-emulator.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  launcher-home:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android platform tools
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Compile and package Lucid Launcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$GITHUB_WORKSPACE/theme/lucid-launcher"
+          OUT="$RUNNER_TEMP/launcher"
+          mkdir -p "$OUT/classes" "$OUT/dex"
+          mapfile -t SOURCES < <(find "$APP/src" -type f -name '*.java' -print | sort)
+          SOURCES+=("$GITHUB_WORKSPACE/theme/motion/src/com/lucid/motion/LucidMotion.java")
+          javac -source 8 -target 8 -classpath "$ANDROID_HOME/platforms/android-35/android.jar" -d "$OUT/classes" "${SOURCES[@]}"
+          mapfile -t CLASSES < <(find "$OUT/classes" -type f -name '*.class' -print | sort)
+          "$ANDROID_HOME/build-tools/35.0.0/d8" --lib "$ANDROID_HOME/platforms/android-35/android.jar" --output "$OUT/dex" "${CLASSES[@]}"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" package -f -M "$APP/AndroidManifest.xml" -I "$ANDROID_HOME/platforms/android-35/android.jar" -F "$OUT/launcher-unsigned.apk"
+          cp "$OUT/dex/classes.dex" "$OUT/classes.dex"
+          (cd "$OUT" && zip -q "$OUT/launcher-unsigned.apk" classes.dex)
+          keytool -genkeypair -noprompt -keystore "$OUT/test.keystore" -storepass android -keypass android -alias test -dname "CN=Lucid Emulator Test" -keyalg RSA -keysize 2048 -validity 10000
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$OUT/test.keystore" --ks-pass pass:android --key-pass pass:android --out "$OUT/Lucid-Launcher.apk" "$OUT/launcher-unsigned.apk"
+      - name: Boot generic Android ARM64 emulator and inspect HOME
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: arm64-v8a
+          profile: pixel_2
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          script: |
+            set -euo pipefail
+            adb install "$RUNNER_TEMP/launcher/Lucid-Launcher.apk"
+            adb shell am start -a android.intent.action.MAIN -c android.intent.category.HOME
+            sleep 8
+            adb shell uiautomator dump /sdcard/lucid-home.xml >/dev/null
+            adb pull /sdcard/lucid-home.xml "$RUNNER_TEMP/lucid-home.xml"
+            grep -q 'A little more room to think' "$RUNNER_TEMP/lucid-home.xml"
+            grep -q 'Search apps' "$RUNNER_TEMP/lucid-home.xml"
+            grep -q 'Control Centre' "$RUNNER_TEMP/lucid-home.xml"
+            adb shell screencap -p /sdcard/lucid-launcher-home.png
+            adb pull /sdcard/lucid-launcher-home.png "$RUNNER_TEMP/lucid-launcher-home.png"
+            adb shell input swipe 500 900 500 900 1100
+            sleep 2
+            adb shell screencap -p /sdcard/lucid-launcher-long-press.png
+            adb pull /sdcard/lucid-launcher-long-press.png "$RUNNER_TEMP/lucid-launcher-long-press.png"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lucid-launcher-emulator-visuals
+          path: |
+            ${{ runner.temp }}/lucid-launcher-home.png
+            ${{ runner.temp }}/lucid-launcher-long-press.png
+            ${{ runner.temp }}/lucid-home.xml
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,5 +1,6 @@
 package com.lucid.os.desktop;
 
+import com.lucid.motion.LucidMotion;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ClipData;
@@ -51,6 +52,7 @@ public final class MainActivity extends Activity {
         root.setBackgroundColor(bg);
         scroll.addView(root);
         setContentView(scroll);
+        LucidMotion.apply(this);
 
         TextView brand = new TextView(this);
         brand.setText("LUCID  /  DESKTOP");
