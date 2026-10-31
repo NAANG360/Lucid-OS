@@ -45,11 +45,11 @@ jobs:
       - name: Boot Android 15 emulator, install and launch all seven apps
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 33
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader -no-snapshot -wipe-data -memory 4096 -cores 4
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader -no-snapshot -wipe-data -memory 2048 -cores 2
           disable-animations: true
           emulator-boot-timeout: 1800
           script: |
