@@ -170,7 +170,7 @@ jobs:
                 echo "Replacing existing package $package at $apk"
                 sudo rm -rf "$(dirname "$apk")"
               fi
-            done < <(find "$MNT/system/app" "$MNT/system/priv-app" -type f -name '*.apk' -print0 2>/dev/null || true)
+            done < <(find "$MNT" -type f -name '*.apk' -print0 2>/dev/null || true)
           }
           install_app() {
             local dir="$1" apk="$2" package="$3"
@@ -229,12 +229,18 @@ jobs:
             /system/app/LucidUpdater /system/app/LucidUpdater/Lucid-Updater.apk \
             /system/app/LucidWallpapers /system/app/LucidWallpapers/Lucid-Wallpapers.apk \
             /system/app/LucidDesktop /system/app/LucidDesktop/Lucid-Desktop.apk \
-            /system/app/LucidDynamicIsland /system/app/LucidDynamicIsland/Lucid-Dynamic-Island.apk \\
-            /system/app/LucidAbout /system/app/LucidAbout/Lucid-About.apk \\
-            /system/product/overlay /system/product/overlay/Lucid-SystemUI-Overlay.apk \
+            /system/app/LucidDynamicIsland /system/app/LucidDynamicIsland/Lucid-Dynamic-Island.apk \
+            /system/app/LucidAbout /system/app/LucidAbout/Lucid-About.apk \
+
             /system/bin/lucid_desktop.sh /system/bin/lucid_root_toggle.sh \
             /system/usr/lucid /system/usr/lucid/ubuntu-base-arm64.tar.gz \
             /system/etc/lucid /system/etc/lucid/wallpapers \
+            /system/etc/lucid/wallpapers/wallpaper-bubbles.png \
+            /system/etc/lucid/wallpapers/wallpaper-purple-crescent.png \
+            /system/etc/lucid/wallpapers/wallpaper-lucid-crescent.png \
+            /system/etc/lucid/wallpapers/wallpaper-clock-home.png \
+            /system/etc/lucid/wallpapers/wallpaper-brushwork.png \
+            /system/etc/lucid/wallpapers/wallpaper-dynapunch.png \
             /system/etc/lucid/wallpapers/lucid-wallpaper-alpine.jpg \
             /system/etc/lucid/wallpapers/lucid-wallpaper-dusk.jpg \
             /system/etc/lucid/integration-manifest.txt; do
