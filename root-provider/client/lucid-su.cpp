@@ -2,6 +2,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <cstdint>
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <string>
