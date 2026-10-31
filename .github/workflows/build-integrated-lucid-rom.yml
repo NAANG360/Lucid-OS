@@ -77,6 +77,19 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$RUNNER_TEMP/lucid-apps/Lucid-Dynamic-Island.apk"
           mkdir -p "$RUNNER_TEMP/rom" "$RUNNER_TEMP/parts" "$RUNNER_TEMP/mnt/system" "$RUNNER_TEMP/report"
 
+      - name: Verify all eight real wallpaper assets are present
+        shell: bash
+        run: |
+          set -euo pipefail
+          for asset in wallpaper-bubbles.png wallpaper-purple-crescent.png wallpaper-lucid-crescent.png wallpaper-clock-home.png wallpaper-brushwork.png wallpaper-dynapunch.png lucid-wallpaper-alpine.jpg lucid-wallpaper-dusk.jpg; do
+            test -s "theme/wallpaper-app/assets/$asset" || test -s "theme/assets/$asset" || {
+              echo "::error::Missing original Lucid wallpaper asset: $asset"
+              exit 24
+            }
+          done
+          mkdir -p "$RUNNER_TEMP/report"
+          echo "All eight original Lucid wallpaper assets are present." > "$RUNNER_TEMP/report/wallpaper-assets.txt"
+
       - name: Download Build 3 and verify published digest
         env:
           GH_TOKEN: ${{ github.token }}
@@ -175,16 +188,16 @@ jobs:
           install_app LucidDesktop Lucid-Desktop.apk com.lucid.os.desktop
           install_app LucidDynamicIsland Lucid-Dynamic-Island.apk com.lucid.os.island
 
-          # Package the static SystemUI RRO; it is not a substitute for a
-          # framework SystemUI rebuild, but this makes the authored overlay deployable.
-          sudo install -d -m 0755 "$MNT/system/product/overlay"
-          sudo install -m 0644 "$APPS/Lucid-SystemUI-Overlay.apk" "$MNT/system/product/overlay/Lucid-SystemUI-Overlay.apk"
+          # The RRO is built and uploaded for review, but deliberately NOT flashed:
+          # its compatibility with this exact RisingOS SystemUI has not been proven.
+          # The real QS shade still requires framework SystemUI source changes.
 
           sudo install -d -m 0755 "$MNT/system/bin" "$MNT/system/usr/lucid" "$MNT/system/etc/lucid/wallpapers"
           sudo install -m 0755 system/bin/lucid_desktop.sh "$MNT/system/bin/lucid_desktop.sh"
           sudo install -m 0755 system/bin/lucid_root_toggle.sh "$MNT/system/bin/lucid_root_toggle.sh"
           sudo install -m 0644 system-tree/system/usr/lucid/ubuntu-base-arm64.tar.gz "$MNT/system/usr/lucid/ubuntu-base-arm64.tar.gz"
           for wallpaper in wallpaper-bubbles.png wallpaper-purple-crescent.png wallpaper-lucid-crescent.png wallpaper-clock-home.png wallpaper-brushwork.png wallpaper-dynapunch.png lucid-wallpaper-alpine.jpg lucid-wallpaper-dusk.jpg; do
+            test -s "theme/wallpaper-app/assets/$wallpaper" || { echo "Missing required wallpaper asset: $wallpaper" >&2; exit 24; }
             sudo install -m 0644 "theme/wallpaper-app/assets/$wallpaper" "$MNT/system/etc/lucid/wallpapers/$wallpaper"
           done
           sudo tee "$MNT/system/etc/lucid/integration-manifest.txt" >/dev/null <<'EOF'
@@ -305,6 +318,15 @@ jobs:
           git fetch origin "$GITHUB_REF_NAME"
           git rebase "origin/$GITHUB_REF_NAME"
           git push origin "HEAD:$GITHUB_REF_NAME"
+
+      - name: Upload built Lucid APKs and overlay review artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-apps-refreshed-build
+          path: ${{ runner.temp }}/lucid-apps/*.apk
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Upload build reports
         if: always()
