@@ -1,0 +1,68 @@
+name: Build Lucid Root Provider
+
+on:
+  push:
+    branches: ["feature/lucid-root-provider"]
+    paths:
+      - "root-provider/**"
+      - ".github/workflows/build-lucid-root-provider.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Install Android NDK
+        run: sdkmanager --install "ndk;27.2.12479018"
+      - name: Compile ARM64 and ARMv7 binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          TOOL="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          mkdir -p out/arm64-v8a out/armeabi-v7a
+          for ABI in arm64-v8a armeabi-v7a; do
+            case "$ABI" in
+              arm64-v8a) TARGET=aarch64-linux-android29 ;;
+              armeabi-v7a) TARGET=armv7a-linux-androideabi29 ;;
+            esac
+            "$TOOL/${TARGET}-clang++" --sysroot="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot" \
+              -std=c++17 -O2 -Wall -Wextra -Werror -fPIE -pie \
+              root-provider/daemon/lucid_rootd.cpp -o "out/$ABI/lucid_rootd"
+            "$TOOL/${TARGET}-clang++" --sysroot="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot" \
+              -std=c++17 -O2 -Wall -Wextra -Werror -fPIE -pie \
+              root-provider/client/lucid-su.cpp -o "out/$ABI/lucid-su"
+            file "out/$ABI/lucid_rootd" "out/$ABI/lucid-su"
+          done
+      - name: Package build and integration sources
+        run: |
+          set -euo pipefail
+          mkdir -p out/package
+          cp -R root-provider out/package/
+          cp -R out/arm64-v8a out/armeabi-v7a out/package/
+          cat > out/package/BUILD-STATUS.txt <<'EOF'
+          Lucid Root Provider native binaries compiled for ARM64 and ARMv7.
+          This is a development build, not a flashable ROM installer.
+          Do not deploy until SELinux policy is merged into the target ROM policy,
+          the authorization manager provisions grants safely, and enforcing-mode
+          device tests pass.
+          EOF
+          cd out/package && zip -qr ../../lucid-root-provider-dev.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lucid-root-provider-dev
+          path: lucid-root-provider-dev.zip
+          if-no-files-found: error
+          retention-days: 30
