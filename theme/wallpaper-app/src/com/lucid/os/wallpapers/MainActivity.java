@@ -34,9 +34,9 @@ import java.io.InputStream;
 import org.json.JSONObject;
 
 public final class MainActivity extends Activity {
-    private static final int BG = Color.rgb(12, 13, 19);
-    private static final int SURFACE = Color.rgb(24, 25, 35);
-    private static final int SURFACE_HIGH = Color.rgb(39, 39, 51);
+    private static final int BG = Color.rgb(10, 11, 15);
+    private static final int SURFACE = Color.rgb(20, 21, 28);
+    private static final int SURFACE_HIGH = Color.rgb(29, 30, 39);
     private static final int FG = Color.rgb(246, 244, 252);
     private static final int SECONDARY = Color.rgb(166, 164, 188);
     private static final int OUTLINE = Color.rgb(54, 53, 70);
@@ -116,10 +116,10 @@ public final class MainActivity extends Activity {
         divider.setBackgroundColor(OUTLINE);
         page.addView(divider, params(-1, dp(1), 0, dp(6), 0, dp(18)));
 
-        TextView heading = label("Atmosphere for your screen.", 28, FG, true);
+        TextView heading = label("Wallpapers", 30, FG, true);
         heading.setLetterSpacing(-0.02f);
         page.addView(heading, params(-1, -2, 0, 0, 0, dp(4)));
-        page.addView(label("Supplied Lucid artwork and Figma classics. Tap any card to preview or apply to Home and Lock screens.", 13, SECONDARY, false),
+        page.addView(label("Choose an image for your Home or Lock screen.", 13, SECONDARY, false),
             params(-1, -2, 0, 0, 0, dp(18)));
 
         page.addView(paletteCard(), params(-1, -2, 0, 0, 0, dp(18)));
@@ -148,7 +148,7 @@ public final class MainActivity extends Activity {
         footer.setPadding(dp(16), dp(14), dp(16), dp(14));
         footer.setBackground(round(SURFACE, 18));
         footer.addView(label("LUCID WALLPAPER ARCHIVE", 10, accent, true));
-        footer.addView(label("All six selected wallpapers are bundled natively in the APK and mirrored under /system/etc/lucid/wallpapers.", 12, SECONDARY, false),
+        footer.addView(label("Only artwork present in this build can be previewed or applied. Missing originals are not replaced with generated images.", 12, SECONDARY, false),
             params(-1, -2, 0, dp(5), 0, 0));
         page.addView(footer, params(-1, -2, 0, dp(6), 0, 0));
 
@@ -160,7 +160,7 @@ public final class MainActivity extends Activity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(15), dp(14), dp(15), dp(15));
-        card.setBackground(round(SURFACE, 20));
+        card.setBackground(round(SURFACE, 12));
 
         card.addView(label("SYSTEM ACCENT PALETTE", 10, accent, true));
         card.addView(label("Syncs Monet tonal seed with Android system surfaces.", 12, SECONDARY, false),
