@@ -8,6 +8,7 @@ on:
       - '.github/workflows/lucid-all-apps-emulator.yml'
       - 'theme/**'
       - 'tools/build_lucid_apps.sh'
+      - 'tools/test_lucid_apps_emulator.sh'
   pull_request:
     paths:
       - '.github/workflows/lucid-all-apps-emulator.yml'
