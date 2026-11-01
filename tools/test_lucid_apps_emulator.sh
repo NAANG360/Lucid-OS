@@ -19,7 +19,7 @@ capture_app() {
   test -s "$apk"
   adb install -r "$apk"
   adb shell am force-stop "$pkg" || true
-  adb shell am start -W -n "$component" | tee "report/emulator/ui/$name-launch.txt"
+  adb shell am start -n "$component" 2>&1 | tee "report/emulator/ui/$name-launch.txt"
   sleep 5
   adb shell dumpsys activity activities > "report/emulator/ui/$name-activities.txt"
   if ! grep -q "$pkg" "report/emulator/ui/$name-activities.txt"; then
