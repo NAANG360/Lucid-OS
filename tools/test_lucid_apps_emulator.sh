@@ -21,11 +21,11 @@ capture_app() {
   adb install -r "$apk"
   adb shell am force-stop "$pkg" || true
   adb logcat -c
-  adb shell am start -W -n "$component" > "report/emulator/ui/$name-launch.txt" 2>&1 || {
+  adb shell am start -n "$component" > "report/emulator/ui/$name-launch.txt" 2>&1 || {
     cat "report/emulator/ui/$name-launch.txt"
     return 1
   }
-  sleep 4
+  sleep 8
   adb shell dumpsys activity activities > "report/emulator/ui/$name-activities.txt"
   if ! grep -q "$pkg" "report/emulator/ui/$name-activities.txt"; then
     adb logcat -d -t 5000 > "report/emulator/ui/$name-logcat.txt"
