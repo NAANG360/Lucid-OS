@@ -56,7 +56,7 @@ public final class MainActivity extends Activity {
         TextView wordmark = text("lucid", 26, FG, true);
         wordmark.setLetterSpacing(-0.045f);
         mast.addView(wordmark, new LinearLayout.LayoutParams(0, dp(44), 1f));
-        TextView badge = text("ABOUT DEVICE", 10, accent, true);
+        TextView badge = text("ABOUT", 10, accent, true);
         badge.setLetterSpacing(0.10f);
         badge.setPadding(dp(11), dp(6), dp(11), dp(6));
         badge.setBackground(shape(CARD_HIGH, 20));
@@ -67,16 +67,16 @@ public final class MainActivity extends Activity {
         rule.setBackgroundColor(RULE);
         page.addView(rule, margins(-1, dp(1), 0, dp(6), 0, dp(20)));
 
-        page.addView(text("DEVICE IDENTITY", 10, accent, true));
-        TextView title = text("Yours, by\ndesign.", 36, FG, true);
+        page.addView(text("DEVICE", 10, accent, true));
+        TextView title = text("About this device", 30, FG, true);
         title.setLetterSpacing(-0.035f);
         page.addView(title, margins(-1, -2, 0, dp(6), 0, dp(6)));
-        page.addView(text("A considered Android experience for Redmi Note 7 / 7S (lavender). Dark surfaces, restrained violet accents, and original Lucid artwork.", 13, MUTED, false),
+        page.addView(text("Lucid OS · Device information and build details.", 13, MUTED, false),
             margins(-1, -2, 0, 0, 0, dp(18)));
 
         ImageView hero = new ImageView(this);
         hero.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        hero.setBackground(shape(CARD_HIGH, 18));
+        hero.setBackground(shape(CARD_HIGH, 12));
         hero.setClipToOutline(true);
         Bitmap heroBmp = loadHeroBitmap();
         if (heroBmp != null) {
@@ -86,10 +86,8 @@ public final class MainActivity extends Activity {
         page.addView(hero, margins(-1, dp(210), 0, 0, 0, dp(16)));
 
         LinearLayout identity = card(CARD);
-        identity.addView(text("LUCID OS  •  LAVENDER", 10, accent, true));
-        TextView statement = text("Built around the details that matter.", 22, FG, true);
-        identity.addView(statement, margins(-1, -2, 0, dp(8), 0, dp(6)));
-        identity.addView(text("Original Lucid artwork, unified appearance tokens across Launcher, Control Centre, Settings, and Desktop, with Android fundamentals intact.", 13, MUTED, false));
+        identity.addView(text("LUCID OS", 10, accent, true));
+        identity.addView(text(prop("ro.lucid.version", "Development build"), 20, FG, true), margins(-1, -2, 0, dp(5), 0, 0));
         page.addView(identity, margins(-1, -2, 0, 0, 0, dp(14)));
 
         BatteryManager bm = (BatteryManager) getSystemService(BATTERY_SERVICE);
@@ -100,9 +98,9 @@ public final class MainActivity extends Activity {
         specs.addView(text("HARDWARE & SYSTEM SPECIFICATIONS", 10, accent, true), margins(-1, -2, 0, 0, 0, dp(8)));
         row(specs, "Lucid OS Version", lucidVer);
         row(specs, "Device Model", Build.MODEL + " (" + Build.DEVICE + ")");
-        row(specs, "Platform / SoC", "Qualcomm Snapdragon 660 (SDM660)");
+        row(specs, "Platform / SoC", Build.HARDWARE + " / " + Build.BOARD);
         row(specs, "Build Display ID", Build.DISPLAY);
-        row(specs, "Kernel Version", System.getProperty("os.version", "4.19-lavender"));
+        row(specs, "Kernel Version", System.getProperty("os.version", "Unavailable"));
         row(specs, "Battery Level", batLevel >= 0 ? batLevel + "%" : "Reported by hardware");
         row(specs, "Desktop Root Gate", "1".equals(prop("persist.lucid.desktop_root", "0")) ? "Enabled (persist.lucid.desktop_root=1)" : "Disabled (default safe mode)");
         row(specs, "Build Fingerprint", Build.FINGERPRINT);
@@ -174,7 +172,7 @@ public final class MainActivity extends Activity {
     private LinearLayout card(int color) {
         LinearLayout v = column();
         v.setPadding(dp(16), dp(16), dp(16), dp(16));
-        v.setBackground(shape(color, 18));
+        v.setBackground(shape(color, 12));
         return v;
     }
 
