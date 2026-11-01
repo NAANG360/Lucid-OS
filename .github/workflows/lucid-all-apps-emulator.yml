@@ -1,4 +1,5 @@
 name: Lucid Full App Emulator Screenshots
+# Capture output is stored under /data/local/tmp for reliable adb pull permissions.
 on:
   push:
     branches: ['**']
