@@ -179,7 +179,7 @@ public final class MainActivity extends Activity {
         clock.setFormat24Hour("HH:mm");
         clock.setFormat12Hour("h:mm");
         hero.addView(clock);
-        TextView greeting = text("Sunday · Your apps", 13, muted, false);
+        TextView greeting = text("Your apps", 13, muted, false);
         greeting.setPadding(0, dp(2), 0, dp(13));
         hero.addView(greeting);
         LinearLayout shortcuts = new LinearLayout(this);
