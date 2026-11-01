@@ -28,9 +28,9 @@ capture_app() {
     return 1
   fi
   adb shell uiautomator dump "/data/local/tmp/$name.xml" >/dev/null
-  adb pull "/sdcard/$name.xml" "report/emulator/ui/$name.xml"
+  adb pull "/data/local/tmp/$name.xml" "report/emulator/ui/$name.xml"
   adb shell screencap -p "/data/local/tmp/$name.png"
-  adb pull "/sdcard/$name.png" "report/emulator/screenshots/$name.png"
+  adb pull "/data/local/tmp/$name.png" "report/emulator/screenshots/$name.png"
   adb shell input keyevent 4 || true
   sleep 1
 }
@@ -45,8 +45,8 @@ capture_app Lucid-About com.lucid.os.about/.MainActivity com.lucid.os.about
 
 adb shell input keyevent HOME || true
 sleep 2
-adb shell screencap -p /sdcard/lucid-emulator-home.png
-adb pull /sdcard/lucid-emulator-home.png report/emulator/screenshots/Lucid-Emulator-Home.png
+adb shell screencap -p /data/local/tmp/lucid-emulator-home.png
+adb pull /data/local/tmp/lucid-emulator-home.png report/emulator/screenshots/Lucid-Emulator-Home.png
 adb logcat -d -t 12000 > report/emulator/logcat.txt
 if grep -E 'FATAL EXCEPTION|Process: com\\.lucid\\.os\\.' report/emulator/logcat.txt; then
   echo "One or more Lucid apps crashed during emulator pass." >&2
