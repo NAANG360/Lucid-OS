@@ -27,8 +27,6 @@ capture_app() {
     adb logcat -d -t 3000 > "report/emulator/ui/$name-logcat.txt"
     return 1
   fi
-  adb shell uiautomator dump "/data/local/tmp/$name.xml" >/dev/null
-  adb pull "/data/local/tmp/$name.xml" "report/emulator/ui/$name.xml"
   adb shell screencap -p "/data/local/tmp/$name.png"
   adb pull "/data/local/tmp/$name.png" "report/emulator/screenshots/$name.png"
   adb shell input keyevent 4 || true
@@ -52,4 +50,4 @@ if grep -E 'FATAL EXCEPTION|Process: com\\.lucid\\.os\\.' report/emulator/logcat
   echo "One or more Lucid apps crashed during emulator pass." >&2
   exit 1
 fi
-echo "PASS: rebuilt seven APKs installed and all seven activities launched; screenshots and UI hierarchy captured." | tee report/emulator/result.txt
+echo "PASS: rebuilt seven APKs installed and all seven activities launched; screenshots captured." | tee report/emulator/result.txt
