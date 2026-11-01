@@ -27,9 +27,9 @@ capture_app() {
     adb logcat -d -t 3000 > "report/emulator/ui/$name-logcat.txt"
     return 1
   fi
-  adb shell uiautomator dump "/sdcard/$name.xml" >/dev/null
+  adb shell uiautomator dump "/data/local/tmp/$name.xml" >/dev/null
   adb pull "/sdcard/$name.xml" "report/emulator/ui/$name.xml"
-  adb shell screencap -p "/sdcard/$name.png"
+  adb shell screencap -p "/data/local/tmp/$name.png"
   adb pull "/sdcard/$name.png" "report/emulator/screenshots/$name.png"
   adb shell input keyevent 4 || true
   sleep 1
