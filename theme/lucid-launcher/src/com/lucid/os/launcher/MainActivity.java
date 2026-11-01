@@ -36,9 +36,9 @@ import java.util.Locale;
 
 public final class MainActivity extends Activity {
     private static final String PREFS = "lucid_launcher";
-    private final int bg = Color.rgb(12, 13, 19);
-    private final int panel = Color.rgb(25, 25, 37);
-    private final int panelHigh = Color.rgb(36, 37, 52);
+    private final int bg = Color.rgb(10, 11, 15);
+    private final int panel = Color.rgb(20, 21, 28);
+    private final int panelHigh = Color.rgb(28, 29, 39);
     private final int fg = Color.rgb(246, 244, 252);
     private final int muted = Color.rgb(166, 164, 187);
     private int accent = Color.rgb(196, 151, 255);
@@ -155,7 +155,7 @@ public final class MainActivity extends Activity {
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView brand = text("lucid", 29, fg, true);
+        TextView brand = text("lucid", 27, fg, true);
         brand.setLetterSpacing(-0.045f);
         header.addView(brand, new LinearLayout.LayoutParams(0, dp(48), 1f));
         TextView wallpaper = actionChip("✧", "Wallpapers");
@@ -171,7 +171,7 @@ public final class MainActivity extends Activity {
         LinearLayout hero = new LinearLayout(this);
         hero.setOrientation(LinearLayout.VERTICAL);
         hero.setPadding(dp(17), dp(15), dp(17), dp(15));
-        hero.setBackground(shape(panel, 23));
+        hero.setBackground(shape(panel, 12));
         clock = new TextClock(this);
         clock.setTextColor(fg);
         clock.setTextSize(36);
@@ -179,7 +179,7 @@ public final class MainActivity extends Activity {
         clock.setFormat24Hour("HH:mm");
         clock.setFormat12Hour("h:mm");
         hero.addView(clock);
-        TextView greeting = text("A little more room to think.", 13, muted, false);
+        TextView greeting = text("Sunday · Your apps", 13, muted, false);
         greeting.setPadding(0, dp(2), 0, dp(13));
         hero.addView(greeting);
         LinearLayout shortcuts = new LinearLayout(this);
@@ -201,7 +201,7 @@ public final class MainActivity extends Activity {
         search.setHint("⌕   Search apps");
         search.setTextSize(15);
         search.setPadding(dp(15), dp(10), dp(15), dp(10));
-        search.setBackground(shape(panel, 17));
+        search.setBackground(shape(panel, 10));
         root.addView(search, new LinearLayout.LayoutParams(-1, dp(48)));
 
         ScrollView scroller = new ScrollView(this);
@@ -240,7 +240,7 @@ public final class MainActivity extends Activity {
         TextView v = text(glyph, 20, accent, true);
         v.setGravity(Gravity.CENTER);
         v.setContentDescription(description);
-        v.setBackground(shape(panel, 22));
+        v.setBackground(shape(panel, 11));
         return v;
     }
 
@@ -248,7 +248,7 @@ public final class MainActivity extends Activity {
         TextView v = text(label, 11, accent, true);
         v.setGravity(Gravity.CENTER);
         v.setPadding(dp(11), dp(8), dp(11), dp(8));
-        v.setBackground(shape(panelHigh, 15));
+        v.setBackground(shape(panelHigh, 9));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1f);
         lp.rightMargin = dp(7);
         v.setLayoutParams(lp);
