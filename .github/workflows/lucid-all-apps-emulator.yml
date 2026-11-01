@@ -1,5 +1,6 @@
 name: Lucid Full App Emulator Screenshots
 # Capture output is stored under /data/local/tmp for reliable adb pull permissions.
+# QA rerun after fixing remote capture paths.
 on:
   push:
     branches: ['**']
