@@ -211,8 +211,14 @@ public final class MainActivity extends Activity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(8), dp(8), dp(8), dp(10));
-        card.setBackground(round(SURFACE, 18));
-        card.setOnClickListener(v -> showPreview(item));
+        card.setBackground(round(SURFACE, 12));
+        card.setOnClickListener(v -> {
+            if (decodeSampledBitmap(item.asset, 64, 64) == null) {
+                new AlertDialog.Builder(this).setTitle(item.title)
+                    .setMessage("This original wallpaper file is not included in the current build. It has not been replaced with generated artwork.")
+                    .setPositiveButton("OK", null).show();
+            } else showPreview(item);
+        });
 
         ImageView image = new ImageView(this);
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -221,8 +227,10 @@ public final class MainActivity extends Activity {
         Bitmap bmp = decodeSampledBitmap(item.asset, 540, 960);
         if (bmp != null) {
             image.setImageBitmap(bmp);
+        } else {
+            image.setBackground(round(Color.rgb(33, 31, 45), 10));
+            image.setContentDescription(item.title + " artwork missing from this build");
         }
-        image.setContentDescription(item.title);
         card.addView(image, new LinearLayout.LayoutParams(-1, dp(192)));
 
         TextView title = label(item.title, 14, FG, true);
@@ -266,6 +274,12 @@ public final class MainActivity extends Activity {
         Bitmap bmp = decodeSampledBitmap(item.asset, 1080, 2160);
         if (bmp != null) {
             preview.setImageBitmap(bmp);
+        } else {
+            dialog.dismiss();
+            new AlertDialog.Builder(this).setTitle(item.title)
+                .setMessage("The original artwork is missing from this build. Nothing has been applied.")
+                .setPositiveButton("OK", null).show();
+            return;
         }
         preview.setContentDescription(item.title + " preview");
         root.addView(preview, new LinearLayout.LayoutParams(-1, 0, 1f));
