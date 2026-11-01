@@ -195,7 +195,7 @@ public class MainActivity extends Activity {
         if (i.action.equals("lucid_control")) { launch("com.lucid.os.controlcentre"); return; }
         if (i.action.equals("lucid_updater")) { launch("com.lucid.os.updater"); return; }
         if (i.action.equals("lucid_wallpaper")) {
-            if (!tryLaunch("com.lucid.os.wallpaper")) launch("com.lucid.os.wallpapers");
+            tryLaunch("com.lucid.os.wallpaper");
             return;
         }
         if (i.action.equals("lucid_island")) { launch("com.lucid.os.island"); return; }
