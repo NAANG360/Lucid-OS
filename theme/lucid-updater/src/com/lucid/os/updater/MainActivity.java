@@ -33,9 +33,9 @@ import java.util.Locale;
 /** Lucid OTA client: manifest validation, resumable-safe download, SHA-256 verification and explicit recovery handoff. */
 public final class MainActivity extends Activity {
     private static final String MANIFEST = "https://raw.githubusercontent.com/NAANG360/Lucid-OS/main/ota/stable.json";
-    private final int bg = Color.rgb(12, 13, 19);
-    private final int card = Color.rgb(24, 25, 35);
-    private final int cardHigh = Color.rgb(38, 39, 54);
+    private final int bg = Color.rgb(10, 11, 15);
+    private final int card = Color.rgb(20, 21, 28);
+    private final int cardHigh = Color.rgb(29, 30, 39);
     private final int fg = Color.rgb(245, 245, 252);
     private final int muted = Color.rgb(163, 165, 184);
     private int accent = Color.rgb(139, 119, 255);
@@ -81,15 +81,15 @@ public final class MainActivity extends Activity {
         page.setPadding(dp(22), dp(24), dp(22), dp(28));
         scroll.addView(page);
 
-        page.addView(text("L U C I D   O S", 11, accent, true));
-        page.addView(text("System updater", 32, fg, true), lp(0, dp(4), 0, 0, 0, 0));
-        page.addView(text("Updates with cryptographic SHA-256 verification before installation.", 14, muted, false), lp(0, 0, 0, 0, 0, dp(22)));
+        page.addView(text("lucid  /  system", 12, accent, true));
+        page.addView(text("Updates", 30, fg, true), lp(0, dp(4), 0, 0, 0, 0));
+        page.addView(text("Check, download and verify system builds.", 14, muted, false), lp(0, 0, 0, 0, 0, dp(22)));
 
         LinearLayout hero = new LinearLayout(this);
         hero.setOrientation(LinearLayout.VERTICAL);
         hero.setPadding(dp(18), dp(18), dp(18), dp(18));
-        hero.setBackground(shape(card, 22));
-        hero.addView(text("AVAILABLE BUILD", 10, accent, true));
+        hero.setBackground(shape(card, 12));
+        hero.addView(text("LATEST BUILD", 10, accent, true));
         version = text("Checking for updates…", 22, fg, true);
         hero.addView(version, lp(0, dp(8), 0, 0, 0, 0));
         details = text("Target device: lavender", 13, muted, false);
@@ -130,7 +130,7 @@ public final class MainActivity extends Activity {
         b.setTextSize(13);
         b.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
         b.setTextColor(primary ? bg : fg);
-        b.setBackground(shape(primary ? accent : cardHigh, 16));
+        b.setBackground(shape(primary ? accent : cardHigh, 9));
         return b;
     }
 
