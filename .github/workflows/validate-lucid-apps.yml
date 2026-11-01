@@ -1,7 +1,7 @@
 name: Validate Lucid Native Apps
 on:
   push:
-    branches: [feature/lucid-control-centre-connect]
+    branches: [feature/lucid-control-centre-connect, feature/lucid-complete-redesign]
     paths:
       - 'theme/lucid-control-centre/**'
       - 'theme/lucid-settings/**'
@@ -10,6 +10,7 @@ on:
       - 'theme/lucid-launcher/**'
       - 'theme/lucid-desktop/**'
       - 'theme/motion/**'
+      - 'theme/shared/**'
       - 'theme/about-app/**'
       - '.github/workflows/validate-lucid-apps.yml'
       - '.github/workflows/build-lucid-control-centre.yml'
@@ -78,6 +79,7 @@ jobs:
           test -f "$APP/AndroidManifest.xml"
           mapfile -t SOURCES < <(find "$APP/src" -type f -name '*.java' -print | sort)
           SOURCES+=("$GITHUB_WORKSPACE/theme/motion/src/com/lucid/motion/LucidMotion.java")
+          while IFS= read -r shared; do SOURCES+=("$shared"); done < <(find "$GITHUB_WORKSPACE/theme/shared" -type f -name '*.java' | sort)
           test "${#SOURCES[@]}" -gt 1
           mkdir -p "$OUT/classes" "$OUT/dex"
           javac -source 8 -target 8 -classpath "$ANDROID_HOME/platforms/android-35/android.jar" -d "$OUT/classes" "${SOURCES[@]}"
