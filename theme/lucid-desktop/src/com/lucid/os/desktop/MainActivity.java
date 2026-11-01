@@ -13,6 +13,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -22,20 +23,20 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.InputStream;
 
-/** UI for the ROM-side desktop controller. Privileged operations remain in a reviewed ROM script. */
+/** A quiet, native-feeling control surface for the Lucid on-device desktop. */
 public final class MainActivity extends Activity {
-    private final int bg = Color.rgb(12, 13, 19);
-    private final int card = Color.rgb(25, 26, 38);
-    private final int cardHigh = Color.rgb(36, 37, 52);
-    private final int fg = Color.rgb(245, 244, 252);
-    private final int muted = Color.rgb(167, 166, 187);
-    private int accent = Color.rgb(139, 119, 255);
+    private final int bg = Color.rgb(10, 10, 14);
+    private final int surface = Color.rgb(22, 22, 30);
+    private final int raised = Color.rgb(30, 29, 41);
+    private final int line = Color.rgb(54, 50, 73);
+    private final int fg = Color.rgb(245, 243, 250);
+    private final int muted = Color.rgb(163, 159, 179);
+    private int accent = Color.rgb(151, 130, 255);
     private LinearLayout root;
     private TextView status;
     private String lastLog = "";
 
-    @Override
-    public void onCreate(Bundle state) {
+    @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         loadAppearance();
         getWindow().setStatusBarColor(bg);
@@ -45,154 +46,162 @@ public final class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(bg);
-
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(18), dp(20), dp(28));
-        root.setBackgroundColor(bg);
+        root.setPadding(dp(22), dp(18), dp(22), dp(30));
         scroll.addView(root);
         setContentView(scroll);
         LucidMotion.apply(this);
 
-        TextView brand = new TextView(this);
-        brand.setText("LUCID  /  DESKTOP");
-        brand.setTextColor(accent);
-        brand.setTextSize(11);
-        brand.setTypeface(Typeface.DEFAULT_BOLD);
-        root.addView(brand);
+        TextView wordmark = text("LUCID  /  DESKTOP", 12, accent, true);
+        root.addView(wordmark);
 
-        TextView title = new TextView(this);
-        title.setText("Your phone. A desktop.");
-        title.setTextColor(fg);
-        title.setTextSize(30);
-        title.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-1, -2);
-        tp.topMargin = dp(8);
-        root.addView(title, tp);
+        TextView heading = text("Your workspace,\nunfolded.", 32, fg, true);
+        LinearLayout.LayoutParams hp = params(-1, -2, 0, 12);
+        root.addView(heading, hp);
 
-        TextView desc = new TextView(this);
-        desc.setText("Start the Ubuntu XFCE environment on-device and render its desktop through the Termux:X11 display server. Lucid verifies prerequisites before launching.");
-        desc.setTextColor(muted);
-        desc.setTextSize(14);
-        LinearLayout.LayoutParams dpParams = new LinearLayout.LayoutParams(-1, -2);
-        dpParams.topMargin = dp(6);
-        dpParams.bottomMargin = dp(18);
-        root.addView(desc, dpParams);
+        TextView intro = text("Ubuntu on your phone, with a full desktop when you want one.", 15, muted, false);
+        LinearLayout.LayoutParams ip = params(-1, -2, 0, 12);
+        ip.bottomMargin = dp(22);
+        root.addView(intro, ip);
 
-        status = new TextView(this);
-        status.setText("STATUS  •  Ready to check prerequisites");
-        status.setTextColor(fg);
-        status.setTextSize(14);
-        status.setTypeface(Typeface.DEFAULT_BOLD);
-        status.setPadding(dp(16), dp(16), dp(16), dp(16));
-        status.setBackground(shape(cardHigh, 18));
-        root.addView(status);
+        buildSessionPanel();
+        section("YOUR DESKTOP");
+        addAction("Start desktop", "Open your Ubuntu XFCE session", true, () -> runController("start"));
+        addAction("Stop session", "Close the desktop cleanly", false, () -> runController("stop"));
+        section("TOOLS");
+        addAction("Check setup", "Verify root, Ubuntu files and X11", false, () -> runController("check"));
+        addAction("Open display server", "Switch to Termux:X11", false, this::openX11);
+        section("PREFERENCES");
+        addAction("Desktop root access", "Manage the desktop's root gate", false, this::showRootGateMenu);
+        addAction("View diagnostics", "See what happened if something went wrong", false, this::showLog);
 
-        addButton("Start Lucid Desktop", "Start the chroot XFCE desktop after the X11 display is listening", () -> runController("start"));
-        addButton("Stop desktop", "Stop the active desktop session cleanly without rebooting", () -> runController("stop"));
-        addButton("Check requirements", "Check root, Ubuntu rootfs, X11 socket, mounts and DNS", () -> runController("check"));
-        addButton("Desktop root gate", "Enable or disable persist.lucid.desktop_root via /system/bin/lucid_root_toggle.sh", this::showRootGateMenu);
-        addButton("Open X11 server", "Launch the installed Termux:X11 display server app", this::openX11);
-        addButton("View diagnostics", "Read or copy the latest desktop diagnostic log", this::showLog);
-
-        TextView note = new TextView(this);
-        note.setText("Requires a ROM build that includes /system/bin/lucid_desktop.sh, /system/usr/lucid/ubuntu-base-arm64.tar.gz, and a compatible X11 server app.");
-        note.setTextColor(muted);
-        note.setTextSize(12);
-        note.setPadding(dp(4), dp(18), dp(4), dp(4));
-        root.addView(note);
+        TextView foot = text("Needs the Lucid desktop controller, Ubuntu rootfs and Termux:X11.", 12, muted, false);
+        LinearLayout.LayoutParams fp = params(-1, -2, 2, 20);
+        root.addView(foot, fp);
     }
 
-    private void loadAppearance() {
-        Cursor cursor = null;
-        try {
-            cursor = getContentResolver().query(
-                Uri.parse("content://com.lucid.os.settings.appearance/profile"),
-                new String[]{"accent"}, null, null, null
-            );
-            if (cursor != null && cursor.moveToFirst()) {
-                accent = cursor.getInt(0);
-            }
-        } catch (Exception ignored) {
-        } finally {
-            if (cursor != null) cursor.close();
-        }
+    private void buildSessionPanel() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(18), dp(17), dp(18), dp(17));
+        panel.setBackground(rounded(raised, 20, line));
+        root.addView(panel, params(-1, -2, 0, 0));
+
+        TextView eyebrow = text("SESSION", 11, accent, true);
+        panel.addView(eyebrow);
+
+        status = text("Ready when you are", 18, fg, true);
+        LinearLayout.LayoutParams sp = params(-1, -2, 0, 7);
+        panel.addView(status, sp);
+
+        TextView hint = text("The desktop runs locally on this device.", 13, muted, false);
+        panel.addView(hint);
     }
 
-    private GradientDrawable shape(int color, int radiusDp) {
-        GradientDrawable d = new GradientDrawable();
-        d.setColor(color);
-        d.setCornerRadius(dp(radiusDp));
-        d.setStroke(dp(1), Color.rgb(49, 48, 68));
-        return d;
+    private void section(String label) {
+        TextView t = text(label, 11, muted, true);
+        t.setLetterSpacing(0.12f);
+        LinearLayout.LayoutParams p = params(-1, -2, 2, 19);
+        root.addView(t, p);
     }
 
-    private void addButton(String title, String sub, Runnable action) {
+    private void addAction(String title, String subtitle, boolean primary, Runnable action) {
         LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setPadding(dp(16), dp(14), dp(16), dp(14));
-        row.setBackground(shape(card, 16));
-        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
-        rp.topMargin = dp(10);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(dp(16), dp(14), dp(14), dp(14));
+        row.setBackground(rounded(primary ? accent : surface, 16, primary ? accent : line));
+        LinearLayout.LayoutParams rp = params(-1, -2, 0, 8);
         root.addView(row, rp);
 
-        TextView t = new TextView(this);
-        t.setText(title);
-        t.setTextColor(fg);
-        t.setTextSize(15);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
-        row.addView(t);
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        row.addView(copy, new LinearLayout.LayoutParams(0, -2, 1));
 
-        TextView s = new TextView(this);
-        s.setText(sub);
-        s.setTextColor(muted);
-        s.setTextSize(12);
-        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, -2);
-        sp.topMargin = dp(4);
-        row.addView(s, sp);
+        TextView titleView = text(title, 15, primary ? Color.rgb(19, 16, 30) : fg, true);
+        copy.addView(titleView);
+        TextView subView = text(subtitle, 12, primary ? Color.rgb(54, 45, 83) : muted, false);
+        LinearLayout.LayoutParams subp = params(-1, -2, 4, 0);
+        copy.addView(subView, subp);
+
+        TextView arrow = text("›", 27, primary ? Color.rgb(30, 23, 54) : accent, false);
+        arrow.setGravity(Gravity.CENTER);
+        row.addView(arrow, new LinearLayout.LayoutParams(dp(28), dp(32)));
+        row.setClickable(true);
+        row.setFocusable(true);
         row.setOnClickListener(v -> action.run());
     }
 
-    private void showRootGateMenu() {
-        String[] opts = {"Enable Desktop Root", "Disable Desktop Root", "Query Status"};
-        new AlertDialog.Builder(this)
-            .setTitle("Desktop Root Gate")
-            .setItems(opts, (d, which) -> {
-                final String cmd = which == 0 ? "enable" : (which == 1 ? "disable" : "status");
-                status.setText("STATUS  •  Updating root gate (" + cmd + ")…");
-                new Thread(() -> {
-                    final String out = execRoot("if [ -x /system/bin/lucid_root_toggle.sh ]; then /system/bin/lucid_root_toggle.sh " + cmd + "; else echo 'Missing /system/bin/lucid_root_toggle.sh'; fi");
-                    lastLog = out;
-                    runOnUiThread(() -> {
-                        status.setText("STATUS  •  Root gate: " + cmd);
-                        new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("Root Gate · " + cmd)
-                            .setMessage(out)
-                            .setPositiveButton("OK", null)
-                            .show();
-                    });
-                }).start();
-            })
-            .show();
+    private TextView text(String value, int size, int color, boolean bold) {
+        TextView t = new TextView(this);
+        t.setText(value);
+        t.setTextSize(size);
+        t.setTextColor(color);
+        t.setTypeface(Typeface.create("sans-serif", bold ? Typeface.BOLD : Typeface.NORMAL));
+        t.setIncludeFontPadding(true);
+        return t;
     }
 
-    private void runController(final String action) {
-        status.setText("STATUS  •  Running " + action + "…");
+    private LinearLayout.LayoutParams params(int w, int h, int top, int bottom) {
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(w, h);
+        if (top > 0) p.topMargin = dp(top);
+        if (bottom > 0) p.bottomMargin = dp(bottom);
+        return p;
+    }
+
+    private GradientDrawable rounded(int color, int radius, int stroke) {
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(color);
+        d.setCornerRadius(dp(radius));
+        d.setStroke(dp(1), stroke);
+        return d;
+    }
+
+    private void loadAppearance() {
+        Cursor c = null;
+        try {
+            c = getContentResolver().query(Uri.parse("content://com.lucid.os.settings.appearance/profile"),
+                new String[]{"accent"}, null, null, null);
+            if (c != null && c.moveToFirst()) accent = c.getInt(0);
+        } catch (Exception ignored) {
+        } finally {
+            if (c != null) c.close();
+        }
+    }
+
+    private void showRootGateMenu() {
+        String[] options = {"Allow desktop root", "Disable desktop root", "Check current setting"};
+        new AlertDialog.Builder(this).setTitle("Desktop root access")
+            .setItems(options, (dialog, which) -> {
+                String command = which == 0 ? "enable" : which == 1 ? "disable" : "status";
+                runShellAction("root", command,
+                    "if [ -x /system/bin/lucid_root_toggle.sh ]; then /system/bin/lucid_root_toggle.sh " + command + "; else echo 'Desktop root toggle is not installed.'; fi");
+            }).show();
+    }
+
+    private void runController(String action) {
+        runShellAction(action, action,
+            "if [ -x /system/bin/lucid_desktop.sh ]; then /system/bin/lucid_desktop.sh " + action +
+            "; else echo 'Lucid desktop controller is missing from this ROM.'; exit 127; fi");
+    }
+
+    private void runShellAction(String label, String action, String command) {
+        status.setText("Working…");
         new Thread(() -> {
-            final String output = execRoot("if [ -x /system/bin/lucid_desktop.sh ]; then /system/bin/lucid_desktop.sh " + action + "; else echo 'Missing /system/bin/lucid_desktop.sh: this ROM build does not include the desktop controller.'; exit 127; fi");
+            String output = execRoot(command);
             lastLog = output;
             runOnUiThread(() -> {
-                status.setText(
-                    output.contains("LUCID_DESKTOP_OK") || output.contains("Lucid Desktop diagnostics:") ? "STATUS  •  Checked" :
-                    output.contains("LUCID_DESKTOP_STARTED") ? "STATUS  •  Running XFCE" :
-                    output.contains("LUCID_DESKTOP_STOPPED") ? "STATUS  •  Stopped" :
-                    "STATUS  •  Needs attention"
-                );
-                new AlertDialog.Builder(MainActivity.this)
-                    .setTitle("Lucid Desktop · " + action)
-                    .setMessage(output.isEmpty() ? "No output returned. Check ROM integration and root permissions." : output)
-                    .setPositiveButton("OK", null)
-                    .show();
+                String state = output.contains("LUCID_DESKTOP_STARTED") ? "Desktop session started" :
+                    output.contains("LUCID_DESKTOP_STOPPED") ? "Desktop session stopped" :
+                    output.contains("LUCID_DESKTOP_OK") ? "Setup looks good" :
+                    output.contains("Lucid Desktop diagnostics:") ? "Diagnostics ready" :
+                    output.toLowerCase().contains("error") || output.toLowerCase().contains("missing") ?
+                        "Needs a little attention" : "Command finished";
+                status.setText(state);
+                new AlertDialog.Builder(this).setTitle(label.equals("root") ? "Desktop root access" : "Lucid Desktop")
+                    .setMessage(output.isEmpty() ? "No response from the desktop controller." : output)
+                    .setPositiveButton("Done", null).show();
             });
         }).start();
     }
@@ -206,54 +215,43 @@ public final class MainActivity extends Activity {
             os.flush();
             InputStream in = p.getInputStream();
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] b = new byte[2048];
-            int n;
-            while ((n = in.read(b)) > 0) out.write(b, 0, n);
+            byte[] buffer = new byte[2048];
+            int count;
+            while ((count = in.read(buffer)) > 0) out.write(buffer, 0, count);
             p.waitFor();
             return out.toString("UTF-8");
         } catch (Exception e) {
-            return "Could not run the ROM controller as root: " + e.getClass().getSimpleName() + ": " + e.getMessage() + "\nEnsure this ROM has its configured root provider and desktop init integration.";
+            return "Couldn't reach the ROM controller: " + e.getClass().getSimpleName() + ": " + e.getMessage();
         } finally {
             if (p != null) p.destroy();
         }
     }
 
     private void openX11() {
-        Intent i = getPackageManager().getLaunchIntentForPackage("com.termux.x11");
-        if (i == null) {
-            new AlertDialog.Builder(this)
-                .setTitle("X11 server not found")
-                .setMessage("Install a compatible Termux:X11 server and companion package first. A display server is not built into Android.")
-                .setPositiveButton("OK", null)
-                .show();
+        Intent launch = getPackageManager().getLaunchIntentForPackage("com.termux.x11");
+        if (launch == null) {
+            new AlertDialog.Builder(this).setTitle("Display server not installed")
+                .setMessage("Install the Termux:X11 app and companion package, then come back here.")
+                .setPositiveButton("Got it", null).show();
             return;
         }
-        try {
-            startActivity(i);
-        } catch (Exception e) {
-            Toast.makeText(this, "Could not open X11 server.", Toast.LENGTH_LONG).show();
-        }
+        try { startActivity(launch); }
+        catch (Exception e) { Toast.makeText(this, "Couldn't open the display server.", Toast.LENGTH_LONG).show(); }
     }
 
     private void showLog() {
         if (lastLog.isEmpty()) {
-            lastLog = execRoot("cat /data/local/lucid_desktop/lucid-desktop.log 2>/dev/null || cat /data/local/tmp/lucid-desktop.log 2>/dev/null || echo 'No log found yet. Run Check requirements.'");
+            lastLog = execRoot("cat /data/local/lucid_desktop/lucid-desktop.log 2>/dev/null || cat /data/local/tmp/lucid-desktop.log 2>/dev/null || echo 'No desktop log yet. Try Check setup first.'");
         }
-        new AlertDialog.Builder(this)
-            .setTitle("Desktop diagnostics")
-            .setMessage(lastLog)
+        new AlertDialog.Builder(this).setTitle("Desktop diagnostics").setMessage(lastLog)
             .setPositiveButton("Copy", (d, w) -> {
                 ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-                if (cm != null) {
-                    cm.setPrimaryClip(ClipData.newPlainText("Lucid Desktop log", lastLog));
-                }
-                Toast.makeText(this, "Diagnostics copied", Toast.LENGTH_SHORT).show();
-            })
-            .setNegativeButton("Close", null)
-            .show();
+                if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("Lucid Desktop log", lastLog));
+                Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show();
+            }).setNegativeButton("Close", null).show();
     }
 
-    private int dp(int n) {
-        return Math.round(n * getResources().getDisplayMetrics().density);
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }
