@@ -16,6 +16,8 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextUtils;
@@ -33,6 +35,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
     private static final String PREFS = "lucid_launcher";
@@ -52,6 +56,9 @@ public final class MainActivity extends Activity {
     private boolean showLabels = true;
     private boolean showGlance = true;
     private boolean receiverRegistered;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService appLoader = Executors.newSingleThreadExecutor();
+    private int appLoadGeneration;
 
     static final class AppEntry {
         final String label, pkg;
@@ -62,8 +69,7 @@ public final class MainActivity extends Activity {
 
     private final BroadcastReceiver pkgReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
-            loadApps();
-            if (search != null) render(search.getText().toString());
+            loadAppsAsync();
         }
     };
 
@@ -74,8 +80,8 @@ public final class MainActivity extends Activity {
         getWindow().getDecorView().setSystemUiVisibility(0);
         loadPreferences();
         loadAppearance();
-        loadApps();
         buildHome();
+        loadAppsAsync();
     }
 
     private void loadPreferences() {
@@ -132,18 +138,35 @@ public final class MainActivity extends Activity {
         } finally { if (c != null) c.close(); }
     }
 
-    private void loadApps() {
-        apps.clear();
-        Intent q = new Intent(Intent.ACTION_MAIN);
-        q.addCategory(Intent.CATEGORY_LAUNCHER);
-        PackageManager pm = getPackageManager();
-        for (ResolveInfo r : pm.queryIntentActivities(q, 0)) {
-            final ResolveInfo info = r;
-            String pkg = info.activityInfo.packageName;
-            if (getPackageName().equals(pkg)) continue;
-            apps.add(new AppEntry(info.loadLabel(pm).toString(), pkg, () -> info.loadIcon(pm)));
-        }
-        Collections.sort(apps, (a,b) -> a.label.compareToIgnoreCase(b.label));
+    // PackageManager enumeration can take several seconds on a cold boot or a large ROM.
+    // Never perform it on the launcher UI thread: that used to leave the splash screen visible
+    // and trigger an input-dispatch ANR before the home grid could be drawn.
+    private void loadAppsAsync() {
+        final int generation = ++appLoadGeneration;
+        appLoader.execute(() -> {
+            ArrayList<AppEntry> discovered = new ArrayList<>();
+            Intent q = new Intent(Intent.ACTION_MAIN);
+            q.addCategory(Intent.CATEGORY_LAUNCHER);
+            PackageManager pm = getPackageManager();
+            for (ResolveInfo info : pm.queryIntentActivities(q, 0)) {
+                String pkg = info.activityInfo.packageName;
+                if (getPackageName().equals(pkg)) continue;
+                discovered.add(new AppEntry(info.loadLabel(pm).toString(), pkg, () -> info.loadIcon(pm)));
+            }
+            Collections.sort(discovered, (a,b) -> a.label.compareToIgnoreCase(b.label));
+            mainHandler.post(() -> {
+                if (generation != appLoadGeneration || isFinishing()) return;
+                apps.clear();
+                apps.addAll(discovered);
+                if (search != null) render(search.getText().toString());
+            });
+        });
+    }
+
+    @Override protected void onDestroy() {
+        appLoadGeneration++;
+        appLoader.shutdownNow();
+        super.onDestroy();
     }
 
     private void buildHome() {
@@ -343,7 +366,7 @@ public final class MainActivity extends Activity {
                 if (w==0) showCustomization();
                 else if (w==1) launchLucid("com.lucid.os.wallpapers");
                 else if (w==2) openLucidSettings();
-                else { loadApps(); render(search.getText().toString()); }
+                else { loadAppsAsync(); }
             }).show();
     }
 
