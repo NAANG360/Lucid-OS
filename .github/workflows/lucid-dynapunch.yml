@@ -23,8 +23,13 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools,build-tools;36.0.0,platforms;android-36'
+      - name: Install Android SDK packages
+        run: |
+          set -eu
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" --install "platform-tools" "build-tools;36.0.0" "platforms;android-36"
       - name: Apply Lucid Dynapunch branding
         run: python3 tools/brand_dynapunch.py theme/dynapunch/upstream
       - name: Run upstream unit tests and build Dynapunch
