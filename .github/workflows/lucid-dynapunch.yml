@@ -38,7 +38,7 @@ jobs:
         working-directory: theme/dynapunch/upstream
         run: |
           set -euo pipefail
-          ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+          bash ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
