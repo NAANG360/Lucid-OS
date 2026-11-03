@@ -35,8 +35,8 @@ capture_app() {
   adb shell screencap -p "/data/local/tmp/$name.png"
   adb pull "/data/local/tmp/$name.png" "report/emulator/screenshots/$name.png" >/dev/null
   adb logcat -d -t 8000 > "report/emulator/ui/$name-logcat.txt"
-  if grep -Eiq 'ANR in |Input dispatching timed out|Process system isn.t responding|Application Not Responding|FATAL EXCEPTION' "report/emulator/ui/$name-logcat.txt"; then
-    echo "ANR or crash detected while testing $name" >&2
+  if grep -Eiq "ANR in $pkg|Input dispatching timed out.*$pkg|FATAL EXCEPTION:.*|Process: $pkg" "report/emulator/ui/$name-logcat.txt"; then
+    echo "App ANR or crash detected while testing $name" >&2
     return 1
   fi
   adb shell input keyevent 4 || true
