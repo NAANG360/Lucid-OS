@@ -8,6 +8,9 @@ on:
       - 'theme/dynapunch/**'
       - 'tools/brand_dynapunch.py'
       - '.github/workflows/lucid-dynapunch.yml'
+concurrency:
+  group: lucid-android-emulator-qa
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
@@ -52,9 +55,9 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 4096 -cores 4
-          disable-animations: true
-          emulator-boot-timeout: 900
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 4096 -cores 2
+          disable-animations: false
+          emulator-boot-timeout: 1800
           script: |
             set -euo pipefail
             mkdir -p out/dynapunch/emulator
