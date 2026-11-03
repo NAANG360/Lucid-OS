@@ -54,7 +54,9 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
-          target: google_apis
+          # Use the plain AOSP image: this is app/SystemUI QA, not Play Services QA.
+          # The Google APIs image repeatedly ANR'd GMS and cascaded into SystemUI death.
+          target: default
           arch: x86_64
           profile: pixel_2
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 4096 -cores 4
@@ -62,6 +64,18 @@ jobs:
           emulator-boot-timeout: 1800
           script: |
             set -eu
+            adb wait-for-device
+            for attempt in $(seq 1 120); do
+              BOOTED="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')"
+              if [ "$BOOTED" = "1" ]; then break; fi
+              sleep 2
+            done
+            test "$(adb shell getprop sys.boot_completed | tr -d '\\r')" = "1"
+            # Let SystemUI finish publishing providers and settling before app stress tests.
+            sleep 75
+            adb shell pidof com.android.systemui >/dev/null
+            adb shell dumpsys activity processes > report/emulator/preflight-processes.txt
+            adb shell dumpsys meminfo > report/emulator/preflight-meminfo.txt
             bash -x tools/test_lucid_apps_emulator.sh
       - name: Upload APKs, screenshots and emulator evidence
         if: always()
@@ -69,7 +83,8 @@ jobs:
         with:
           name: lucid-all-apps-emulator-screenshots
           path: |
-            out/lucid-apps/
+            out/lucid-apps/*.apk
+            out/lucid-apps/app-inventory.txt
             report/emulator/
           if-no-files-found: warn
           retention-days: 30
