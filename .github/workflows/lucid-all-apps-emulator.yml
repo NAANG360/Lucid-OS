@@ -15,6 +15,9 @@ on:
       - 'theme/**'
       - 'tools/build_lucid_apps.sh'
   workflow_dispatch:
+concurrency:
+  group: lucid-android-emulator-qa
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
@@ -55,7 +58,7 @@ jobs:
           arch: x86_64
           profile: pixel_2
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 4096 -cores 4
-          disable-animations: true
+          disable-animations: false
           emulator-boot-timeout: 1800
           script: |
             set -eu
