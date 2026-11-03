@@ -1,11 +1,13 @@
-# Lucid Dynamic Island — Redmi Note 7 (lavender)
+# Legacy Dynamic Island prototype
 
-Notch-aware overlay prototype for the Redmi Note 7's centered waterdrop camera. It reads runtime display metrics rather than assuming a fixed resolution.
+This small Java overlay prototype is retained for historical/reference purposes. It is **not** the consumer-facing Lucid dynamic-island implementation.
 
-## Build/install
-The Actions workflow builds `LucidDynamicIsland.apk`. Install it, grant Display over other apps, then tap Enable. This is a prototype, not a replacement for privileged SystemUI. Real media/notification state, lockscreen integration and boot-tested behavior require integration into the matching Android 15 source and device testing.
+The active product is **Lucid Dynapunch**, based on the pinned SmartIsland upstream project:
 
-## Boundaries
-- Dynamic island position derives from current display metrics and cutout insets where exposed by Android.
-- Tap toggles compact and expanded states; no fake notifications or media state are shown.
-- No accessibility service or notification listener is silently enabled.
+- Source/integration: `theme/dynapunch/`
+- CI/build/emulator checks: `.github/workflows/lucid-dynapunch.yml`
+- Upstream source and GPL-3.0 notices: `theme/dynapunch/upstream`
+
+Use Dynapunch for notifications, media, calls, timers, gestures, notch positioning, appearance controls and live activities. Do not package both this prototype and Dynapunch as competing end-user island apps.
+
+The original prototype remains useful only for minimal overlay experiments. It is not a substitute for the upstream implementation's tested overlay and accessibility services.
