@@ -1,0 +1,3 @@
+[submodule "theme/dynapunch/upstream"]
+	path = theme/dynapunch/upstream
+	url = https://github.com/agupta07505/SmartIsland.git
