@@ -1,0 +1,121 @@
+name: Lucid app runtime crash sweep
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/lucid-control-centre-connect]
+    paths:
+      - 'theme/lucid-control-centre/**'
+      - 'theme/lucid-settings/**'
+      - 'theme/lucid-wallpaper/**'
+      - 'theme/lucid-updater/**'
+      - 'theme/lucid-launcher/**'
+      - 'theme/lucid-desktop/**'
+      - 'theme/dynamic-island/**'
+      - 'tools/build_lucid_apps.sh'
+      - '.github/workflows/lucid-app-runtime-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK packages
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+      - name: Build every Lucid app from current source
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/build_lucid_apps.sh "$RUNNER_TEMP/lucid-apps"
+          gradle -p theme/dynamic-island assembleDebug
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$RUNNER_TEMP/lucid-apps/lucid-build.keystore" \
+            --ks-pass pass:lucidbuild --key-pass pass:lucidbuild \
+            --out "$RUNNER_TEMP/lucid-apps/Lucid-Dynamic-Island.apk" \
+            theme/dynamic-island/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$RUNNER_TEMP/lucid-apps/Lucid-Dynamic-Island.apk"
+          mkdir -p "$RUNNER_TEMP/runtime-logs"
+      - name: Boot Android 15 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          ram-size: 4096M
+          heap-size: 1024M
+          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          script: |
+            set -uo pipefail
+            adb wait-for-device
+            adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done'
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+            adb shell input keyevent 82 || true
+
+            fail=0
+            test_app() {
+              label="$1"
+              package="$2"
+              apk="$3"
+              logfile="$RUNNER_TEMP/runtime-logs/$label.log"
+              echo "===== $label ($package) ====="
+              if ! adb install -r "$apk" > "$RUNNER_TEMP/runtime-logs/$label-install.txt" 2>&1; then
+                cat "$RUNNER_TEMP/runtime-logs/$label-install.txt"
+                echo "INSTALL_FAILED $label" | tee "$logfile"
+                fail=1
+                return
+              fi
+              adb logcat -c
+              launch="$(adb shell monkey -p "$package" -c android.intent.category.LAUNCHER 1 2>&1)"
+              printf '%s\n' "$launch" | tee "$logfile"
+              sleep 15
+              adb logcat -d -v threadtime > "$RUNNER_TEMP/runtime-logs/$label-logcat.txt"
+              if printf '%s' "$launch" | grep -Eqi 'No activities found|monkey aborted|Error:'; then
+                echo "LAUNCH_FAILED $label" | tee -a "$logfile"
+                fail=1
+              fi
+              if grep -E -B 5 -A 12 "FATAL EXCEPTION|Fatal signal|Process: $package|am_crash.*$package" "$RUNNER_TEMP/runtime-logs/$label-logcat.txt" > "$RUNNER_TEMP/runtime-logs/$label-crash.txt"; then
+                echo "CRASH_DETECTED $label" | tee -a "$logfile"
+                cat "$RUNNER_TEMP/runtime-logs/$label-crash.txt" | tee -a "$logfile"
+                fail=1
+              else
+                echo "No fatal crash signature detected for $label after 15 seconds." | tee -a "$logfile"
+              fi
+              adb shell am force-stop "$package" || true
+              sleep 2
+            }
+
+            test_app control-centre com.lucid.os.controlcentre "$RUNNER_TEMP/lucid-apps/Lucid-Control-Centre.apk"
+            test_app settings com.lucid.os.settings "$RUNNER_TEMP/lucid-apps/Lucid-Settings.apk"
+            test_app launcher com.lucid.os.launcher "$RUNNER_TEMP/lucid-apps/Lucid-Launcher.apk"
+            test_app updater com.lucid.os.updater "$RUNNER_TEMP/lucid-apps/Lucid-Updater.apk"
+            test_app wallpapers com.lucid.os.wallpaper "$RUNNER_TEMP/lucid-apps/Lucid-Wallpapers.apk"
+            test_app desktop com.lucid.os.desktop "$RUNNER_TEMP/lucid-apps/Lucid-Desktop.apk"
+            test_app dynamic-island com.lucid.os.island "$RUNNER_TEMP/lucid-apps/Lucid-Dynamic-Island.apk"
+
+            echo "===== Runtime smoke summary ====="
+            grep -H -E 'No fatal crash|CRASH_DETECTED|LAUNCH_FAILED|INSTALL_FAILED' "$RUNNER_TEMP/runtime-logs"/*.log || true
+            exit "$fail"
+      - name: Upload per-app runtime logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-app-runtime-logs
+          path: ${{ runner.temp }}/runtime-logs/
+          if-no-files-found: warn
+          retention-days: 30
