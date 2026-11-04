@@ -46,7 +46,7 @@ jobs:
             --out "$RUNNER_TEMP/lucid-apps/Lucid-Dynamic-Island.apk" \
             theme/dynamic-island/app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$RUNNER_TEMP/lucid-apps/Lucid-Dynamic-Island.apk"
-          mkdir -p "$RUNNER_TEMP/runtime-logs"
+          mkdir -p "$RUNNER_TEMP/runtime-logs/screenshots"
       - name: Boot Android 15 emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -96,6 +96,8 @@ jobs:
               else
                 echo "No fatal crash signature detected for $label after 15 seconds." | tee -a "$logfile"
               fi
+              adb exec-out screencap -p > "$RUNNER_TEMP/runtime-logs/screenshots/$label.png" || true
+              adb shell dumpsys activity activities > "$RUNNER_TEMP/runtime-logs/$label-activity.txt" || true
               adb shell am force-stop "$package" || true
               sleep 2
             }
@@ -115,7 +117,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lucid-app-runtime-logs
+          name: lucid-app-runtime-logs-and-screenshots
           path: ${{ runner.temp }}/runtime-logs/
           if-no-files-found: warn
           retention-days: 30
