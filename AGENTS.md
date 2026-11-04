@@ -1,32 +1,44 @@
-# Agent instructions — Lucid OS ROM integration
+# Agent instructions — Lucid OS
 
-**Target:** Xiaomi Redmi Note 7 / Note 7S (`lavender`, Snapdragon 660).
+**Target:** Xiaomi Redmi Note 7 / Note 7S (`lavender`, Snapdragon 660). **ROM direction:** Android 15.
 
-## Current user-selected build route
+## Current ROM state
 
-- The user explicitly selected the published LucidOS Build 3 archive as the system-image source for the next experimental integration build. Use `.github/workflows/build-integrated-lucid-rom.yml` to download and verify that exact archive, reconstruct its system partition, overlay the checked-in Lucid additions, repack the system payload, and produce a public experimental Build 4 release.
-- Build 3 asset identity: `LucidOS-Android15-lavender-unsigned.zip`, 1,326,072,199 bytes, SHA-256 `c7262b06d6c2a60ceae395b21539de972c3c52085640bee87a7a55dacab7aba7`, release tag `lucid-android15-lavender-build-3`.
-- This route is an experimental repack of Build 3. Do not claim the archive's upstream ancestry is proven: the Android 15 SDK metadata versus Android 10 fingerprint discrepancy remains unresolved.
-- Do not use the historical `tobelucid-source-v1/LucidOS-unsigned.zip` or the Lineage-named `lineage-22.2-20251222-UNOFFICIAL-lavender.zip` as a base. Do not relabel LineageOS as RisingOS Revived.
-- `system-tree/system/` is an older extracted snapshot used for comparison/reference only. It is not the source system image for the integrated build. Never replace Build 3 wholesale with this snapshot; overlay only deliberate Lucid additions from tracked source and app projects.
-- The old `LucidSetup.apk`/firstboot flow that launches `com.cosmos.setup` is stale and must not be copied into the new image unless a matching, maintained app/package is verified.
+- Continue work on `feature/lucid-control-centre-connect`.
+- The current published ROM is **LucidOS Android 15 lavender Build 4 experimental**, version `0.4-dev`, release tag `lucid-android15-lavender-build-4`.
+- Public ROM asset: [LucidOS-Android15-lavender-build-4-experimental.zip](https://github.com/NAANG360/Lucid-OS/releases/download/lucid-android15-lavender-build-4/LucidOS-Android15-lavender-build-4-experimental.zip).
+- Published asset identity: **1,355,867,286 bytes**, SHA-256 `d2b81388a57c685b82e3cb8f29da475f540dfcb9f5114003846d9337533d3219`.
+- Build 4 was produced by taking the published Build 3 installer/archive as its base and overlaying Lucid companion apps, desktop payload, and wallpaper assets. Preserve the original Build 3 release; publish future experimental integrations as separate releases.
+- The base archive's ancestry and Android identity are not fully established. Its Android 15 SDK metadata conflicts with an Android 10 build fingerprint. Do not state a more specific upstream base identity unless new evidence verifies it.
+- Build 4 is an experimental package. Its release notes state that it has **not been physically boot-tested**. Never describe it as confirmed bootable or safe to flash based on CI packaging, ZIP integrity, checksums, or filesystem checks alone.
 
-## Product partition ban
+## Build and integration rules
 
-- Do not rebuild, replace, reconstruct, or request uploads for the product partition.
-- Do not restore obsolete product-only rebuild/audit workflows. The goal is an integrated ROM package based on Build 3's system partition, not a product-only archive.
+- The ROM build is the primary deliverable. Use `.github/workflows/build-integrated-lucid-rom.yml` as the current integrated packaging route; inspect its current contents and latest run before changing it.
+- Build from the verified published ROM archive and overlay only deliberate, maintained Lucid additions. `system-tree/system/` is an older extracted snapshot for reference/comparison, not a replacement system image.
+- Do not rebuild, replace, reconstruct, or request uploads for the product partition. Do not restore obsolete product-only reconstruction workflows.
+- The current Build 4 integration workflow packages these companion apps as regular system apps: Lucid Control Centre, Settings, Launcher, Updater, Wallpapers, Desktop, and Dynamic Island. Do not imply these apps replace native Android SystemUI.
+- The actual native SystemUI source has not been rebuilt in the published Build 4. The Developer Options root toggle is also not integrated. Treat both as outstanding work until source changes and validation prove otherwise.
+- Do not copy stale setup/firstboot flows or package references to components that are not present and maintained in the current tree. Verify package IDs and source before integration.
+- Include desktop scripts, the Ubuntu rootfs archive, and wallpaper assets only when their current source, purpose, and packaging are verified. Preserve user-supplied artwork, especially the bubbles wallpaper; do not substitute generic artwork or generic UI templates.
+- Preserve Lucid's established dark surfaces, restrained lavender/violet accents, and intentional visual language.
 
-## Integration and safety rules
+## OTA and release rules
 
-- Build Lucid app APKs in CI and package them as regular system apps unless their signing/privileged-permission requirements are actually satisfied. Do not pretend companion apps replace real Android SystemUI integration.
-- Include the maintained desktop scripts, Ubuntu rootfs archive, and tracked wallpaper assets only after the system image is reconstructed. Do not include stale setup flows or enable automatic privileged execution.
-- Keep the OTA manifest URL, SHA-256, size, version, and changelog synchronized with the actual published ROM asset. Keep `installable: false` until package compatibility and installation are proven.
-- Preserve the original Build 3 release; publish the integrated output as a separate prerelease.
-- Never label an archive bootable/installable based solely on ZIP integrity, SDK metadata, filesystem checks, or CI packaging. Physical-device boot and hardware smoke tests remain unverified until performed on a compatible lavender device.
+- `ota/stable.json` must point to the **ROM ZIP**, never the updater APK or updater recovery installer. Keep its URL, SHA-256, byte size, version, and changelog synchronized with the exact public ROM asset.
+- The current manifest identifies Build 4 as `0.4-dev`, with the Build 4 ROM URL, SHA-256, and byte size listed above, and currently sets `installable: true`. This metadata value is not evidence of a successful physical-device install or boot. Reassess it whenever compatibility evidence changes; do not leave it true if installer compatibility is unverified.
+- The updater recovery ZIP installs the updater app; it is an add-on package, not a ROM.
+- Preserve existing public releases. Publish new experimental ROM output as a separate prerelease.
+- Before publishing, verify the exact artifact, ZIP integrity, expected payloads, SHA-256, byte size, public non-draft asset, and matching OTA metadata. Keep updater assets and ROM assets clearly distinguished.
 
-## Execution rules
+## Verification and reporting
 
-- Continue on `feature/lucid-control-centre-connect`.
-- Prefer free tooling and GitHub Actions; do not claim a workflow or artifact succeeded without its run evidence.
-- The ROM build is the primary deliverable. Standalone APK builds, audits, and reports are supporting steps, not substitutes for the integrated ROM.
-- Preserve Lucid's existing dark surfaces, restrained lavender/violet accents, supplied artwork, and the bubbles reference. Do not replace the design language with generic templates.
+Report each verification level separately:
+1. Workflow completed.
+2. ZIP integrity and expected payload checks passed.
+3. Installer scripts and package metadata validated.
+4. OTA metadata matches the exact public ROM asset.
+5. Installation succeeds in a compatible recovery.
+6. ROM boots and core hardware works on a physical `lavender` device.
+
+Do not infer a higher level from a lower one. State the latest run, artifact, commit, and exactly what was tested. Prefer free tooling and GitHub Actions; never claim a workflow or artifact succeeded without run evidence.
