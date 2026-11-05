@@ -3,7 +3,7 @@ name: Validate GitHub Workflows
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, feature/lucid-control-centre-connect]
     paths:
       - '.github/workflows/**'
 
