@@ -1,44 +1,71 @@
 #!/usr/bin/env bash
 set -uo pipefail
-mkdir -p "$RUNNER_TEMP/runtime-logs/screenshots"
-adb wait-for-device
-adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done'
-adb shell settings put global window_animation_scale 0 || true
-adb shell settings put global transition_animation_scale 0 || true
-adb shell settings put global animator_duration_scale 0 || true
-adb shell input keyevent 82 || true
-
+LOG_DIR="$RUNNER_TEMP/runtime-logs"
+SCREEN_DIR="$LOG_DIR/screenshots"
+mkdir -p "$SCREEN_DIR"
 fail=0
+
+capture_screen() {
+  local label="$1"
+  local remote="/sdcard/lucid-$label.png"
+  local target="$SCREEN_DIR/$label.png"
+  rm -f "$target"
+  if adb shell screencap -p "$remote" >/dev/null 2>&1 && adb pull "$remote" "$target" >/dev/null 2>&1; then
+    if python3 - "$target" <<'PY'
+import struct, sys
+p=sys.argv[1]
+with open(p,'rb') as f:
+    h=f.read(24)
+if len(h) < 24 or h[:8] != b'\x89PNG\r\n\x1a\n':
+    raise SystemExit(1)
+w,hgt=struct.unpack(">II",h[16:24])
+if w < 200 or hgt < 200:
+    raise SystemExit(1)
+PY
+    then
+      echo "SCREENSHOT_OK $label $(stat -c%s "$target") bytes"
+    else
+      echo "SCREENSHOT_INVALID $label"
+      rm -f "$target"
+      fail=1
+    fi
+  else
+    echo "SCREENSHOT_CAPTURE_FAILED $label"
+    fail=1
+  fi
+  adb shell rm -f "$remote" >/dev/null 2>&1 || true
+}
+
 test_app() {
   local label="$1" package="$2" apk="$3"
-  local logfile="$RUNNER_TEMP/runtime-logs/$label.log"
+  local logfile="$LOG_DIR/$label.log"
   echo "===== $label ($package) ====="
-  if ! adb install -r "$apk" > "$RUNNER_TEMP/runtime-logs/$label-install.txt" 2>&1; then
-    cat "$RUNNER_TEMP/runtime-logs/$label-install.txt"
+  if ! adb install -r "$apk" > "$LOG_DIR/$label-install.txt" 2>&1; then
+    cat "$LOG_DIR/$label-install.txt"
     echo "INSTALL_FAILED $label" | tee "$logfile"
     fail=1
     return
   fi
-  adb logcat -c
+  adb logcat -c || true
   local launch
   launch="$(adb shell monkey -p "$package" -c android.intent.category.LAUNCHER 1 2>&1)"
   printf '%s\n' "$launch" | tee "$logfile"
-  sleep 15
-  adb logcat -d -v threadtime > "$RUNNER_TEMP/runtime-logs/$label-logcat.txt"
   if printf '%s' "$launch" | grep -Eqi 'No activities found|monkey aborted|Error:'; then
     echo "LAUNCH_FAILED $label" | tee -a "$logfile"
     fail=1
   fi
-  if grep -E -B 5 -A 12 "FATAL EXCEPTION|Fatal signal|Process: $package|am_crash.*$package" "$RUNNER_TEMP/runtime-logs/$label-logcat.txt" > "$RUNNER_TEMP/runtime-logs/$label-crash.txt"; then
+  sleep 15
+  adb logcat -d -v threadtime > "$LOG_DIR/$label-logcat.txt" 2>&1 || true
+  if grep -E -B 5 -A 12 "FATAL EXCEPTION|Fatal signal|Process: $package|am_crash.*$package" "$LOG_DIR/$label-logcat.txt" > "$LOG_DIR/$label-crash.txt"; then
     echo "CRASH_DETECTED $label" | tee -a "$logfile"
-    cat "$RUNNER_TEMP/runtime-logs/$label-crash.txt" | tee -a "$logfile"
+    cat "$LOG_DIR/$label-crash.txt" | tee -a "$logfile"
     fail=1
   else
     echo "No fatal crash signature detected for $label after 15 seconds." | tee -a "$logfile"
   fi
-  adb exec-out screencap -p > "$RUNNER_TEMP/runtime-logs/screenshots/$label.png" || true
-  adb shell dumpsys activity activities > "$RUNNER_TEMP/runtime-logs/$label-activity.txt" || true
-  adb shell am force-stop "$package" || true
+  capture_screen "$label"
+  adb shell dumpsys activity activities > "$LOG_DIR/$label-activity.txt" 2>&1 || true
+  adb shell am force-stop "$package" >/dev/null 2>&1 || true
   sleep 2
 }
 
@@ -51,9 +78,11 @@ test_app desktop com.lucid.os.desktop "$RUNNER_TEMP/lucid-apps/Lucid-Desktop.apk
 test_app dynamic-island com.lucid.os.island "$RUNNER_TEMP/lucid-apps/Lucid-Dynamic-Island.apk"
 
 echo "===== Runtime smoke summary ====="
-grep -H -E 'No fatal crash|CRASH_DETECTED|LAUNCH_FAILED|INSTALL_FAILED' "$RUNNER_TEMP/runtime-logs"/*.log || true
-# Verify that all seven screenshot files exist and are non-empty.
+grep -H -E 'No fatal crash|CRASH_DETECTED|LAUNCH_FAILED|INSTALL_FAILED' "$LOG_DIR"/*.log || true
+count=0
 for app in control-centre settings launcher updater wallpapers desktop dynamic-island; do
-  test -s "$RUNNER_TEMP/runtime-logs/screenshots/$app.png" || { echo "SCREENSHOT_MISSING $app"; fail=1; }
+  if [ -s "$SCREEN_DIR/$app.png" ]; then count=$((count+1)); else echo "SCREENSHOT_MISSING $app"; fi
 done
+echo "SCREENSHOTS_CAPTURED $count/7"
+[ "$count" -eq 7 ] || fail=1
 exit "$fail"
