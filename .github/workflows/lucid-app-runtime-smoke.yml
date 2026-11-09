@@ -1,0 +1,109 @@
+name: Lucid app runtime crash sweep
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/lucid-control-centre-connect]
+    paths:
+      - 'theme/lucid-control-centre/**'
+      - 'theme/lucid-settings/**'
+      - 'theme/lucid-wallpaper/**'
+      - 'theme/lucid-updater/**'
+      - 'theme/lucid-launcher/**'
+      - 'theme/lucid-desktop/**'
+      - 'theme/dynamic-island/**'
+      - 'tools/build_lucid_apps.sh'
+      - 'tools/lucid_app_runtime_smoke.sh'
+      - '.github/workflows/lucid-app-runtime-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK and API 35 image
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools emulator platforms;android-35 build-tools;35.0.0 system-images;android-35;google_apis;x86_64'
+      - name: Build all seven apps
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/build_lucid_apps.sh "$RUNNER_TEMP/lucid-apps"
+          gradle -p theme/dynamic-island assembleDebug
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$RUNNER_TEMP/lucid-apps/lucid-build.keystore" \
+            --ks-pass pass:lucidbuild --key-pass pass:lucidbuild \
+            --out "$RUNNER_TEMP/lucid-apps/Lucid-Dynamic-Island.apk" \
+            theme/dynamic-island/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$RUNNER_TEMP/lucid-apps/Lucid-Dynamic-Island.apk"
+          mkdir -p "$RUNNER_TEMP/runtime-logs/screenshots"
+      - name: Create and boot emulator, then test all seven apps
+        shell: bash
+        run: |
+          set -euo pipefail
+          LOG_DIR="$RUNNER_TEMP/runtime-logs"
+          mkdir -p "$LOG_DIR/screenshots"
+          echo "no" | avdmanager create avd --force --name lucid-api35 --package "system-images;android-35;google_apis;x86_64" --device pixel_2
+          emulator -list-avds
+          emulator -avd lucid-api35 \
+            -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data \
+            -gpu swiftshader_indirect -camera-back none -camera-front none \
+            -memory 3072 -cores 2 > "$LOG_DIR/emulator.log" 2>&1 &
+          EMULATOR_PID=$!
+          echo "$EMULATOR_PID" > "$LOG_DIR/emulator.pid"
+          cleanup() {
+            adb emu kill >/dev/null 2>&1 || kill "$EMULATOR_PID" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          adb start-server
+          adb wait-for-device
+          booted=0
+          for attempt in $(seq 1 180); do
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              echo "Emulator process exited before boot completed."
+              tail -200 "$LOG_DIR/emulator.log" || true
+              exit 1
+            fi
+            state="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+            if [ "$state" = "1" ]; then booted=1; break; fi
+            sleep 5
+          done
+          if [ "$booted" -ne 1 ]; then
+            echo "Timed out waiting for Android boot."
+            adb devices -l || true
+            tail -250 "$LOG_DIR/emulator.log" || true
+            exit 1
+          fi
+          echo "Android boot completed."
+          adb shell wm size > "$LOG_DIR/device-display.txt"
+          adb shell wm density >> "$LOG_DIR/device-display.txt"
+          adb shell settings put global window_animation_scale 0 || true
+          adb shell settings put global transition_animation_scale 0 || true
+          adb shell settings put global animator_duration_scale 0 || true
+          bash tools/lucid_app_runtime_smoke.sh
+      - name: Collect emulator diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/runtime-logs"
+          adb devices -l > "$RUNNER_TEMP/runtime-logs/adb-devices.txt" 2>&1 || true
+          adb logcat -d -v threadtime > "$RUNNER_TEMP/runtime-logs/final-logcat.txt" 2>&1 || true
+      - name: Upload logs and seven screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucid-app-runtime-logs-and-screenshots
+          path: ${{ runner.temp }}/runtime-logs/
+          if-no-files-found: error
+          retention-days: 30

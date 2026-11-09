@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<permissions>
-    <privapp-permissions package="com.lucid.os.wallpapers">
-        <permission name="android.permission.WRITE_SECURE_SETTINGS" />
-    </privapp-permissions>
-</permissions>
+<!--
+  Lucid app packages currently request no permissions that should be granted
+  through the privileged-permission allowlist. Keep this file empty rather
+  than granting WRITE_SECURE_SETTINGS to the wrong package name.
+-->
+<permissions />
