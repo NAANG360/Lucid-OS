@@ -182,24 +182,24 @@ jobs:
             echo "=== SYSTEM ROOT / TOP LEVEL ==="
             for root in mount/system mount/system_ext mount/product mount/system_dlkm; do
               [ -d "$root" ] || continue
-              sudo find "$root" -maxdepth 3 -mindepth 1 -printf '%y %p %s\\n' 2>/dev/null | sort | head -n 20000 || true
+              sudo find "$root" -maxdepth 3 -mindepth 1 -printf '%y %p %s\n' 2>/dev/null | sort | head -n 20000 || true
             done
             echo
             echo "=== SYSTEM FRAMEWORK / INIT / VINTF / FSTAB FILES ==="
             for root in mount/system mount/system_ext mount/product; do
               [ -d "$root" ] || continue
-              sudo find "$root" -type f \\( -name '*.rc' -o -name '*.xml' -o -name '*.prop' -o -name '*.json' -o -name '*.conf' -o -name 'fstab*' -o -name '*.mk' -o -name '*.te' \\) -printf '%p %s bytes\\n' 2>/dev/null | sort | head -n 30000 || true
+              sudo find "$root" -type f \( -name '*.rc' -o -name '*.xml' -o -name '*.prop' -o -name '*.json' -o -name '*.conf' -o -name 'fstab*' -o -name '*.mk' -o -name '*.te' \) -printf '%p %s bytes\n' 2>/dev/null | sort | head -n 30000 || true
             done
             echo
             echo "=== KERNEL MODULES / DTB / FIRMWARE IN SYSTEM FAMILY ==="
             for root in mount/system mount/system_ext mount/product mount/system_dlkm; do
               [ -d "$root" ] || continue
-              sudo find "$root" -type f \\( -name '*.ko' -o -name '*.dtb' -o -name '*.dtbo' -o -name 'modules.*' \\) -printf '%p %s bytes\\n' 2>/dev/null | sort | head -n 20000 || true
+              sudo find "$root" -type f \( -name '*.ko' -o -name '*.dtb' -o -name '*.dtbo' -o -name 'modules.*' \) -printf '%p %s bytes\n' 2>/dev/null | sort | head -n 20000 || true
             done
           } > audit/system-family-inventory.txt
           for root in mount/system/etc mount/system_ext/etc mount/product/etc; do
             [ -d "$root" ] || continue
-            sudo grep -RaiE -m 4 'lavender|sdm660|qcom,sdm660|NVTCapacitiveTouchScreen|novatek|nt36|nt36672|td4320|kgsl|adreno|mdss|panel|touchscreen|/dev/block/.*(system|super)|dynamic_partitions|ro\\.build\\.version\\.release|ro\\.product\\.device|ro\\.product\\.vendor' "$root" 2>/dev/null | head -n 12000 >> audit/system-hardware-config-matches.txt || true
+            sudo grep -RaiE -m 4 'lavender|sdm660|qcom,sdm660|NVTCapacitiveTouchScreen|novatek|nt36|nt36672|td4320|kgsl|adreno|mdss|panel|touchscreen|/dev/block/.*(system|super)|dynamic_partitions|ro\.build\\.version\\.release|ro\.product\\.device|ro\.product\\.vendor' "$root" 2>/dev/null | head -n 12000 >> audit/system-hardware-config-matches.txt || true
           done
           {
             for root in mount/system mount/system_ext mount/product; do
