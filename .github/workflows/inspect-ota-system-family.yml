@@ -91,49 +91,56 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y brotli e2fsprogs erofs-utils android-sdk-libsparse-utils
           python3 - "parts" <<'PY'
-          import glob,os,sys
+          import os,subprocess,sys
           root=sys.argv[1]; block=4096
-          for part in ("system","system_ext","product"):\n    transfer=os.path.join(root,part+".transfer.list")\n    if not os.path.isfile(transfer): continue
-              part=os.path.basename(transfer).removesuffix(".transfer.list")
+          for part in ("system","system_ext","product"):
+              transfer=os.path.join(root,part+".transfer.list")
+              if not os.path.isfile(transfer):
+                  continue
               br=os.path.join(root,part+".new.dat.br")
               raw=os.path.join(root,part+".new.dat")
               if os.path.exists(br):
-                  import subprocess
                   subprocess.run(["brotli","--decompress","--force",f"--output={raw}",br],check=True)
               if not os.path.exists(raw):
-                  print(f"SKIP {part}: no new.dat stream");continue
+                  raise SystemExit(f"{part}: missing new.dat stream")
               lines=open(transfer).read().splitlines()
               version=int(lines[0]); total=int(lines[1])
               outpath=os.path.join(root,part+".img")
-              with open(outpath,"wb") as out: out.truncate(total*block)
+              with open(outpath,"wb") as out:
+                  out.truncate(total*block)
               consumed=0; operations={}
               with open(raw,"rb") as src,open(outpath,"r+b") as out:
                   for line in lines[4:]:
-                      if not line.strip():continue
+                      if not line.strip():
+                          continue
                       op,rest=line.split(" ",1)
                       operations[op]=operations.get(op,0)+1
-                      if op in ("zero","erase"):continue
+                      if op in ("zero","erase"):
+                          continue
                       if op!="new":
-                          raise SystemExit(f"{part}: unsupported transfer-list op {op}; refusing to produce an incomplete image")
+                          raise SystemExit(f"{part}: unsupported transfer-list op {op}; refusing incomplete image")
                       nums=[int(x) for x in rest.split(",")]
                       count=nums[0]
-                      if count%2 or count+1!=len(nums):raise SystemExit(f"{part}: malformed range {line}")
+                      if count%2 or count+1!=len(nums):
+                          raise SystemExit(f"{part}: malformed range {line}")
                       for j in range(1,len(nums),2):
                           start,end=nums[j:j+2]
-                          if start<0 or end<start or end>total:raise SystemExit(f"{part}: out-of-range blocks {start}:{end}/{total}")
+                          if start<0 or end<start or end>total:
+                              raise SystemExit(f"{part}: out-of-range blocks {start}:{end}/{total}")
                           out.seek(start*block)
                           remain=(end-start)*block
                           while remain:
                               chunk=src.read(min(4*1024*1024,remain))
-                              if not chunk:raise SystemExit(f"{part}: truncated new.dat stream")
+                              if not chunk:
+                                  raise SystemExit(f"{part}: truncated new.dat stream")
                               out.write(chunk);remain-=len(chunk);consumed+=len(chunk)
               actual=os.path.getsize(raw)
-              if consumed!=actual:raise SystemExit(f"{part}: consumed {consumed} of {actual} stream bytes")
+              if consumed!=actual:
+                  raise SystemExit(f"{part}: consumed {consumed} of {actual} stream bytes")
               print(f"{part}: transfer-list-v{version}, blocks={total}, image_bytes={total*block}, stream_bytes={consumed}, operations={operations}")
               with open(os.path.join(root,part+".reconstruction.txt"),"w") as f:
-                  f.write(f"partition={part}\nversion={version}\nblocks={total}\nimage_bytes={total*block}\nstream_bytes={consumed}\noperations={operations}\n")
-          PY
-          for f in parts/system.img parts/system_ext.img parts/product.img; do
+                  f.write(f"partition={part}\\nversion={version}\\nblocks={total}\\nimage_bytes={total*block}\\nstream_bytes={consumed}\\noperations={operations}\\n")
+          PY          for f in parts/system.img parts/system_ext.img parts/product.img; do
             [ -e "$f" ] || continue
             file "$f" | tee -a audit/reconstructed-image-types.txt
           done
