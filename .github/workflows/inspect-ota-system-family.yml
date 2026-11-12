@@ -204,6 +204,7 @@ jobs:
           for d in mount/system/system/etc/lucid mount/system/system/usr/lucid; do
             if [ -d "$d" ]; then sudo cp -a "$d" audit/configs/; fi
           done
+          sudo chmod -R a+rX audit/configs
           sudo find mount/system mount/system_ext mount/product -type f \( -name '*.ko' -o -name 'modules.*' -o -name '*.dtb' -o -name '*.dtbo' \) -printf '%p %s bytes\n' 2>/dev/null | sort > audit/system-family-kernel-assets.txt || true
           {
             echo "=== SYSTEM ROOT / TOP LEVEL ==="
