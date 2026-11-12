@@ -68,7 +68,7 @@ jobs:
           import hashlib,os,re,sys,zipfile
           zp,audit,out=sys.argv[1:]
           os.makedirs(out,exist_ok=True)
-          text_re=re.compile(r'(^|/)([^/]*\.rc|[^/]*\.prop|[^/]*fstab[^/]*|[^/]*\.conf|[^/]*\.xml|[^/]*\.json|modules\.(load|dep)|modules\.alias|ueventd[^/]*\.rc|updater-script|dynamic_partitions_op_list|[^/]*\.mk)$',re.I)
+          text_re=re.compile(r'(^|/)([^/]*\.rc|[^/]*\.prop|[^/]*fstab[^/]*|[^/]*\.conf|[^/]*\.xml|[^/]*\.json|modules\.(load|dep)|modules\.alias|ueventd[^/]*\.rc|updater-script|dynamic_partitions_op_list|[^/]*\.mk|[^/]*\.transfer\.list)$',re.I)
           critical_re=re.compile(r'(boot|vendor_boot|init_boot|dtbo|vbmeta|vendor|odm|system|product|system_ext|firmware|modem|dsp|touch|panel|display|gpu|kgsl|wlan|wifi|bluetooth|audio|camera|fstab|modules|\.ko($|\.)|\.dtb$|\.dtbo$)',re.I)
           with zipfile.ZipFile(zp) as z:
               infos=z.infolist()
