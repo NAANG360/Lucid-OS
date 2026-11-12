@@ -139,8 +139,9 @@ jobs:
                   raise SystemExit(f"{part}: consumed {consumed} of {actual} stream bytes")
               print(f"{part}: transfer-list-v{version}, blocks={total}, image_bytes={total*block}, stream_bytes={consumed}, operations={operations}")
               with open(os.path.join(root,part+".reconstruction.txt"),"w") as f:
-                  f.write(f"partition={part}\\nversion={version}\\nblocks={total}\\nimage_bytes={total*block}\\nstream_bytes={consumed}\\noperations={operations}\\n")
-          PY          for f in parts/system.img parts/system_ext.img parts/product.img; do
+                  f.write(f"partition={part}\nversion={version}\nblocks={total}\nimage_bytes={total*block}\nstream_bytes={consumed}\noperations={operations}\n")
+          PY
+          for f in parts/system.img parts/system_ext.img parts/product.img; do
             [ -e "$f" ] || continue
             file "$f" | tee -a audit/reconstructed-image-types.txt
           done
