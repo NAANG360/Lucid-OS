@@ -151,19 +151,27 @@ jobs:
             img="parts/$part.img"
             [ -f "$img" ] || continue
             echo "=== $part ===" | tee -a audit/image-filesystem-types.txt
-            file -s "$img" | tee -a audit/image-filesystem-types.txt
+            if ! file -s "$img" | tee -a audit/image-filesystem-types.txt; then
+              echo "$part: file inspection failed" | tee -a audit/mount-status.txt
+              continue
+            fi
             mkdir -p "mount/$part"
             if grep -qi "Android sparse image" <(file -b "$img"); then
-              simg2img "$img" "parts/$part.raw.img"
+              if ! simg2img "$img" "parts/$part.raw.img"; then
+                echo "$part: sparse image conversion failed" | tee -a audit/mount-status.txt
+                continue
+              fi
               img="parts/$part.raw.img"
-              file -s "$img" | tee -a audit/image-filesystem-types.txt
+              if ! file -s "$img" | tee -a audit/image-filesystem-types.txt; then
+                echo "$part: converted image inspection failed" | tee -a audit/mount-status.txt
+                continue
+              fi
             fi
             if grep -qi "EROFS" <(file -b "$img"); then
-              sudo mount -t erofs -o loop,ro "$img" "mount/$part" 2>>audit/mount-status.txt
+              if sudo mount -t erofs -o loop,ro "$img" "mount/$part" 2>>audit/mount-status.txt; then rc=0; else rc=$?; fi
             else
-              sudo mount -t ext4 -o loop,ro,noload "$img" "mount/$part" 2>>audit/mount-status.txt
+              if sudo mount -t ext4 -o loop,ro,noload "$img" "mount/$part" 2>>audit/mount-status.txt; then rc=0; else rc=$?; fi
             fi
-            rc=$?
             if [ "$rc" -eq 0 ]; then
               echo "$part: mounted read-only" | tee -a audit/mount-status.txt
             else
@@ -221,6 +229,7 @@ jobs:
             done
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: actual-lucid-system-partition-inspection
           path: |
