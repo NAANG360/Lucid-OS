@@ -110,25 +110,25 @@ jobs:
           sudo mount -o loop,ro,noload "$RUNNER_TEMP/parts/odm.img" mount/odm
           {
             echo "=== VENDOR TOP LEVEL ==="
-            find mount/vendor -maxdepth 2 -mindepth 1 -printf '%y %p %s\n' | sort
+            sudo find mount/vendor -maxdepth 2 -mindepth 1 -printf '%y %p %s\n' | sort
             echo
             echo "=== VENDOR KERNEL MODULES ==="
-            find mount/vendor -type f \( -name '*.ko' -o -name 'modules.load*' -o -name 'modules.dep' -o -name 'modules.alias' -o -name 'modules.softdep' \) -printf '%p %s bytes\n' | sort
+            sudo find mount/vendor -type f \( -name '*.ko' -o -name 'modules.load*' -o -name 'modules.dep' -o -name 'modules.alias' -o -name 'modules.softdep' \) -printf '%p %s bytes\n' | sort
             echo
             echo "=== VENDOR HARDWARE FIRMWARE CANDIDATES ==="
-            find mount/vendor -type f | grep -Ei '/(firmware|modules)/|nvt|novatek|synaptics|touch|nt36672|td4320|mdss|kgsl|adreno|gpu|wlan|wifi|bluetooth|camera|qcom' | sort | head -n 12000 || true
+            sudo find mount/vendor -type f | grep -Ei '/(firmware|modules)/|nvt|novatek|synaptics|touch|nt36672|td4320|mdss|kgsl|adreno|gpu|wlan|wifi|bluetooth|camera|qcom' | sort | head -n 12000 || true
             echo
             echo "=== VENDOR INIT AND VINTF FILES ==="
-            find mount/vendor/etc -type f \( -name '*.rc' -o -name '*.xml' -o -name '*.json' -o -name '*.prop' -o -name '*.conf' \) -printf '%p %s bytes\n' 2>/dev/null | sort | head -n 12000 || true
+            sudo find mount/vendor/etc -type f \( -name '*.rc' -o -name '*.xml' -o -name '*.json' -o -name '*.prop' -o -name '*.conf' \) -printf '%p %s bytes\n' 2>/dev/null | sort | head -n 12000 || true
           } > audit/vendor-inventory.txt
           {
             echo "=== ODM TOP LEVEL ==="
-            find mount/odm -maxdepth 3 -mindepth 1 -printf '%y %p %s\n' | sort
+            sudo find mount/odm -maxdepth 3 -mindepth 1 -printf '%y %p %s\n' | sort
             echo
             echo "=== ODM DRIVER / FIRMWARE CANDIDATES ==="
-            find mount/odm -type f | grep -Ei 'nvt|novatek|synaptics|touch|nt36672|td4320|mdss|kgsl|adreno|gpu|wlan|wifi|bluetooth|camera|firmware|\.ko$|modules\.' | sort | head -n 12000 || true
+            sudo find mount/odm -type f | grep -Ei 'nvt|novatek|synaptics|touch|nt36672|td4320|mdss|kgsl|adreno|gpu|wlan|wifi|bluetooth|camera|firmware|\.ko$|modules\.' | sort | head -n 12000 || true
           } > audit/odm-inventory.txt
-          grep -RaiE -m 3 'novatek|NVT-ts|synaptics|nt36672|td4320|NVTCapacitiveTouchScreen|kgsl|adreno' mount/vendor/etc mount/odm/etc 2>/dev/null | head -n 3000 > audit/hardware-config-matches.txt || true
+          sudo grep -RaiE -m 3 'novatek|NVT-ts|synaptics|nt36672|td4320|NVTCapacitiveTouchScreen|kgsl|adreno' mount/vendor/etc mount/odm/etc 2>/dev/null | head -n 3000 > audit/hardware-config-matches.txt || true
           sudo umount mount/odm
           sudo umount mount/vendor
           rm -f "$RUNNER_TEMP/parts/"*.img "$RUNNER_TEMP/parts/"*.new.dat "$RUNNER_TEMP/ota.zip"
