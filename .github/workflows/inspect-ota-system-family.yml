@@ -89,7 +89,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y brotli e2fsprogs
+          sudo apt-get install -y brotli e2fsprogs erofs-utils android-sdk-libsparse-utils
           python3 - "$RUNNER_TEMP/parts" <<'PY'
           import glob,os,sys
           root=sys.argv[1]; block=4096
@@ -143,24 +143,56 @@ jobs:
       - name: Mount system-family partitions read-only and inventory Android framework
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          mkdir -p mount
+          : > audit/image-filesystem-types.txt
+          : > audit/mount-status.txt
           for part in system system_ext product system_dlkm; do
             img="parts/$part.img"
             [ -f "$img" ] || continue
+            echo "=== $part ===" | tee -a audit/image-filesystem-types.txt
+            file -s "$img" | tee -a audit/image-filesystem-types.txt
             mkdir -p "mount/$part"
-            sudo mount -o loop,ro,noload "$img" "mount/$part"
+            if grep -qi "Android sparse image" <(file -b "$img"); then
+              simg2img "$img" "parts/$part.raw.img"
+              img="parts/$part.raw.img"
+              file -s "$img" | tee -a audit/image-filesystem-types.txt
+            fi
+            if grep -qi "EROFS" <(file -b "$img"); then
+              sudo mount -t erofs -o loop,ro "$img" "mount/$part" 2>>audit/mount-status.txt
+            else
+              sudo mount -t ext4 -o loop,ro,noload "$img" "mount/$part" 2>>audit/mount-status.txt
+            fi
+            rc=$?
+            if [ "$rc" -eq 0 ]; then
+              echo "$part: mounted read-only" | tee -a audit/mount-status.txt
+            else
+              echo "$part: mount failed (exit $rc); filesystem type is recorded above" | tee -a audit/mount-status.txt
+            fi
           done
           {
             echo "=== SYSTEM ROOT / TOP LEVEL ==="
-            sudo find mount/system -maxdepth 3 -mindepth 1 -printf '%y %p %s\n' 2>/dev/null | sort | head -n 20000 || true
+            for root in mount/system mount/system_ext mount/product mount/system_dlkm; do
+              [ -d "$root" ] || continue
+              sudo find "$root" -maxdepth 3 -mindepth 1 -printf '%y %p %s\\n' 2>/dev/null | sort | head -n 20000 || true
+            done
             echo
             echo "=== SYSTEM FRAMEWORK / INIT / VINTF / FSTAB FILES ==="
-            sudo find mount/system mount/system_ext mount/product -type f \( -name '*.rc' -o -name '*.xml' -o -name '*.prop' -o -name '*.json' -o -name '*.conf' -o -name 'fstab*' -o -name '*.mk' -o -name '*.te' \) -printf '%p %s bytes\n' 2>/dev/null | sort | head -n 30000 || true
+            for root in mount/system mount/system_ext mount/product; do
+              [ -d "$root" ] || continue
+              sudo find "$root" -type f \\( -name '*.rc' -o -name '*.xml' -o -name '*.prop' -o -name '*.json' -o -name '*.conf' -o -name 'fstab*' -o -name '*.mk' -o -name '*.te' \\) -printf '%p %s bytes\\n' 2>/dev/null | sort | head -n 30000 || true
+            done
             echo
             echo "=== KERNEL MODULES / DTB / FIRMWARE IN SYSTEM FAMILY ==="
-            sudo find mount/system mount/system_ext mount/product mount/system_dlkm -type f \( -name '*.ko' -o -name '*.dtb' -o -name '*.dtbo' -o -name 'modules.*' \) -printf '%p %s bytes\n' 2>/dev/null | sort | head -n 20000 || true
+            for root in mount/system mount/system_ext mount/product mount/system_dlkm; do
+              [ -d "$root" ] || continue
+              sudo find "$root" -type f \\( -name '*.ko' -o -name '*.dtb' -o -name '*.dtbo' -o -name 'modules.*' \\) -printf '%p %s bytes\\n' 2>/dev/null | sort | head -n 20000 || true
+            done
           } > audit/system-family-inventory.txt
-          sudo grep -RaiE -m 4 'lavender|sdm660|qcom,sdm660|NVTCapacitiveTouchScreen|novatek|nt36|nt36672|td4320|kgsl|adreno|mdss|panel|touchscreen|/dev/block/.*(system|super)|dynamic_partitions|ro\.build\.version\.release|ro\.product\.device|ro\.product\.vendor' mount/system/etc mount/system_ext/etc mount/product/etc 2>/dev/null | head -n 12000 > audit/system-hardware-config-matches.txt || true
+          for root in mount/system/etc mount/system_ext/etc mount/product/etc; do
+            [ -d "$root" ] || continue
+            sudo grep -RaiE -m 4 'lavender|sdm660|qcom,sdm660|NVTCapacitiveTouchScreen|novatek|nt36|nt36672|td4320|kgsl|adreno|mdss|panel|touchscreen|/dev/block/.*(system|super)|dynamic_partitions|ro\\.build\\.version\\.release|ro\\.product\\.device|ro\\.product\\.vendor' "$root" 2>/dev/null | head -n 12000 >> audit/system-hardware-config-matches.txt || true
+          done
           {
             for root in mount/system mount/system_ext mount/product; do
               [ -d "$root" ] || continue
@@ -170,11 +202,9 @@ jobs:
               done
             done
           } | sort > audit/framework-critical-file-paths.txt
-          {
-            for part in system system_ext product system_dlkm; do
-              [ -d "mount/$part" ] && sudo umount "mount/$part"
-            done
-          }
+          for part in system system_ext product system_dlkm; do
+            mountpoint -q "mount/$part" && sudo umount "mount/$part" || true
+          done
 
       - name: Summarize and upload system inspection
         if: always()
