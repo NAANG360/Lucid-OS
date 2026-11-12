@@ -64,7 +64,7 @@ jobs:
                               dst.write(b)
           PY
           for part in vendor odm; do
-            brotli --decompress --force "$RUNNER_TEMP/parts/$part.new.dat.br" --output "$RUNNER_TEMP/parts/$part.new.dat"
+            brotli --decompress --force --output="$RUNNER_TEMP/parts/$part.new.dat" "$RUNNER_TEMP/parts/$part.new.dat.br"
           done
           python3 - "$RUNNER_TEMP/parts" <<'PY'
           import os,sys
